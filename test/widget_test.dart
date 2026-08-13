@@ -1,30 +1,35 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:blexpert/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  Future<void> pumpDesktopApp(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const BlexpertApp(locale: Locale('zh')));
+  }
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  testWidgets('应用启动后显示 BLExpert 调试工作台', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    expect(find.text('BLExpert'), findsWidgets);
+    expect(find.text('默认工作区'), findsOneWidget);
+    expect(find.text('控制台'), findsOneWidget);
+    expect(find.text('快捷指令'), findsOneWidget);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('可从语言菜单切换至英文界面', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(find.byTooltip('语言'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('英文'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Console'), findsOneWidget);
+    expect(find.text('Quick commands'), findsOneWidget);
   });
 }

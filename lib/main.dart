@@ -1,122 +1,721 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const MyApp());
+import 'l10n/app_localizations.dart';
+import 'models/workspace.dart';
+import 'services/bluetooth_service.dart';
+import 'services/workspace_manager.dart';
+
+void main() => runApp(const BlexpertApp());
+
+class BlexpertApp extends StatefulWidget {
+  const BlexpertApp({super.key, this.locale});
+
+  final Locale? locale;
+
+  @override
+  State<BlexpertApp> createState() => _BlexpertAppState();
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class _BlexpertAppState extends State<BlexpertApp> {
+  ThemeMode _themeMode = ThemeMode.system;
+  Locale? _locale;
 
-  // This widget is the root of your application.
+  @override
+  void initState() {
+    super.initState();
+    _locale = widget.locale;
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+      debugShowCheckedModeBanner: false,
+      title: 'BLExpert',
+      locale: _locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      themeMode: _themeMode,
+      theme: _buildTheme(Brightness.light),
+      darkTheme: _buildTheme(Brightness.dark),
+      home: HomeScreen(
+        themeMode: _themeMode,
+        locale: _locale,
+        onThemeModeChanged: (ThemeMode value) =>
+            setState(() => _themeMode = value),
+        onLocaleChanged: (Locale? value) => setState(() => _locale = value),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
+ThemeData _buildTheme(Brightness brightness) {
+  final ColorScheme scheme = ColorScheme.fromSeed(
+    seedColor: const Color(0xFF4297F5),
+    brightness: brightness,
+  );
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: scheme,
+    scaffoldBackgroundColor: brightness == Brightness.dark
+        ? const Color(0xFF111315)
+        : const Color(0xFFF4F6F8),
+    appBarTheme: AppBarTheme(
+      backgroundColor: brightness == Brightness.dark
+          ? const Color(0xFF1B1D1F)
+          : scheme.surface,
+      foregroundColor: brightness == Brightness.dark
+          ? Colors.white
+          : scheme.onSurface,
+      elevation: 0,
+    ),
+    cardTheme: const CardThemeData(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(6)),
+      ),
+    ),
+  );
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({
+    super.key,
+    required this.themeMode,
+    required this.locale,
+    required this.onThemeModeChanged,
+    required this.onLocaleChanged,
+  });
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+  final ThemeMode themeMode;
+  final Locale? locale;
+  final ValueChanged<ThemeMode> onThemeModeChanged;
+  final ValueChanged<Locale?> onLocaleChanged;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late final WorkspaceManager _workspaceManager;
+  late final MockBluetoothService _bluetoothService;
+  late final StreamSubscription<List<BluetoothDeviceInfo>> _scanSubscription;
+  late final StreamSubscription<List<int>> _dataSubscription;
+  final TextEditingController _inputController = TextEditingController();
+
+  List<BluetoothDeviceInfo> _devices = <BluetoothDeviceInfo>[];
+  final List<_LogEntry> _logs = <_LogEntry>[];
+  String? _selectedDeviceId;
+  bool _scanning = false;
+  bool _hexMode = true;
+  bool _autoScroll = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _workspaceManager = WorkspaceManager();
+    _bluetoothService = MockBluetoothService();
+    _scanSubscription = _bluetoothService.watchScannedDevices().listen((
+      devices,
+    ) {
+      if (!mounted) return;
+      setState(() {
+        _devices = devices;
+        _selectedDeviceId ??= devices.isEmpty ? null : devices.first.id;
+      });
     });
+    _dataSubscription = _bluetoothService.watchIncomingData('ble-001').listen((
+      payload,
+    ) {
+      if (!mounted) return;
+      setState(
+        () => _logs.insert(
+          0,
+          _LogEntry(_LogKind.received, DateTime.now(), payload),
+        ),
+      );
+    });
+    unawaited(_bluetoothService.startScan());
+    _scanning = true;
+  }
+
+  @override
+  void dispose() {
+    _scanSubscription.cancel();
+    _dataSubscription.cancel();
+    _inputController.dispose();
+    unawaited(_bluetoothService.dispose());
+    super.dispose();
+  }
+
+  BluetoothDeviceInfo? get _selectedDevice {
+    for (final device in _devices) {
+      if (device.id == _selectedDeviceId) return device;
+    }
+    return null;
+  }
+
+  Future<void> _toggleScan() async {
+    if (_scanning) {
+      await _bluetoothService.stopScan();
+    } else {
+      await _bluetoothService.startScan();
+    }
+    if (mounted) setState(() => _scanning = !_scanning);
+  }
+
+  Future<void> _toggleConnection() async {
+    final device = _selectedDevice;
+    if (device == null) return;
+    if (device.connected) {
+      await _bluetoothService.disconnect(device.id);
+    } else {
+      await _bluetoothService.connect(device.id);
+    }
+  }
+
+  Future<void> _send(List<int> bytes) async {
+    final device = _selectedDevice;
+    if (device == null) return;
+    setState(
+      () => _logs.insert(0, _LogEntry(_LogKind.sent, DateTime.now(), bytes)),
+    );
+    await _bluetoothService.sendData(device.id, bytes);
+  }
+
+  void _sendInput() {
+    final value = _inputController.text.trim();
+    if (value.isEmpty) return;
+    final bytes = _hexMode ? _parseHex(value) : utf8.encode(value);
+    if (bytes == null) return;
+    _inputController.clear();
+    unawaited(_send(bytes));
+  }
+
+  void _previewExport() {
+    final jsonText = _workspaceManager.exportWorkspaces();
+    final length = jsonText.length < 32 ? jsonText.length : 32;
+    setState(
+      () => _logs.insert(
+        0,
+        _LogEntry(
+          _LogKind.system,
+          DateTime.now(),
+          utf8.encode(jsonText.substring(0, length)),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final l10n = AppLocalizations.of(context)!;
+    final workspace = _workspaceManager.activeWorkspace;
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        toolbarHeight: 58,
+        titleSpacing: 16,
+        title: Text(
+          'BLExpert',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        actions: <Widget>[
+          _WorkspaceSelector(
+            workspace: workspace,
+            workspaces: _workspaceManager.workspaces,
+            l10n: l10n,
+          ),
+          const SizedBox(width: 8),
+          _ConnectionSelector(
+            devices: _devices,
+            selectedId: _selectedDeviceId,
+            connected: _selectedDevice?.connected ?? false,
+            onSelected: (id) => setState(() => _selectedDeviceId = id),
+            onToggleConnection: _toggleConnection,
+            l10n: l10n,
+          ),
+          IconButton(
+            tooltip: _scanning ? l10n.stopScan : l10n.startScan,
+            onPressed: _toggleScan,
+            icon: Icon(_scanning ? Icons.pause_circle_outline : Icons.radar),
+          ),
+          IconButton(
+            tooltip: l10n.exportWorkspacePreview,
+            onPressed: _previewExport,
+            icon: const Icon(Icons.upload_file_outlined),
+          ),
+          _ThemeModeMenu(
+            value: widget.themeMode,
+            onChanged: widget.onThemeModeChanged,
+          ),
+          _LocaleMenu(value: widget.locale, onChanged: widget.onLocaleChanged),
+          const SizedBox(width: 8),
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 900;
+          final console = _ConsoleArea(
+            logs: _logs,
+            autoScroll: _autoScroll,
+            onClear: () => setState(_logs.clear),
+            onAutoScrollChanged: (value) => setState(() => _autoScroll = value),
+            inputController: _inputController,
+            hexMode: _hexMode,
+            onModeChanged: (value) => setState(() => _hexMode = value),
+            onSend: _sendInput,
+            l10n: l10n,
+          );
+          final quick = _QuickCommands(onSend: _send, l10n: l10n);
+          if (wide) {
+            return Row(
+              children: <Widget>[
+                Expanded(flex: 7, child: console),
+                const VerticalDivider(width: 1),
+                SizedBox(width: 340, child: quick),
+              ],
+            );
+          }
+          return ListView(
+            children: <Widget>[
+              SizedBox(height: 620, child: console),
+              SizedBox(height: 360, child: quick),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _WorkspaceSelector extends StatelessWidget {
+  const _WorkspaceSelector({
+    required this.workspace,
+    required this.workspaces,
+    required this.l10n,
+  });
+  final Workspace workspace;
+  final List<Workspace> workspaces;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: l10n.selectWorkspace,
+      onSelected: (_) {},
+      itemBuilder: (_) => workspaces
+          .map((item) => PopupMenuItem(value: item.id, child: Text(item.name)))
+          .toList(),
+      child: Container(
+        width: 180,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                workspace.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Icon(Icons.expand_more, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConnectionSelector extends StatelessWidget {
+  const _ConnectionSelector({
+    required this.devices,
+    required this.selectedId,
+    required this.connected,
+    required this.onSelected,
+    required this.onToggleConnection,
+    required this.l10n,
+  });
+  final List<BluetoothDeviceInfo> devices;
+  final String? selectedId;
+  final bool connected;
+  final ValueChanged<String?> onSelected;
+  final VoidCallback onToggleConnection;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final device = devices.where((item) => item.id == selectedId).firstOrNull;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: device?.id,
+            hint: Text(l10n.noDevice),
+            items: devices
+                .map(
+                  (item) => DropdownMenuItem(
+                    value: item.id,
+                    child: SizedBox(
+                      width: 150,
+                      child: Text(item.name, overflow: TextOverflow.ellipsis),
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: onSelected,
+          ),
+        ),
+        const SizedBox(width: 4),
+        IconButton.filled(
+          tooltip: connected ? l10n.disconnectDevice : l10n.connectDevice,
+          onPressed: device == null ? null : onToggleConnection,
+          icon: Icon(connected ? Icons.link_off : Icons.play_arrow),
+        ),
+      ],
+    );
+  }
+}
+
+class _ConsoleArea extends StatelessWidget {
+  const _ConsoleArea({
+    required this.logs,
+    required this.autoScroll,
+    required this.onClear,
+    required this.onAutoScrollChanged,
+    required this.inputController,
+    required this.hexMode,
+    required this.onModeChanged,
+    required this.onSend,
+    required this.l10n,
+  });
+  final List<_LogEntry> logs;
+  final bool autoScroll;
+  final VoidCallback onClear;
+  final ValueChanged<bool> onAutoScrollChanged;
+  final TextEditingController inputController;
+  final bool hexMode;
+  final ValueChanged<bool> onModeChanged;
+  final VoidCallback onSend;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      children: <Widget>[
+        Container(
+          height: 42,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: dark ? const Color(0xFF191B1D) : null,
+            border: Border(
+              bottom: BorderSide(color: Theme.of(context).dividerColor),
+            ),
+          ),
+          child: Row(
+            children: <Widget>[
+              Text(
+                l10n.console,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const Spacer(),
+              IconButton(
+                tooltip: l10n.clear,
+                onPressed: onClear,
+                icon: const Icon(Icons.delete_sweep_outlined, size: 19),
+              ),
+              Switch.adaptive(
+                value: autoScroll,
+                onChanged: onAutoScrollChanged,
+              ),
+              Text(
+                l10n.autoScroll,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Container(
+            color: dark
+                ? const Color(0xFF101112)
+                : Theme.of(context).colorScheme.surface,
+            child: ListView.builder(
+              reverse: false,
+              padding: const EdgeInsets.all(14),
+              itemCount: logs.length,
+              itemBuilder: (_, index) {
+                final entry = logs[logs.length - index - 1];
+                return _LogLine(entry: entry, l10n: l10n);
+              },
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+          decoration: BoxDecoration(
+            color: dark ? const Color(0xFF191B1D) : null,
+            border: Border(
+              top: BorderSide(color: Theme.of(context).dividerColor),
+            ),
+          ),
+          child: Column(
+            children: <Widget>[
+              TextField(
+                controller: inputController,
+                minLines: 2,
+                maxLines: 4,
+                onSubmitted: (_) => onSend(),
+                decoration: InputDecoration(
+                  hintText: l10n.inputPlaceholder,
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: <Widget>[
+                  ChoiceChip(
+                    label: Text(l10n.textMode),
+                    selected: !hexMode,
+                    onSelected: (_) => onModeChanged(false),
+                  ),
+                  const SizedBox(width: 6),
+                  ChoiceChip(
+                    label: Text(l10n.hexMode),
+                    selected: hexMode,
+                    onSelected: (_) => onModeChanged(true),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(l10n.lineEnding),
+                  const SizedBox(width: 6),
+                  DropdownButton<String>(
+                    value: 'none',
+                    underline: const SizedBox(),
+                    items: <DropdownMenuItem<String>>[
+                      DropdownMenuItem(value: 'none', child: Text(l10n.none)),
+                      DropdownMenuItem(value: 'lf', child: Text(l10n.lf)),
+                      DropdownMenuItem(value: 'crlf', child: Text(l10n.crlf)),
+                    ],
+                    onChanged: (_) {},
+                  ),
+                  const Spacer(),
+                  FilledButton.icon(
+                    onPressed: onSend,
+                    icon: const Icon(Icons.send_outlined),
+                    label: Text(l10n.sendData),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickCommands extends StatelessWidget {
+  const _QuickCommands({required this.onSend, required this.l10n});
+  final Future<void> Function(List<int>) onSend;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final commands = <({String name, List<int> payload})>[
+      (name: 'PING', payload: <int>[0xAA, 0x55, 0x00]),
+      (name: 'GET STATUS', payload: <int>[0xAA, 0x55, 0x01, 0x00]),
+      (name: 'GET VERSION', payload: <int>[0xAA, 0x55, 0x02, 0x00]),
+      (name: 'HEX TEST', payload: <int>[0xAA, 0xBB, 0xCC, 0x11, 0x22]),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(14),
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Text(
+                l10n.quickCommands,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const Spacer(),
+              IconButton(
+                tooltip: l10n.newCommand,
+                onPressed: () {},
+                icon: const Icon(Icons.add, size: 19),
+              ),
+            ],
+          ),
+          const Divider(height: 20),
+          ...commands.map(
+            (command) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => onSend(command.payload),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(command.name),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    tooltip: l10n.sendCommand,
+                    onPressed: () => onSend(command.payload),
+                    icon: const Icon(Icons.send_outlined, size: 18),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LogLine extends StatelessWidget {
+  const _LogLine({required this.entry, required this.l10n});
+  final _LogEntry entry;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final received = entry.kind == _LogKind.received;
+    final color = received ? Colors.lightBlueAccent : Colors.lightGreenAccent;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SelectableText.rich(
+        TextSpan(
+          children: <InlineSpan>[
+            TextSpan(
+              text: '${entry.timestamp.toIso8601String()}  ',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.outline,
+                fontSize: 11,
+              ),
+            ),
+            TextSpan(
+              text: '${entry.directionLabel(l10n)}  ',
+              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            ),
+            TextSpan(
+              text: _toHex(entry.data),
+              style: const TextStyle(fontFamily: 'monospace'),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
     );
   }
 }
+
+enum _LogKind { sent, received, system }
+
+class _LogEntry {
+  const _LogEntry(this.kind, this.timestamp, this.data);
+  final _LogKind kind;
+  final DateTime timestamp;
+  final List<int> data;
+
+  String directionLabel(AppLocalizations l10n) => switch (kind) {
+    _LogKind.received => l10n.received,
+    _LogKind.sent => l10n.sendData,
+    _LogKind.system => l10n.system,
+  };
+}
+
+List<int>? _parseHex(String value) {
+  final compact = value.replaceAll(RegExp(r'[^0-9a-fA-F]'), '');
+  if (compact.isEmpty || compact.length.isOdd) return null;
+  return <int>[
+    for (var i = 0; i < compact.length; i += 2)
+      int.parse(compact.substring(i, i + 2), radix: 16),
+  ];
+}
+
+class _ThemeModeMenu extends StatelessWidget {
+  const _ThemeModeMenu({required this.value, required this.onChanged});
+  final ThemeMode value;
+  final ValueChanged<ThemeMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return PopupMenuButton<ThemeMode>(
+      tooltip: l10n.themeMode,
+      initialValue: value,
+      onSelected: onChanged,
+      icon: Icon(_themeModeIcon(value)),
+      itemBuilder: (_) => <PopupMenuEntry<ThemeMode>>[
+        PopupMenuItem(value: ThemeMode.system, child: Text(l10n.followSystem)),
+        PopupMenuItem(value: ThemeMode.light, child: Text(l10n.lightMode)),
+        PopupMenuItem(value: ThemeMode.dark, child: Text(l10n.darkMode)),
+      ],
+    );
+  }
+}
+
+class _LocaleMenu extends StatelessWidget {
+  const _LocaleMenu({required this.value, required this.onChanged});
+  final Locale? value;
+  final ValueChanged<Locale?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return PopupMenuButton<_LocaleSelection>(
+      tooltip: l10n.language,
+      onSelected: (selection) => onChanged(switch (selection) {
+        _LocaleSelection.system => null,
+        _LocaleSelection.chinese => const Locale('zh'),
+        _LocaleSelection.english => const Locale('en'),
+      }),
+      icon: const Icon(Icons.language_outlined),
+      itemBuilder: (_) => <PopupMenuEntry<_LocaleSelection>>[
+        PopupMenuItem(
+          value: _LocaleSelection.system,
+          child: Text(l10n.followSystem),
+        ),
+        PopupMenuItem(
+          value: _LocaleSelection.chinese,
+          child: Text(l10n.chinese),
+        ),
+        PopupMenuItem(
+          value: _LocaleSelection.english,
+          child: Text(l10n.english),
+        ),
+      ],
+    );
+  }
+}
+
+enum _LocaleSelection { system, chinese, english }
+
+IconData _themeModeIcon(ThemeMode mode) => switch (mode) {
+  ThemeMode.system => Icons.brightness_auto_outlined,
+  ThemeMode.light => Icons.light_mode_outlined,
+  ThemeMode.dark => Icons.dark_mode_outlined,
+};
+
+String _toHex(List<int> bytes) => bytes
+    .map((byte) => byte.toRadixString(16).padLeft(2, '0').toUpperCase())
+    .join(' ');

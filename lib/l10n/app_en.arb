@@ -1,0 +1,64 @@
+{
+  "@@locale": "en",
+  "appTitle": "BLExpert",
+  "startScan": "Start scan",
+  "stopScan": "Stop scan",
+  "exportWorkspacePreview": "Export workspace preview",
+  "themeMode": "Theme mode",
+  "language": "Language",
+  "followSystem": "System default",
+  "lightMode": "Light mode",
+  "darkMode": "Dark mode",
+  "english": "English",
+  "chinese": "Chinese",
+  "workspace": "Workspace",
+  "deviceCount": "Devices: {count}",
+  "@deviceCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "deviceScan": "Device scan",
+  "connect": "Connect",
+  "connected": "Connected",
+  "deviceDetails": "{protocol} / RSSI {rssi} / {id}",
+  "@deviceDetails": {
+    "placeholders": {
+      "protocol": { "type": "String" },
+      "rssi": { "type": "int" },
+      "id": { "type": "String" }
+    }
+  },
+  "debugConsole": "Debug console",
+  "noData": "No sent or received data yet.",
+  "received": "RECEIVED",
+  "system": "SYSTEM"
+  ,"workspaceSelector": "Workspace"
+  ,"selectWorkspace": "Select workspace"
+  ,"connection": "Connection"
+  ,"connectDevice": "Connect device"
+  ,"disconnectDevice": "Disconnect device"
+  ,"noDevice": "No device"
+  ,"console": "Console"
+  ,"clear": "Clear"
+  ,"autoScroll": "Auto-scroll"
+  ,"sendData": "Send data"
+  ,"inputPlaceholder": "Enter data to send..."
+  ,"textMode": "TEXT"
+  ,"hexMode": "HEX"
+  ,"lineEnding": "Line ending"
+  ,"none": "None"
+  ,"lf": "LF"
+  ,"crlf": "CRLF"
+  ,"checksum": "Checksum"
+  ,"autoSend": "Auto-send"
+  ,"quickCommands": "Quick commands"
+  ,"newCommand": "New command"
+  ,"commandName": "Command name"
+  ,"commandPayload": "Payload"
+  ,"sendCommand": "Send"
+  ,"connectedDevice": "Connected: {name}"
+  ,"@connectedDevice": {"placeholders": {"name": {"type": "String"}}}
+  ,"deviceCountShort": "{count} devices"
+  ,"@deviceCountShort": {"placeholders": {"count": {"type": "int"}}}
+}

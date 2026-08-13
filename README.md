@@ -1,17 +1,85 @@
-# blexpert
+# BLExpert
 
-A new Flutter project.
+BLExpert 是一款使用 Flutter 开发的跨平台蓝牙调试与分析工具。
 
-## Getting Started
+目标平台：
 
-This project is a starting point for a Flutter application.
+- Android
+- iOS
+- Windows
+- macOS
+- Web
 
-A few resources to get you started if this is your first Flutter project:
+## 项目目标
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+BLExpert 面向物联网和嵌入式设备开发场景，重点解决设备协议差异大、调试流程分散、团队协作成本高等问题。
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+应用以“工作区”为核心组织单位，把设备信息、指令集、解析脚本、数据映射表、收发日志和导入导出配置集中管理，让同一类设备的调试过程可以复用、分享和持续沉淀。
+
+## 核心能力
+
+- 工作区管理：为不同设备或项目建立独立配置空间。
+- 蓝牙通信：支持 BLE 与经典蓝牙 SPP 的扫描、连接、断开、读写和通知订阅。
+- 脚本引擎：通过 JavaScript 在发送前和接收后处理 HEX 数据。
+- 数据解析：把原始 HEX 数据解析为温度、湿度、电量、状态位等结构化字段。
+- 导入导出：将完整工作区导出为单文件 JSON，便于团队协作。
+- 实时可视化：支持 HEX、ASCII、JSON、时间戳日志，后续扩展图表监控。
+
+## 当前状态
+
+当前仓库已完成第一版基础骨架：
+
+- Flutter 应用入口已替换为 BLExpert 工作台。
+- 已建立工作区、设备配置、脚本配置等基础模型。
+- 已建立工作区管理器，支持 JSON 导入导出的基础能力。
+- 已建立蓝牙服务抽象层，并提供 Mock 实现用于桌面/Web 预览和早期开发。
+- 首页已包含工作区、设备扫描、调试控制台三个区域。
+- 界面支持亮色、暗色和跟随系统三种主题模式。
+- 已接入 Flutter 国际化，支持中文、英文和跟随系统语言；可从顶部语言菜单切换。
+
+## 项目资料
+
+更多项目说明请查看：
+
+- [项目说明文档](docs/BLExpert_Project_Brief.md)
+- [Agent 协作说明](agent.md)
+
+## 建议目录结构
+
+```bash
+lib/
+├── main.dart
+├── models/
+├── services/
+├── providers/
+├── screens/
+├── widgets/
+└── utils/
+```
+
+## 开发优先级
+
+下一阶段建议按以下顺序推进：
+
+1. 拆分 `main.dart`，补齐 `screens/`、`widgets/`、`providers/` 目录。
+2. 接入状态管理，统一管理工作区、扫描状态、连接状态和日志。
+3. 接入真实 BLE 插件，优先实现扫描、连接、服务发现、特征值读写。
+4. 设计经典蓝牙 SPP 的平台适配方案。
+5. 完善 HEX 工具、CRC 工具和数据日志结构。
+6. 集成 JavaScript 脚本引擎。
+7. 实现工作区持久化、导入导出和示例工作区。
+
+## 运行项目
+
+```bash
+flutter pub get
+flutter run
+```
+
+## 设计原则
+
+- 优先使用中文界面和中文文档。
+- 默认跟随系统主题，同时允许用户手动切换亮色和暗色模式。
+- 首页应直接呈现可用工具，不做营销页。
+- 调试界面应保持专业、紧凑、易扫描。
+- 平台特定能力必须放在服务层或适配层，避免 UI 直接绑定插件。

@@ -1,0 +1,64 @@
+{
+  "@@locale": "zh",
+  "appTitle": "BLExpert",
+  "startScan": "开始扫描",
+  "stopScan": "停止扫描",
+  "exportWorkspacePreview": "导出工作区预览",
+  "themeMode": "主题模式",
+  "language": "语言",
+  "followSystem": "跟随系统",
+  "lightMode": "亮色模式",
+  "darkMode": "暗色模式",
+  "english": "英文",
+  "chinese": "中文",
+  "workspace": "工作区",
+  "deviceCount": "设备数量：{count}",
+  "@deviceCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "deviceScan": "设备扫描",
+  "connect": "连接",
+  "connected": "已连接",
+  "deviceDetails": "{protocol} / RSSI {rssi} / {id}",
+  "@deviceDetails": {
+    "placeholders": {
+      "protocol": { "type": "String" },
+      "rssi": { "type": "int" },
+      "id": { "type": "String" }
+    }
+  },
+  "debugConsole": "调试控制台",
+  "noData": "暂无收发数据。",
+  "received": "接收",
+  "system": "系统"
+  ,"workspaceSelector": "工作区"
+  ,"selectWorkspace": "选择工作区"
+  ,"connection": "连接设备"
+  ,"connectDevice": "连接设备"
+  ,"disconnectDevice": "断开设备"
+  ,"noDevice": "未选择设备"
+  ,"console": "控制台"
+  ,"clear": "清空"
+  ,"autoScroll": "自动滚动"
+  ,"sendData": "发送数据"
+  ,"inputPlaceholder": "输入要发送的数据..."
+  ,"textMode": "文本"
+  ,"hexMode": "HEX"
+  ,"lineEnding": "行尾"
+  ,"none": "无"
+  ,"lf": "LF"
+  ,"crlf": "CRLF"
+  ,"checksum": "校验和"
+  ,"autoSend": "自动发送"
+  ,"quickCommands": "快捷指令"
+  ,"newCommand": "新建指令"
+  ,"commandName": "指令名称"
+  ,"commandPayload": "数据内容"
+  ,"sendCommand": "发送"
+  ,"connectedDevice": "已连接：{name}"
+  ,"@connectedDevice": {"placeholders": {"name": {"type": "String"}}}
+  ,"deviceCountShort": "{count} 个设备"
+  ,"@deviceCountShort": {"placeholders": {"count": {"type": "int"}}}
+}
