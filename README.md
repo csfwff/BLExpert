@@ -36,6 +36,15 @@ BLExpert 面向物联网和嵌入式设备开发场景，重点解决设备协�
 - 首页已包含工作区、设备扫描、调试控制台三个区域。
 - 界面支持亮色、暗色和跟随系统三种主题模式。
 - 已接入 Flutter 国际化，支持中文、英文和跟随系统语言；可从顶部语言菜单切换。
+- 已接入 `universal_ble` 的真实 BLE Central 实现：扫描、连接、GATT 服务发现、用户选择通知订阅和写入特征。
+
+## 蓝牙实现说明
+
+- BLE 适配层使用 `universal_ble`，许可证为 BSD 3-Clause，可用于商业项目。
+- 默认运行时使用真实 BLE；Android、iOS、macOS、Windows、Linux 和 Web 均由插件覆盖。
+- 当前基础调试流程会自动选择设备首个可写特征和首个可通知 / 指示特征。后续工作区配置将允许固定指定服务和特征 UUID。
+- 经典蓝牙 SPP 不属于 BLE，需作为独立的平台适配器实现，当前未接入。
+- 本地演示可使用 Mock 服务：`flutter run --dart-define=USE_MOCK_BLUETOOTH=true`。
 
 ## 项目资料
 
@@ -75,6 +84,21 @@ lib/
 flutter pub get
 flutter run
 ```
+
+### Web Bluetooth 调试
+
+Chrome 的 Web Bluetooth 在 Linux 等平台需要启用实验性 Web 平台功能。使用以下命令启动 Flutter Web，Flutter 会将参数传给它启动的 Chrome：
+
+```bash
+flutter run -d chrome \
+  --web-browser-flag=--enable-experimental-web-platform-features
+```
+
+VS Code 用户可从“运行和调试”选择 `BLExpert Web Bluetooth` 配置；该配置已包含相同参数。首次使用时还应确认：
+
+- 使用 Google Chrome 或 Chromium，且蓝牙适配器已开启。
+- 在 Chrome 地址栏打开 `chrome://flags/#enable-experimental-web-platform-features`，确认该实验功能为 `Enabled`，然后重启浏览器。
+- Web Bluetooth 仅允许在安全上下文中访问。`flutter run` 提供的本地地址可用；部署环境需使用 HTTPS。
 
 ## 设计原则
 

@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "BLExpert Web Bluetooth",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome",
+      "toolArgs": [
+        "--web-browser-flag=--enable-experimental-web-platform-features"
+      ]
+    }
+  ]
+}

@@ -32,7 +32,22 @@
   "debugConsole": "Debug console",
   "noData": "No sent or received data yet.",
   "received": "RECEIVED",
-  "system": "SYSTEM"
+  "system": "SYSTEM",
+  "error": "ERROR",
+  "deviceUnavailable": "The BLE device is no longer available. Scan again and reconnect.",
+  "bluetoothOperationFailed": "Bluetooth operation failed: {error}",
+  "@bluetoothOperationFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  }
+  ,"connecting": "Connecting"
+  ,"connectingDevice": "Connecting to {name}..."
+  ,"@connectingDevice": {"placeholders": {"name": {"type": "String"}}}
+  ,"disconnectingDevice": "Disconnecting from {name}..."
+  ,"@disconnectingDevice": {"placeholders": {"name": {"type": "String"}}}
+  ,"connectedToDevice": "Connected to {name}."
+  ,"@connectedToDevice": {"placeholders": {"name": {"type": "String"}}}
   ,"workspaceSelector": "Workspace"
   ,"selectWorkspace": "Select workspace"
   ,"connection": "Connection"
@@ -61,4 +76,15 @@
   ,"@connectedDevice": {"placeholders": {"name": {"type": "String"}}}
   ,"deviceCountShort": "{count} devices"
   ,"@deviceCountShort": {"placeholders": {"count": {"type": "int"}}}
+  ,"characteristics": "Characteristics"
+  ,"connectToDiscoverCharacteristics": "Connect a device to discover its GATT characteristics."
+  ,"noCharacteristics": "No GATT characteristics were discovered."
+  ,"service": "Service"
+  ,"disconnected": "Disconnected"
+  ,"writeTarget": "Write target"
+  ,"subscribe": "Subscribe"
+  ,"writeWithResponse": "Write"
+  ,"writeWithoutResponse": "Write no response"
+  ,"notify": "Notify"
+  ,"indicate": "Indicate"
 }

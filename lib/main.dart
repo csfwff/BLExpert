@@ -11,9 +11,10 @@ import 'services/workspace_manager.dart';
 void main() => runApp(const BlexpertApp());
 
 class BlexpertApp extends StatefulWidget {
-  const BlexpertApp({super.key, this.locale});
+  const BlexpertApp({super.key, this.locale, this.bluetoothService});
 
   final Locale? locale;
+  final BluetoothService? bluetoothService;
 
   @override
   State<BlexpertApp> createState() => _BlexpertAppState();
@@ -46,6 +47,7 @@ class _BlexpertAppState extends State<BlexpertApp> {
         onThemeModeChanged: (ThemeMode value) =>
             setState(() => _themeMode = value),
         onLocaleChanged: (Locale? value) => setState(() => _locale = value),
+        bluetoothService: widget.bluetoothService,
       ),
     );
   }
@@ -88,12 +90,14 @@ class HomeScreen extends StatefulWidget {
     required this.locale,
     required this.onThemeModeChanged,
     required this.onLocaleChanged,
+    this.bluetoothService,
   });
 
   final ThemeMode themeMode;
   final Locale? locale;
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final ValueChanged<Locale?> onLocaleChanged;
+  final BluetoothService? bluetoothService;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -101,15 +105,18 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final WorkspaceManager _workspaceManager;
-  late final MockBluetoothService _bluetoothService;
+  late final BluetoothService _bluetoothService;
   late final StreamSubscription<List<BluetoothDeviceInfo>> _scanSubscription;
-  late final StreamSubscription<List<int>> _dataSubscription;
+  StreamSubscription<List<int>>? _dataSubscription;
   final TextEditingController _inputController = TextEditingController();
 
   List<BluetoothDeviceInfo> _devices = <BluetoothDeviceInfo>[];
+  List<BluetoothCharacteristicInfo> _characteristics =
+      <BluetoothCharacteristicInfo>[];
   final List<_LogEntry> _logs = <_LogEntry>[];
   String? _selectedDeviceId;
   bool _scanning = false;
+  bool _connecting = false;
   bool _hexMode = true;
   bool _autoScroll = true;
 
@@ -117,35 +124,32 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _workspaceManager = WorkspaceManager();
-    _bluetoothService = MockBluetoothService();
+    _bluetoothService =
+        widget.bluetoothService ??
+        (const bool.fromEnvironment('USE_MOCK_BLUETOOTH')
+            ? MockBluetoothService()
+            : UniversalBleService());
     _scanSubscription = _bluetoothService.watchScannedDevices().listen((
       devices,
     ) {
       if (!mounted) return;
       setState(() {
         _devices = devices;
-        _selectedDeviceId ??= devices.isEmpty ? null : devices.first.id;
+        if (_selectedDeviceId == null && devices.isNotEmpty) {
+          _selectedDeviceId = devices.first.id;
+          unawaited(_watchSelectedIncomingData());
+        }
       });
     });
-    _dataSubscription = _bluetoothService.watchIncomingData('ble-001').listen((
-      payload,
-    ) {
-      if (!mounted) return;
-      setState(
-        () => _logs.insert(
-          0,
-          _LogEntry(_LogKind.received, DateTime.now(), payload),
-        ),
-      );
-    });
-    unawaited(_bluetoothService.startScan());
-    _scanning = true;
+    // Web Bluetooth requires a user gesture before it may show the device
+    // picker, so scanning always starts from the toolbar action.
+    _scanning = false;
   }
 
   @override
   void dispose() {
     _scanSubscription.cancel();
-    _dataSubscription.cancel();
+    _dataSubscription?.cancel();
     _inputController.dispose();
     unawaited(_bluetoothService.dispose());
     super.dispose();
@@ -158,33 +162,213 @@ class _HomeScreenState extends State<HomeScreen> {
     return null;
   }
 
-  Future<void> _toggleScan() async {
-    if (_scanning) {
-      await _bluetoothService.stopScan();
-    } else {
-      await _bluetoothService.startScan();
+  Future<void> _watchSelectedIncomingData() async {
+    final String? deviceId = _selectedDeviceId;
+    if (deviceId == null) {
+      return;
     }
-    if (mounted) setState(() => _scanning = !_scanning);
+    await _dataSubscription?.cancel();
+    _dataSubscription = _bluetoothService.watchIncomingData(deviceId).listen((
+      List<int> payload,
+    ) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _logs.insert(0, _LogEntry(_LogKind.received, DateTime.now(), payload));
+      });
+    });
+  }
+
+  void _selectDevice(String? deviceId) {
+    if (deviceId == _selectedDeviceId) {
+      return;
+    }
+    setState(() {
+      _selectedDeviceId = deviceId;
+      _characteristics = <BluetoothCharacteristicInfo>[];
+    });
+    unawaited(_watchSelectedIncomingData());
+  }
+
+  Future<void> _toggleScan() async {
+    try {
+      if (_scanning) {
+        await _bluetoothService.stopScan();
+      } else {
+        await _bluetoothService.startScan();
+      }
+      if (mounted) setState(() => _scanning = !_scanning);
+    } catch (error) {
+      _showBluetoothError(error);
+    }
   }
 
   Future<void> _toggleConnection() async {
     final device = _selectedDevice;
-    if (device == null) return;
-    if (device.connected) {
-      await _bluetoothService.disconnect(device.id);
-    } else {
-      await _bluetoothService.connect(device.id);
+    if (device == null) {
+      _showBluetoothError(StateError('No Bluetooth device selected.'));
+      return;
     }
+    if (_connecting) {
+      return;
+    }
+    _addSystemLog(
+      device.connected
+          ? AppLocalizations.of(context)!.disconnectingDevice(device.name)
+          : AppLocalizations.of(context)!.connectingDevice(device.name),
+    );
+    setState(() => _connecting = true);
+    try {
+      if (device.connected) {
+        await _bluetoothService.disconnect(device.id);
+        if (mounted) {
+          setState(() {
+            _characteristics = <BluetoothCharacteristicInfo>[];
+            _connecting = false;
+          });
+        }
+      } else {
+        await _bluetoothService.connect(device.id);
+        final characteristics = await _bluetoothService.discoverCharacteristics(
+          device.id,
+        );
+        if (mounted) {
+          setState(() {
+            _scanning = false;
+            _connecting = false;
+            _characteristics = characteristics;
+          });
+          _addSystemLog(
+            AppLocalizations.of(context)!.connectedToDevice(device.name),
+          );
+        }
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _scanning = false;
+          _connecting = false;
+          _characteristics = <BluetoothCharacteristicInfo>[];
+        });
+      }
+      _showBluetoothError(error);
+    }
+  }
+
+  Future<void> _setWriteCharacteristic(
+    BluetoothCharacteristicInfo characteristic,
+  ) async {
+    final String? deviceId = _selectedDeviceId;
+    if (deviceId == null) {
+      return;
+    }
+    try {
+      await _bluetoothService.setWriteCharacteristic(deviceId, characteristic);
+    } catch (error) {
+      _showBluetoothError(error);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _characteristics = _characteristics
+          .map(
+            (BluetoothCharacteristicInfo item) =>
+                item.copyWith(isWriteTarget: item.key == characteristic.key),
+          )
+          .toList(growable: false);
+    });
+  }
+
+  Future<void> _setSubscription(
+    BluetoothCharacteristicInfo characteristic,
+    bool enabled,
+  ) async {
+    final String? deviceId = _selectedDeviceId;
+    if (deviceId == null) {
+      return;
+    }
+    try {
+      await _bluetoothService.setCharacteristicSubscription(
+        deviceId,
+        characteristic,
+        enabled,
+      );
+    } catch (error) {
+      _showBluetoothError(error);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _characteristics = _characteristics
+          .map(
+            (BluetoothCharacteristicInfo item) => item.key == characteristic.key
+                ? item.copyWith(isSubscribed: enabled)
+                : item,
+          )
+          .toList(growable: false);
+    });
   }
 
   Future<void> _send(List<int> bytes) async {
     final device = _selectedDevice;
-    if (device == null) return;
+    if (device == null || !_hasWriteTarget) return;
     setState(
       () => _logs.insert(0, _LogEntry(_LogKind.sent, DateTime.now(), bytes)),
     );
-    await _bluetoothService.sendData(device.id, bytes);
+    try {
+      await _bluetoothService.sendData(device.id, bytes);
+    } catch (error) {
+      _showBluetoothError(error);
+    }
   }
+
+  void _showBluetoothError(Object error) {
+    if (!mounted) {
+      return;
+    }
+    final String message = _bluetoothErrorMessage(error);
+    setState(() {
+      _logs.insert(
+        0,
+        _LogEntry.error(
+          timestamp: DateTime.now(),
+          message: '$message\n${error.toString()}',
+        ),
+      );
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _addSystemLog(String message) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _logs.insert(
+        0,
+        _LogEntry.system(timestamp: DateTime.now(), message: message),
+      );
+    });
+  }
+
+  String _bluetoothErrorMessage(Object error) {
+    final String text = error.toString();
+    if (text.contains('no longer available')) {
+      return AppLocalizations.of(context)!.deviceUnavailable;
+    }
+    return AppLocalizations.of(context)!.bluetoothOperationFailed(text);
+  }
+
+  bool get _hasWriteTarget => _characteristics.any(
+    (BluetoothCharacteristicInfo item) => item.isWriteTarget,
+  );
 
   void _sendInput() {
     final value = _inputController.text.trim();
@@ -236,7 +420,8 @@ class _HomeScreenState extends State<HomeScreen> {
             devices: _devices,
             selectedId: _selectedDeviceId,
             connected: _selectedDevice?.connected ?? false,
-            onSelected: (id) => setState(() => _selectedDeviceId = id),
+            connecting: _connecting,
+            onSelected: _selectDevice,
             onToggleConnection: _toggleConnection,
             l10n: l10n,
           ),
@@ -270,22 +455,31 @@ class _HomeScreenState extends State<HomeScreen> {
             hexMode: _hexMode,
             onModeChanged: (value) => setState(() => _hexMode = value),
             onSend: _sendInput,
+            canSend: _selectedDevice?.connected == true && _hasWriteTarget,
             l10n: l10n,
           );
-          final quick = _QuickCommands(onSend: _send, l10n: l10n);
+          final sidePanel = _DeviceToolsPanel(
+            characteristics: _characteristics,
+            connected: _selectedDevice?.connected == true,
+            canSend: _hasWriteTarget,
+            onSelectWrite: _setWriteCharacteristic,
+            onSubscriptionChanged: _setSubscription,
+            onSend: _send,
+            l10n: l10n,
+          );
           if (wide) {
             return Row(
               children: <Widget>[
                 Expanded(flex: 7, child: console),
                 const VerticalDivider(width: 1),
-                SizedBox(width: 340, child: quick),
+                SizedBox(width: 390, child: sidePanel),
               ],
             );
           }
           return ListView(
             children: <Widget>[
               SizedBox(height: 620, child: console),
-              SizedBox(height: 360, child: quick),
+              SizedBox(height: 560, child: sidePanel),
             ],
           );
         },
@@ -341,6 +535,7 @@ class _ConnectionSelector extends StatelessWidget {
     required this.devices,
     required this.selectedId,
     required this.connected,
+    required this.connecting,
     required this.onSelected,
     required this.onToggleConnection,
     required this.l10n,
@@ -348,6 +543,7 @@ class _ConnectionSelector extends StatelessWidget {
   final List<BluetoothDeviceInfo> devices;
   final String? selectedId;
   final bool connected;
+  final bool connecting;
   final ValueChanged<String?> onSelected;
   final VoidCallback onToggleConnection;
   final AppLocalizations l10n;
@@ -378,9 +574,19 @@ class _ConnectionSelector extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         IconButton.filled(
-          tooltip: connected ? l10n.disconnectDevice : l10n.connectDevice,
-          onPressed: device == null ? null : onToggleConnection,
-          icon: Icon(connected ? Icons.link_off : Icons.play_arrow),
+          tooltip: connecting
+              ? l10n.connecting
+              : connected
+              ? l10n.disconnectDevice
+              : l10n.connectDevice,
+          onPressed: device == null || connecting ? null : onToggleConnection,
+          icon: connecting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(connected ? Icons.link_off : Icons.play_arrow),
         ),
       ],
     );
@@ -397,6 +603,7 @@ class _ConsoleArea extends StatelessWidget {
     required this.hexMode,
     required this.onModeChanged,
     required this.onSend,
+    required this.canSend,
     required this.l10n,
   });
   final List<_LogEntry> logs;
@@ -407,6 +614,7 @@ class _ConsoleArea extends StatelessWidget {
   final bool hexMode;
   final ValueChanged<bool> onModeChanged;
   final VoidCallback onSend;
+  final bool canSend;
   final AppLocalizations l10n;
 
   @override
@@ -512,7 +720,7 @@ class _ConsoleArea extends StatelessWidget {
                   ),
                   const Spacer(),
                   FilledButton.icon(
-                    onPressed: onSend,
+                    onPressed: canSend ? onSend : null,
                     icon: const Icon(Icons.send_outlined),
                     label: Text(l10n.sendData),
                   ),
@@ -526,13 +734,38 @@ class _ConsoleArea extends StatelessWidget {
   }
 }
 
-class _QuickCommands extends StatelessWidget {
-  const _QuickCommands({required this.onSend, required this.l10n});
+class _DeviceToolsPanel extends StatelessWidget {
+  const _DeviceToolsPanel({
+    required this.characteristics,
+    required this.connected,
+    required this.canSend,
+    required this.onSelectWrite,
+    required this.onSubscriptionChanged,
+    required this.onSend,
+    required this.l10n,
+  });
+
+  final List<BluetoothCharacteristicInfo> characteristics;
+  final bool connected;
+  final bool canSend;
+  final Future<void> Function(BluetoothCharacteristicInfo) onSelectWrite;
+  final Future<void> Function(BluetoothCharacteristicInfo, bool)
+  onSubscriptionChanged;
   final Future<void> Function(List<int>) onSend;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
+    final Map<String, List<BluetoothCharacteristicInfo>> byService =
+        <String, List<BluetoothCharacteristicInfo>>{};
+    for (final BluetoothCharacteristicInfo characteristic in characteristics) {
+      byService
+          .putIfAbsent(
+            characteristic.serviceId,
+            () => <BluetoothCharacteristicInfo>[],
+          )
+          .add(characteristic);
+    }
     final commands = <({String name, List<int> payload})>[
       (name: 'PING', payload: <int>[0xAA, 0x55, 0x00]),
       (name: 'GET STATUS', payload: <int>[0xAA, 0x55, 0x01, 0x00]),
@@ -542,9 +775,65 @@ class _QuickCommands extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       color: Theme.of(context).colorScheme.surfaceContainerLow,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: ListView(
         children: <Widget>[
+          Row(
+            children: <Widget>[
+              Text(
+                l10n.characteristics,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  connected ? l10n.connected : l10n.disconnected,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (!connected)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(l10n.connectToDiscoverCharacteristics),
+            )
+          else if (characteristics.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(l10n.noCharacteristics),
+            )
+          else
+            ...byService.entries.expand(
+              (MapEntry<String, List<BluetoothCharacteristicInfo>> entry) =>
+                  <Widget>[
+                    const Divider(height: 20),
+                    Text(
+                      '${l10n.service} ${entry.key}',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    ...entry.value.map(
+                      (BluetoothCharacteristicInfo characteristic) =>
+                          _CharacteristicTile(
+                            characteristic: characteristic,
+                            onSelectWrite: onSelectWrite,
+                            onSubscriptionChanged: onSubscriptionChanged,
+                            l10n: l10n,
+                          ),
+                    ),
+                  ],
+            ),
+          const Divider(height: 28),
           Row(
             children: <Widget>[
               Text(
@@ -569,7 +858,7 @@ class _QuickCommands extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => onSend(command.payload),
+                      onPressed: canSend ? () => onSend(command.payload) : null,
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(command.name),
@@ -579,7 +868,7 @@ class _QuickCommands extends StatelessWidget {
                   const SizedBox(width: 6),
                   IconButton(
                     tooltip: l10n.sendCommand,
-                    onPressed: () => onSend(command.payload),
+                    onPressed: canSend ? () => onSend(command.payload) : null,
                     icon: const Icon(Icons.send_outlined, size: 18),
                   ),
                 ],
@@ -592,6 +881,102 @@ class _QuickCommands extends StatelessWidget {
   }
 }
 
+class _CharacteristicTile extends StatelessWidget {
+  const _CharacteristicTile({
+    required this.characteristic,
+    required this.onSelectWrite,
+    required this.onSubscriptionChanged,
+    required this.l10n,
+  });
+
+  final BluetoothCharacteristicInfo characteristic;
+  final Future<void> Function(BluetoothCharacteristicInfo) onSelectWrite;
+  final Future<void> Function(BluetoothCharacteristicInfo, bool)
+  onSubscriptionChanged;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          border: Border.all(color: Theme.of(context).dividerColor),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              characteristic.characteristicId,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: <Widget>[
+                if (characteristic.canWrite)
+                  _CapabilityChip(label: l10n.writeWithResponse),
+                if (characteristic.canWriteWithoutResponse)
+                  _CapabilityChip(label: l10n.writeWithoutResponse),
+                if (characteristic.canNotify)
+                  _CapabilityChip(label: l10n.notify),
+                if (characteristic.canIndicate)
+                  _CapabilityChip(label: l10n.indicate),
+              ],
+            ),
+            if (characteristic.canWrite || characteristic.canSubscribe)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: <Widget>[
+                    if (characteristic.canWrite ||
+                        characteristic.canWriteWithoutResponse)
+                      ChoiceChip(
+                        label: Text(l10n.writeTarget),
+                        selected: characteristic.isWriteTarget,
+                        onSelected: (_) => onSelectWrite(characteristic),
+                      ),
+                    if (characteristic.canSubscribe)
+                      FilterChip(
+                        label: Text(l10n.subscribe),
+                        selected: characteristic.isSubscribed,
+                        onSelected: (bool selected) =>
+                            onSubscriptionChanged(characteristic, selected),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CapabilityChip extends StatelessWidget {
+  const _CapabilityChip({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(label, style: Theme.of(context).textTheme.labelSmall),
+    );
+  }
+}
+
 class _LogLine extends StatelessWidget {
   const _LogLine({required this.entry, required this.l10n});
   final _LogEntry entry;
@@ -599,8 +984,12 @@ class _LogLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final received = entry.kind == _LogKind.received;
-    final color = received ? Colors.lightBlueAccent : Colors.lightGreenAccent;
+    final Color color = switch (entry.kind) {
+      _LogKind.received => Colors.lightBlueAccent,
+      _LogKind.sent => Colors.lightGreenAccent,
+      _LogKind.system => Theme.of(context).colorScheme.secondary,
+      _LogKind.error => Theme.of(context).colorScheme.error,
+    };
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: SelectableText.rich(
@@ -618,8 +1007,11 @@ class _LogLine extends StatelessWidget {
               style: TextStyle(color: color, fontWeight: FontWeight.bold),
             ),
             TextSpan(
-              text: _toHex(entry.data),
-              style: const TextStyle(fontFamily: 'monospace'),
+              text: entry.message ?? _toHex(entry.data),
+              style: TextStyle(
+                fontFamily: 'monospace',
+                color: entry.kind == _LogKind.error ? color : null,
+              ),
             ),
           ],
         ),
@@ -628,18 +1020,27 @@ class _LogLine extends StatelessWidget {
   }
 }
 
-enum _LogKind { sent, received, system }
+enum _LogKind { sent, received, system, error }
 
 class _LogEntry {
-  const _LogEntry(this.kind, this.timestamp, this.data);
+  const _LogEntry(this.kind, this.timestamp, this.data) : message = null;
+  const _LogEntry.system({required this.timestamp, required this.message})
+    : kind = _LogKind.system,
+      data = const <int>[];
+  const _LogEntry.error({required this.timestamp, required this.message})
+    : kind = _LogKind.error,
+      data = const <int>[];
+
   final _LogKind kind;
   final DateTime timestamp;
   final List<int> data;
+  final String? message;
 
   String directionLabel(AppLocalizations l10n) => switch (kind) {
     _LogKind.received => l10n.received,
     _LogKind.sent => l10n.sendData,
     _LogKind.system => l10n.system,
+    _LogKind.error => l10n.error,
   };
 }
 

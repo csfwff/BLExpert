@@ -26,6 +26,8 @@
 	<string>$(PRODUCT_COPYRIGHT)</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>BLExpert requires Bluetooth to scan and communicate with BLE devices.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

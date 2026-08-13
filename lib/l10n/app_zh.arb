@@ -32,7 +32,22 @@
   "debugConsole": "调试控制台",
   "noData": "暂无收发数据。",
   "received": "接收",
-  "system": "系统"
+  "system": "系统",
+  "error": "错误",
+  "deviceUnavailable": "设备已离开蓝牙范围或停止广播，请重新扫描后再连接。",
+  "bluetoothOperationFailed": "蓝牙操作失败：{error}",
+  "@bluetoothOperationFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  }
+  ,"connecting": "正在连接"
+  ,"connectingDevice": "正在连接 {name}..."
+  ,"@connectingDevice": {"placeholders": {"name": {"type": "String"}}}
+  ,"disconnectingDevice": "正在断开 {name}..."
+  ,"@disconnectingDevice": {"placeholders": {"name": {"type": "String"}}}
+  ,"connectedToDevice": "已连接 {name}。"
+  ,"@connectedToDevice": {"placeholders": {"name": {"type": "String"}}}
   ,"workspaceSelector": "工作区"
   ,"selectWorkspace": "选择工作区"
   ,"connection": "连接设备"
@@ -61,4 +76,15 @@
   ,"@connectedDevice": {"placeholders": {"name": {"type": "String"}}}
   ,"deviceCountShort": "{count} 个设备"
   ,"@deviceCountShort": {"placeholders": {"count": {"type": "int"}}}
+  ,"characteristics": "特征"
+  ,"connectToDiscoverCharacteristics": "连接设备后可发现其 GATT 特征。"
+  ,"noCharacteristics": "未发现 GATT 特征。"
+  ,"service": "服务"
+  ,"disconnected": "未连接"
+  ,"writeTarget": "写入目标"
+  ,"subscribe": "订阅"
+  ,"writeWithResponse": "有响应写入"
+  ,"writeWithoutResponse": "无响应写入"
+  ,"notify": "通知"
+  ,"indicate": "指示"
 }

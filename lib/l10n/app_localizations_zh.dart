@@ -76,6 +76,35 @@ class AppLocalizationsZh extends AppLocalizations {
   String get system => '系统';
 
   @override
+  String get error => '错误';
+
+  @override
+  String get deviceUnavailable => '设备已离开蓝牙范围或停止广播，请重新扫描后再连接。';
+
+  @override
+  String bluetoothOperationFailed(String error) {
+    return '蓝牙操作失败：$error';
+  }
+
+  @override
+  String get connecting => '正在连接';
+
+  @override
+  String connectingDevice(String name) {
+    return '正在连接 $name...';
+  }
+
+  @override
+  String disconnectingDevice(String name) {
+    return '正在断开 $name...';
+  }
+
+  @override
+  String connectedToDevice(String name) {
+    return '已连接 $name。';
+  }
+
+  @override
   String get workspaceSelector => '工作区';
 
   @override
@@ -156,4 +185,37 @@ class AppLocalizationsZh extends AppLocalizations {
   String deviceCountShort(int count) {
     return '$count 个设备';
   }
+
+  @override
+  String get characteristics => '特征';
+
+  @override
+  String get connectToDiscoverCharacteristics => '连接设备后可发现其 GATT 特征。';
+
+  @override
+  String get noCharacteristics => '未发现 GATT 特征。';
+
+  @override
+  String get service => '服务';
+
+  @override
+  String get disconnected => '未连接';
+
+  @override
+  String get writeTarget => '写入目标';
+
+  @override
+  String get subscribe => '订阅';
+
+  @override
+  String get writeWithResponse => '有响应写入';
+
+  @override
+  String get writeWithoutResponse => '无响应写入';
+
+  @override
+  String get notify => '通知';
+
+  @override
+  String get indicate => '指示';
 }

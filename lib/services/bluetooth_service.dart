@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:universal_ble/universal_ble.dart';
+
 /// 扫描层发现的蓝牙设备信息。
 class BluetoothDeviceInfo {
   const BluetoothDeviceInfo({
@@ -17,6 +20,49 @@ class BluetoothDeviceInfo {
   final bool connected;
 }
 
+/// A GATT characteristic exposed to the debugger after service discovery.
+class BluetoothCharacteristicInfo {
+  const BluetoothCharacteristicInfo({
+    required this.serviceId,
+    required this.characteristicId,
+    required this.canWrite,
+    required this.canWriteWithoutResponse,
+    required this.canNotify,
+    required this.canIndicate,
+    required this.isSubscribed,
+    required this.isWriteTarget,
+  });
+
+  final String serviceId;
+  final String characteristicId;
+  final bool canWrite;
+  final bool canWriteWithoutResponse;
+  final bool canNotify;
+  final bool canIndicate;
+  final bool isSubscribed;
+  final bool isWriteTarget;
+
+  bool get canSubscribe => canNotify || canIndicate;
+
+  String get key => '$serviceId/$characteristicId';
+
+  BluetoothCharacteristicInfo copyWith({
+    bool? isSubscribed,
+    bool? isWriteTarget,
+  }) {
+    return BluetoothCharacteristicInfo(
+      serviceId: serviceId,
+      characteristicId: characteristicId,
+      canWrite: canWrite,
+      canWriteWithoutResponse: canWriteWithoutResponse,
+      canNotify: canNotify,
+      canIndicate: canIndicate,
+      isSubscribed: isSubscribed ?? this.isSubscribed,
+      isWriteTarget: isWriteTarget ?? this.isWriteTarget,
+    );
+  }
+}
+
 /// 蓝牙能力抽象，后续可替换为不同平台的真实插件实现。
 abstract class BluetoothService {
   Stream<List<BluetoothDeviceInfo>> watchScannedDevices();
@@ -29,16 +75,404 @@ abstract class BluetoothService {
 
   Future<void> disconnect(String deviceId);
 
+  Future<List<BluetoothCharacteristicInfo>> discoverCharacteristics(
+    String deviceId,
+  );
+
+  Future<void> setWriteCharacteristic(
+    String deviceId,
+    BluetoothCharacteristicInfo characteristic,
+  );
+
+  Future<void> setCharacteristicSubscription(
+    String deviceId,
+    BluetoothCharacteristicInfo characteristic,
+    bool enabled,
+  );
+
   Future<void> sendData(String deviceId, List<int> bytes);
 
   Stream<List<int>> watchIncomingData(String deviceId);
+
+  Future<void> dispose();
+}
+
+/// BLE central adapter backed by Universal BLE.
+///
+/// Characteristics are discovered when connecting but are not selected
+/// automatically. The user explicitly chooses subscriptions and a write target.
+class UniversalBleService implements BluetoothService {
+  UniversalBleService() {
+    UniversalBle.queueType = QueueType.perDevice;
+    _scanSubscription = UniversalBle.scanStream.listen(_handleScanResult);
+    UniversalBle.onConnectionChange = _handleConnectionChange;
+    UniversalBle.onValueChange = _handleValueChange;
+  }
+
+  final StreamController<List<BluetoothDeviceInfo>> _devicesController =
+      StreamController<List<BluetoothDeviceInfo>>.broadcast();
+  final Map<String, StreamController<List<int>>> _incomingControllers =
+      <String, StreamController<List<int>>>{};
+  final Map<String, BluetoothDeviceInfo> _devices =
+      <String, BluetoothDeviceInfo>{};
+  final Map<String, List<BluetoothCharacteristicInfo>> _characteristics =
+      <String, List<BluetoothCharacteristicInfo>>{};
+  late final StreamSubscription<BleDevice> _scanSubscription;
+
+  @override
+  Stream<List<BluetoothDeviceInfo>> watchScannedDevices() async* {
+    yield _sortedDevices;
+    yield* _devicesController.stream;
+  }
+
+  @override
+  Future<void> startScan() async {
+    await UniversalBle.requestPermissions();
+    await UniversalBle.startScan();
+  }
+
+  @override
+  Future<void> stopScan() => UniversalBle.stopScan();
+
+  @override
+  Future<void> connect(String deviceId) async {
+    await UniversalBle.requestPermissions();
+    final bool isLinux =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.linux;
+    try {
+      // BlueZ may discard an unpaired Device1 object when discovery stops.
+      // Refresh the exact address first. Keep the UI selection untouched while
+      // doing so; the service cache must contain the current BlueZ object.
+      if (isLinux) {
+        await _refreshLinuxDevice(deviceId);
+      } else {
+        await UniversalBle.stopScan();
+      }
+      await UniversalBle.connect(
+        deviceId,
+        timeout: const Duration(seconds: 15),
+      );
+    } catch (error) {
+      if (_isStaleDeviceError(error)) {
+        _invalidateDevice(deviceId);
+        throw StateError(
+          'The BLE device is no longer available. Scan again and reconnect.',
+        );
+      }
+      rethrow;
+    } finally {
+      if (isLinux) {
+        await UniversalBle.stopScan();
+      }
+    }
+    _setConnected(deviceId, true);
+  }
+
+  @override
+  Future<void> disconnect(String deviceId) async {
+    final List<BluetoothCharacteristicInfo> characteristics =
+        _characteristics[deviceId] ?? const <BluetoothCharacteristicInfo>[];
+    for (final BluetoothCharacteristicInfo characteristic in characteristics) {
+      if (characteristic.isSubscribed) {
+        await UniversalBle.unsubscribe(
+          deviceId,
+          characteristic.serviceId,
+          characteristic.characteristicId,
+        );
+      }
+    }
+    _characteristics.remove(deviceId);
+    await UniversalBle.disconnect(deviceId);
+    _setConnected(deviceId, false);
+  }
+
+  @override
+  Future<void> sendData(String deviceId, List<int> bytes) async {
+    final BluetoothCharacteristicInfo? characteristic = _writeCharacteristic(
+      deviceId,
+    );
+    if (characteristic == null) {
+      throw StateError('No write characteristic selected for $deviceId.');
+    }
+    await UniversalBle.write(
+      deviceId,
+      characteristic.serviceId,
+      characteristic.characteristicId,
+      Uint8List.fromList(bytes),
+      // Prefer acknowledged writes when both modes are available so the
+      // debugger reports transport failures instead of silently losing data.
+      withoutResponse:
+          !characteristic.canWrite && characteristic.canWriteWithoutResponse,
+    );
+  }
+
+  @override
+  Future<List<BluetoothCharacteristicInfo>> discoverCharacteristics(
+    String deviceId,
+  ) async {
+    final List<BleService> services = await UniversalBle.discoverServices(
+      deviceId,
+    );
+    final List<BluetoothCharacteristicInfo> characteristics =
+        <BluetoothCharacteristicInfo>[
+          for (final BleService service in services)
+            for (final BleCharacteristic characteristic
+                in service.characteristics)
+              BluetoothCharacteristicInfo(
+                serviceId: service.uuid,
+                characteristicId: characteristic.uuid,
+                canWrite: characteristic.properties.contains(
+                  CharacteristicProperty.write,
+                ),
+                canWriteWithoutResponse: characteristic.properties.contains(
+                  CharacteristicProperty.writeWithoutResponse,
+                ),
+                canNotify: characteristic.properties.contains(
+                  CharacteristicProperty.notify,
+                ),
+                canIndicate: characteristic.properties.contains(
+                  CharacteristicProperty.indicate,
+                ),
+                isSubscribed: false,
+                isWriteTarget: false,
+              ),
+        ];
+    _characteristics[deviceId] = characteristics;
+    return List<BluetoothCharacteristicInfo>.unmodifiable(characteristics);
+  }
+
+  @override
+  Future<void> setWriteCharacteristic(
+    String deviceId,
+    BluetoothCharacteristicInfo characteristic,
+  ) async {
+    if (!characteristic.canWrite && !characteristic.canWriteWithoutResponse) {
+      throw ArgumentError.value(
+        characteristic,
+        'characteristic',
+        'Characteristic is not writable.',
+      );
+    }
+    _updateCharacteristic(
+      deviceId,
+      characteristic.key,
+      (BluetoothCharacteristicInfo item) =>
+          item.copyWith(isWriteTarget: item.key == characteristic.key),
+    );
+  }
+
+  @override
+  Future<void> setCharacteristicSubscription(
+    String deviceId,
+    BluetoothCharacteristicInfo characteristic,
+    bool enabled,
+  ) async {
+    if (!characteristic.canSubscribe) {
+      throw ArgumentError.value(
+        characteristic,
+        'characteristic',
+        'Characteristic cannot be subscribed.',
+      );
+    }
+    if (enabled) {
+      if (characteristic.canNotify) {
+        await UniversalBle.subscribeNotifications(
+          deviceId,
+          characteristic.serviceId,
+          characteristic.characteristicId,
+        );
+      } else {
+        await UniversalBle.subscribeIndications(
+          deviceId,
+          characteristic.serviceId,
+          characteristic.characteristicId,
+        );
+      }
+    } else {
+      await UniversalBle.unsubscribe(
+        deviceId,
+        characteristic.serviceId,
+        characteristic.characteristicId,
+      );
+    }
+    _updateCharacteristic(
+      deviceId,
+      characteristic.key,
+      (BluetoothCharacteristicInfo item) =>
+          item.copyWith(isSubscribed: enabled),
+    );
+  }
+
+  @override
+  Stream<List<int>> watchIncomingData(String deviceId) {
+    return _incomingControllers
+        .putIfAbsent(deviceId, () => StreamController<List<int>>.broadcast())
+        .stream;
+  }
+
+  void _handleScanResult(BleDevice device) {
+    final String name = (device.name?.isNotEmpty ?? false)
+        ? device.name!
+        : 'BLE ${device.deviceId}';
+    _devices[device.deviceId] = BluetoothDeviceInfo(
+      id: device.deviceId,
+      name: name,
+      rssi: device.rssi ?? 0,
+      protocol: 'BLE',
+      connected: _devices[device.deviceId]?.connected ?? false,
+    );
+    _publishDevices();
+  }
+
+  void _handleConnectionChange(
+    String deviceId,
+    bool isConnected,
+    String? error,
+  ) {
+    _setConnected(deviceId, isConnected);
+  }
+
+  void _handleValueChange(
+    String deviceId,
+    String characteristicId,
+    Uint8List value,
+    int? timestamp,
+  ) {
+    final bool isSubscribed =
+        (_characteristics[deviceId] ?? const <BluetoothCharacteristicInfo>[])
+            .any(
+              (BluetoothCharacteristicInfo item) =>
+                  item.characteristicId == characteristicId &&
+                  item.isSubscribed,
+            );
+    if (!isSubscribed) {
+      return;
+    }
+    _incomingControllers
+        .putIfAbsent(deviceId, () => StreamController<List<int>>.broadcast())
+        .add(List<int>.unmodifiable(value));
+  }
+
+  void _setConnected(String deviceId, bool connected) {
+    final BluetoothDeviceInfo? previous = _devices[deviceId];
+    if (previous == null) {
+      return;
+    }
+    _devices[deviceId] = BluetoothDeviceInfo(
+      id: previous.id,
+      name: previous.name,
+      rssi: previous.rssi,
+      protocol: previous.protocol,
+      connected: connected,
+    );
+    _publishDevices();
+  }
+
+  void _publishDevices() => _devicesController.add(_sortedDevices);
+
+  Future<void> _refreshLinuxDevice(String deviceId) async {
+    // Remove only the service cache entry. The UI keeps its selected item until
+    // the scan proves that the address is gone or a new result replaces it.
+    _devices.remove(deviceId);
+    _characteristics.remove(deviceId);
+
+    final Completer<void> deviceResult = Completer<void>();
+    late final StreamSubscription<List<BluetoothDeviceInfo>> subscription;
+    subscription = _devicesController.stream.listen((devices) {
+      if (devices.any((BluetoothDeviceInfo item) => item.id == deviceId) &&
+          !deviceResult.isCompleted) {
+        deviceResult.complete();
+      }
+    });
+
+    try {
+      await UniversalBle.startScan();
+      if (_devices.containsKey(deviceId)) {
+        return;
+      }
+      await deviceResult.future.timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      _invalidateDevice(deviceId);
+      throw StateError(
+        'The BLE device is no longer available. Scan again and reconnect.',
+      );
+    } finally {
+      await subscription.cancel();
+    }
+  }
+
+  void _invalidateDevice(String deviceId) {
+    _devices.remove(deviceId);
+    _characteristics.remove(deviceId);
+    _publishDevices();
+  }
+
+  bool _isStaleDeviceError(Object error) {
+    final String text = error.toString();
+    return (text.contains('org.freedesktop.DBus.Error.UnknownObject') &&
+            text.contains('org.bluez.Device1')) ||
+        text.contains('UniversalBleErrorCode.deviceNotFound') ||
+        text.contains('Unknown deviceId:');
+  }
+
+  List<BluetoothDeviceInfo> get _sortedDevices {
+    final List<BluetoothDeviceInfo> result = _devices.values.toList()
+      ..sort((a, b) => b.rssi.compareTo(a.rssi));
+    return List<BluetoothDeviceInfo>.unmodifiable(result);
+  }
+
+  BluetoothCharacteristicInfo? _writeCharacteristic(String deviceId) {
+    for (final BluetoothCharacteristicInfo item
+        in _characteristics[deviceId] ??
+            const <BluetoothCharacteristicInfo>[]) {
+      if (item.isWriteTarget) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  void _updateCharacteristic(
+    String deviceId,
+    String key,
+    BluetoothCharacteristicInfo Function(BluetoothCharacteristicInfo item)
+    update,
+  ) {
+    final List<BluetoothCharacteristicInfo>? current =
+        _characteristics[deviceId];
+    if (current == null) {
+      throw StateError(
+        'Characteristics have not been discovered for $deviceId.',
+      );
+    }
+    _characteristics[deviceId] = current
+        .map(
+          (BluetoothCharacteristicInfo item) =>
+              item.key == key ? update(item) : item,
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _scanSubscription.cancel();
+    UniversalBle.onConnectionChange = null;
+    UniversalBle.onValueChange = null;
+    await _devicesController.close();
+    for (final StreamController<List<int>> controller
+        in _incomingControllers.values) {
+      await controller.close();
+    }
+  }
 }
 
 /// 轻量 Mock 实现，用于真实蓝牙插件接入前的早期开发和桌面/Web 预览。
 class MockBluetoothService implements BluetoothService {
-  MockBluetoothService() {
+  MockBluetoothService({this.connectError}) {
     _scannedDevicesController.add(_devices);
   }
+
+  final Object? connectError;
 
   final StreamController<List<BluetoothDeviceInfo>> _scannedDevicesController =
       StreamController<List<BluetoothDeviceInfo>>.broadcast();
@@ -61,9 +495,47 @@ class MockBluetoothService implements BluetoothService {
       connected: false,
     ),
   ];
+  final Map<String, List<BluetoothCharacteristicInfo>> _characteristics =
+      <String, List<BluetoothCharacteristicInfo>>{
+        'ble-001': <BluetoothCharacteristicInfo>[
+          const BluetoothCharacteristicInfo(
+            serviceId: '0000181A-0000-1000-8000-00805F9B34FB',
+            characteristicId: '00002A6E-0000-1000-8000-00805F9B34FB',
+            canWrite: false,
+            canWriteWithoutResponse: false,
+            canNotify: true,
+            canIndicate: false,
+            isSubscribed: false,
+            isWriteTarget: false,
+          ),
+          const BluetoothCharacteristicInfo(
+            serviceId: '0000FFF0-0000-1000-8000-00805F9B34FB',
+            characteristicId: '0000FFF1-0000-1000-8000-00805F9B34FB',
+            canWrite: true,
+            canWriteWithoutResponse: true,
+            canNotify: false,
+            canIndicate: false,
+            isSubscribed: false,
+            isWriteTarget: false,
+          ),
+          const BluetoothCharacteristicInfo(
+            serviceId: '0000FFF0-0000-1000-8000-00805F9B34FB',
+            characteristicId: '0000FFF2-0000-1000-8000-00805F9B34FB',
+            canWrite: false,
+            canWriteWithoutResponse: false,
+            canNotify: true,
+            canIndicate: true,
+            isSubscribed: false,
+            isWriteTarget: false,
+          ),
+        ],
+      };
 
   @override
   Future<void> connect(String deviceId) async {
+    if (connectError != null) {
+      throw connectError!;
+    }
     _replaceDevice(deviceId, connected: true);
   }
 
@@ -73,24 +545,65 @@ class MockBluetoothService implements BluetoothService {
   }
 
   @override
-  Future<void> sendData(String deviceId, List<int> bytes) async {
-    _incomingControllers.putIfAbsent(
+  Future<List<BluetoothCharacteristicInfo>> discoverCharacteristics(
+    String deviceId,
+  ) async {
+    return List<BluetoothCharacteristicInfo>.unmodifiable(
+      _characteristics[deviceId] ?? const <BluetoothCharacteristicInfo>[],
+    );
+  }
+
+  @override
+  Future<void> setWriteCharacteristic(
+    String deviceId,
+    BluetoothCharacteristicInfo characteristic,
+  ) async {
+    _updateCharacteristic(
       deviceId,
-      () => StreamController<List<int>>.broadcast(),
-    ).add(bytes);
+      characteristic.key,
+      (BluetoothCharacteristicInfo item) =>
+          item.copyWith(isWriteTarget: item.key == characteristic.key),
+    );
+  }
+
+  @override
+  Future<void> setCharacteristicSubscription(
+    String deviceId,
+    BluetoothCharacteristicInfo characteristic,
+    bool enabled,
+  ) async {
+    _updateCharacteristic(
+      deviceId,
+      characteristic.key,
+      (BluetoothCharacteristicInfo item) =>
+          item.copyWith(isSubscribed: enabled),
+    );
+  }
+
+  @override
+  Future<void> sendData(String deviceId, List<int> bytes) async {
+    final bool hasWriteTarget =
+        (_characteristics[deviceId] ?? const <BluetoothCharacteristicInfo>[])
+            .any((BluetoothCharacteristicInfo item) => item.isWriteTarget);
+    if (!hasWriteTarget) {
+      throw StateError('No write characteristic selected for $deviceId.');
+    }
+    _incomingControllers
+        .putIfAbsent(deviceId, () => StreamController<List<int>>.broadcast())
+        .add(bytes);
   }
 
   @override
   Stream<List<int>> watchIncomingData(String deviceId) {
-    return _incomingControllers.putIfAbsent(
-      deviceId,
-      () => StreamController<List<int>>.broadcast(),
-    ).stream;
+    return _incomingControllers
+        .putIfAbsent(deviceId, () => StreamController<List<int>>.broadcast())
+        .stream;
   }
 
   @override
-  Stream<List<BluetoothDeviceInfo>> watchScannedDevices() {
-    return _scannedDevicesController.stream;
+  Stream<List<BluetoothDeviceInfo>> watchScannedDevices() async* {
+    yield List<BluetoothDeviceInfo>.unmodifiable(_devices);
+    yield* _scannedDevicesController.stream;
   }
 
   @override
@@ -104,7 +617,9 @@ class MockBluetoothService implements BluetoothService {
   }
 
   void _replaceDevice(String deviceId, {required bool connected}) {
-    final int index = _devices.indexWhere((BluetoothDeviceInfo item) => item.id == deviceId);
+    final int index = _devices.indexWhere(
+      (BluetoothDeviceInfo item) => item.id == deviceId,
+    );
     if (index < 0) {
       return;
     }
@@ -116,12 +631,37 @@ class MockBluetoothService implements BluetoothService {
       protocol: _devices[index].protocol,
       connected: connected,
     );
-    _scannedDevicesController.add(List<BluetoothDeviceInfo>.unmodifiable(_devices));
+    _scannedDevicesController.add(
+      List<BluetoothDeviceInfo>.unmodifiable(_devices),
+    );
   }
 
+  void _updateCharacteristic(
+    String deviceId,
+    String key,
+    BluetoothCharacteristicInfo Function(BluetoothCharacteristicInfo item)
+    update,
+  ) {
+    final List<BluetoothCharacteristicInfo>? current =
+        _characteristics[deviceId];
+    if (current == null) {
+      throw StateError(
+        'Characteristics have not been discovered for $deviceId.',
+      );
+    }
+    _characteristics[deviceId] = current
+        .map(
+          (BluetoothCharacteristicInfo item) =>
+              item.key == key ? update(item) : item,
+        )
+        .toList(growable: false);
+  }
+
+  @override
   Future<void> dispose() async {
     await _scannedDevicesController.close();
-    for (final StreamController<List<int>> controller in _incomingControllers.values) {
+    for (final StreamController<List<int>> controller
+        in _incomingControllers.values) {
       await controller.close();
     }
   }

@@ -224,6 +224,48 @@ abstract class AppLocalizations {
   /// **'SYSTEM'**
   String get system;
 
+  /// No description provided for @error.
+  ///
+  /// In en, this message translates to:
+  /// **'ERROR'**
+  String get error;
+
+  /// No description provided for @deviceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The BLE device is no longer available. Scan again and reconnect.'**
+  String get deviceUnavailable;
+
+  /// No description provided for @bluetoothOperationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Bluetooth operation failed: {error}'**
+  String bluetoothOperationFailed(String error);
+
+  /// No description provided for @connecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting'**
+  String get connecting;
+
+  /// No description provided for @connectingDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting to {name}...'**
+  String connectingDevice(String name);
+
+  /// No description provided for @disconnectingDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnecting from {name}...'**
+  String disconnectingDevice(String name);
+
+  /// No description provided for @connectedToDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected to {name}.'**
+  String connectedToDevice(String name);
+
   /// No description provided for @workspaceSelector.
   ///
   /// In en, this message translates to:
@@ -379,6 +421,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} devices'**
   String deviceCountShort(int count);
+
+  /// No description provided for @characteristics.
+  ///
+  /// In en, this message translates to:
+  /// **'Characteristics'**
+  String get characteristics;
+
+  /// No description provided for @connectToDiscoverCharacteristics.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect a device to discover its GATT characteristics.'**
+  String get connectToDiscoverCharacteristics;
+
+  /// No description provided for @noCharacteristics.
+  ///
+  /// In en, this message translates to:
+  /// **'No GATT characteristics were discovered.'**
+  String get noCharacteristics;
+
+  /// No description provided for @service.
+  ///
+  /// In en, this message translates to:
+  /// **'Service'**
+  String get service;
+
+  /// No description provided for @disconnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnected'**
+  String get disconnected;
+
+  /// No description provided for @writeTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Write target'**
+  String get writeTarget;
+
+  /// No description provided for @subscribe.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscribe'**
+  String get subscribe;
+
+  /// No description provided for @writeWithResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'Write'**
+  String get writeWithResponse;
+
+  /// No description provided for @writeWithoutResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'Write no response'**
+  String get writeWithoutResponse;
+
+  /// No description provided for @notify.
+  ///
+  /// In en, this message translates to:
+  /// **'Notify'**
+  String get notify;
+
+  /// No description provided for @indicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Indicate'**
+  String get indicate;
 }
 
 class _AppLocalizationsDelegate

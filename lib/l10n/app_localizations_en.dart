@@ -76,6 +76,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get system => 'SYSTEM';
 
   @override
+  String get error => 'ERROR';
+
+  @override
+  String get deviceUnavailable =>
+      'The BLE device is no longer available. Scan again and reconnect.';
+
+  @override
+  String bluetoothOperationFailed(String error) {
+    return 'Bluetooth operation failed: $error';
+  }
+
+  @override
+  String get connecting => 'Connecting';
+
+  @override
+  String connectingDevice(String name) {
+    return 'Connecting to $name...';
+  }
+
+  @override
+  String disconnectingDevice(String name) {
+    return 'Disconnecting from $name...';
+  }
+
+  @override
+  String connectedToDevice(String name) {
+    return 'Connected to $name.';
+  }
+
+  @override
   String get workspaceSelector => 'Workspace';
 
   @override
@@ -156,4 +186,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String deviceCountShort(int count) {
     return '$count devices';
   }
+
+  @override
+  String get characteristics => 'Characteristics';
+
+  @override
+  String get connectToDiscoverCharacteristics =>
+      'Connect a device to discover its GATT characteristics.';
+
+  @override
+  String get noCharacteristics => 'No GATT characteristics were discovered.';
+
+  @override
+  String get service => 'Service';
+
+  @override
+  String get disconnected => 'Disconnected';
+
+  @override
+  String get writeTarget => 'Write target';
+
+  @override
+  String get subscribe => 'Subscribe';
+
+  @override
+  String get writeWithResponse => 'Write';
+
+  @override
+  String get writeWithoutResponse => 'Write no response';
+
+  @override
+  String get notify => 'Notify';
+
+  @override
+  String get indicate => 'Indicate';
 }
