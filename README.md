@@ -45,6 +45,7 @@ BLExpert 面向物联网和嵌入式设备开发场景，重点解决设备协�
 - 当前基础调试流程会自动选择设备首个可写特征和首个可通知 / 指示特征。后续工作区配置将允许固定指定服务和特征 UUID。
 - 经典蓝牙 SPP 不属于 BLE，需作为独立的平台适配器实现，当前未接入。
 - 本地演示可使用 Mock 服务：`flutter run --dart-define=USE_MOCK_BLUETOOTH=true`。
+- Linux 连接未配对 BLE 设备时会通过系统 `bluetoothctl` 设置临时信任状态；请确保系统已安装 `bluez`，并允许当前用户访问 Bluetooth D-Bus 服务。
 
 ## 项目资料
 

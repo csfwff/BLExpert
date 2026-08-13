@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:universal_ble/universal_ble.dart';
 
+import 'linux_device_trust.dart';
+
 /// 扫描层发现的蓝牙设备信息。
 class BluetoothDeviceInfo {
   const BluetoothDeviceInfo({
@@ -145,6 +147,11 @@ class UniversalBleService implements BluetoothService {
       // doing so; the service cache must contain the current BlueZ object.
       if (isLinux) {
         await _refreshLinuxDevice(deviceId);
+        // BlueZ can delete an unpaired temporary Device1 object when a
+        // connection is requested. universal_ble does not expose BlueZ's
+        // Trusted property, so set it through the Linux system adapter before
+        // handing the actual BLE connection back to universal_ble.
+        await trustLinuxDevice(deviceId);
       } else {
         await UniversalBle.stopScan();
       }
