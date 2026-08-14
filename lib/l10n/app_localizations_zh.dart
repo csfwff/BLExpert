@@ -208,14 +208,67 @@ class AppLocalizationsZh extends AppLocalizations {
   String get subscribe => '订阅';
 
   @override
-  String get writeWithResponse => '有响应写入';
+  String get writeWithResponse => 'Write';
 
   @override
-  String get writeWithoutResponse => '无响应写入';
+  String get writeWithoutResponse => 'Write without response';
 
   @override
-  String get notify => '通知';
+  String get notify => 'Notify';
 
   @override
-  String get indicate => '指示';
+  String get indicate => 'Indicate';
+
+  @override
+  String get read => 'Read';
+
+  @override
+  String get readValue => '读取';
+
+  @override
+  String dataSent(int length) {
+    return '已发送 $length 字节';
+  }
+
+  @override
+  String dataRead(int length) {
+    return '已读取 $length 字节';
+  }
+
+  @override
+  String subscriptionEnabled(String mode) {
+    return '已订阅 $mode';
+  }
+
+  @override
+  String subscriptionDisabled(String mode) {
+    return '已取消订阅 $mode';
+  }
+
+  @override
+  String get genericAccess => 'Generic Access';
+
+  @override
+  String get genericAttribute => 'Generic Attribute';
+
+  @override
+  String get deviceName => 'Device Name';
+
+  @override
+  String get serviceChanged => 'Service Changed';
+
+  @override
+  String get webServiceUuids => 'Web 服务 UUID';
+
+  @override
+  String get webServiceUuidsHint => '每行一个 UUID，或使用逗号分隔';
+
+  @override
+  String get webServiceUuidsInvalid => '请输入有效的 16 位、32 位或 128 位 UUID。';
+
+  @override
+  String get cancel => '取消';
+
+  @override
+  String get save => '保存';
 }

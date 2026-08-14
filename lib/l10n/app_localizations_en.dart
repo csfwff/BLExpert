@@ -220,4 +220,58 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get indicate => 'Indicate';
+
+  @override
+  String get read => 'Read';
+
+  @override
+  String get readValue => 'Read';
+
+  @override
+  String dataSent(int length) {
+    return 'Sent $length bytes';
+  }
+
+  @override
+  String dataRead(int length) {
+    return 'Read $length bytes';
+  }
+
+  @override
+  String subscriptionEnabled(String mode) {
+    return 'Subscribed $mode';
+  }
+
+  @override
+  String subscriptionDisabled(String mode) {
+    return 'Unsubscribed $mode';
+  }
+
+  @override
+  String get genericAccess => 'Generic Access';
+
+  @override
+  String get genericAttribute => 'Generic Attribute';
+
+  @override
+  String get deviceName => 'Device Name';
+
+  @override
+  String get serviceChanged => 'Service Changed';
+
+  @override
+  String get webServiceUuids => 'Web service UUIDs';
+
+  @override
+  String get webServiceUuidsHint => 'One UUID per line or separated by commas';
+
+  @override
+  String get webServiceUuidsInvalid =>
+      'Enter valid 16-bit, 32-bit, or 128-bit UUIDs.';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get save => 'Save';
 }

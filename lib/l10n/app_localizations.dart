@@ -487,6 +487,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Indicate'**
   String get indicate;
+
+  /// No description provided for @read.
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get read;
+
+  /// No description provided for @readValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get readValue;
+
+  /// No description provided for @dataSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent {length} bytes'**
+  String dataSent(int length);
+
+  /// No description provided for @dataRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read {length} bytes'**
+  String dataRead(int length);
+
+  /// No description provided for @subscriptionEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscribed {mode}'**
+  String subscriptionEnabled(String mode);
+
+  /// No description provided for @subscriptionDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsubscribed {mode}'**
+  String subscriptionDisabled(String mode);
+
+  /// No description provided for @genericAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Generic Access'**
+  String get genericAccess;
+
+  /// No description provided for @genericAttribute.
+  ///
+  /// In en, this message translates to:
+  /// **'Generic Attribute'**
+  String get genericAttribute;
+
+  /// No description provided for @deviceName.
+  ///
+  /// In en, this message translates to:
+  /// **'Device Name'**
+  String get deviceName;
+
+  /// No description provided for @serviceChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Service Changed'**
+  String get serviceChanged;
+
+  /// No description provided for @webServiceUuids.
+  ///
+  /// In en, this message translates to:
+  /// **'Web service UUIDs'**
+  String get webServiceUuids;
+
+  /// No description provided for @webServiceUuidsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'One UUID per line or separated by commas'**
+  String get webServiceUuidsHint;
+
+  /// No description provided for @webServiceUuidsInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter valid 16-bit, 32-bit, or 128-bit UUIDs.'**
+  String get webServiceUuidsInvalid;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
 }
 
 class _AppLocalizationsDelegate

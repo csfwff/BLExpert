@@ -51,14 +51,42 @@ void main() {
 
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('订阅').first);
+    await tester.tap(find.widgetWithText(FilterChip, 'Notify').first);
     await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Indicate').first);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FilterChip>(find.widgetWithText(FilterChip, 'Indicate').first)
+          .selected,
+      isTrue,
+    );
 
     expect(
       tester
           .widget<FilledButton>(find.widgetWithText(FilledButton, '发送数据'))
           .onPressed,
       isNotNull,
+    );
+  });
+
+  testWidgets('仅支持无响应写入的特征可设为写入目标', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(find.byTooltip('连接设备'));
+    await tester.pumpAndSettle();
+
+    final Finder writeTargets = find.text('写入目标');
+    expect(writeTargets, findsNWidgets(1));
+    await tester.tap(writeTargets);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '写入目标'))
+          .selected,
+      isTrue,
     );
   });
 

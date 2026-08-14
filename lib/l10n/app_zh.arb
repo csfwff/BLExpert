@@ -83,8 +83,27 @@
   ,"disconnected": "未连接"
   ,"writeTarget": "写入目标"
   ,"subscribe": "订阅"
-  ,"writeWithResponse": "有响应写入"
-  ,"writeWithoutResponse": "无响应写入"
-  ,"notify": "通知"
-  ,"indicate": "指示"
+  ,"writeWithResponse": "Write"
+  ,"writeWithoutResponse": "Write without response"
+  ,"notify": "Notify"
+  ,"indicate": "Indicate"
+  ,"read": "Read"
+  ,"readValue": "读取"
+  ,"dataSent": "已发送 {length} 字节"
+  ,"@dataSent": {"placeholders": {"length": {"type": "int"}}}
+  ,"dataRead": "已读取 {length} 字节"
+  ,"@dataRead": {"placeholders": {"length": {"type": "int"}}}
+  ,"subscriptionEnabled": "已订阅 {mode}"
+  ,"@subscriptionEnabled": {"placeholders": {"mode": {"type": "String"}}}
+  ,"subscriptionDisabled": "已取消订阅 {mode}"
+  ,"@subscriptionDisabled": {"placeholders": {"mode": {"type": "String"}}}
+  ,"genericAccess": "Generic Access"
+  ,"genericAttribute": "Generic Attribute"
+  ,"deviceName": "Device Name"
+  ,"serviceChanged": "Service Changed"
+  ,"webServiceUuids": "Web 服务 UUID"
+  ,"webServiceUuidsHint": "每行一个 UUID，或使用逗号分隔"
+  ,"webServiceUuidsInvalid": "请输入有效的 16 位、32 位或 128 位 UUID。"
+  ,"cancel": "取消"
+  ,"save": "保存"
 }

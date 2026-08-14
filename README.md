@@ -46,6 +46,7 @@ BLExpert 面向物联网和嵌入式设备开发场景，重点解决设备协�
 - 经典蓝牙 SPP 不属于 BLE，需作为独立的平台适配器实现，当前未接入。
 - 本地演示可使用 Mock 服务：`flutter run --dart-define=USE_MOCK_BLUETOOTH=true`。
 - Linux 连接未配对 BLE 设备时会通过系统 `bluetoothctl` 设置临时信任状态；请确保系统已安装 `bluez`，并允许当前用户访问 Bluetooth D-Bus 服务。
+- 部分 Linux/BlueZ 版本不会通过 D-Bus 暴露 Generic Access 的 `1800/2A00`，因此 Linux 只展示 BlueZ 在当前 GATT 会话中真实暴露、可以安全操作的特征。应用不会合成特征或用广播名称替代读取值；其他平台仍按系统蓝牙栈返回的完整特征列表工作。
 
 ## 项目资料
 
@@ -100,6 +101,8 @@ VS Code 用户可从“运行和调试”选择 `BLExpert Web Bluetooth` 配置�
 - 使用 Google Chrome 或 Chromium，且蓝牙适配器已开启。
 - 在 Chrome 地址栏打开 `chrome://flags/#enable-experimental-web-platform-features`，确认该实验功能为 `Enabled`，然后重启浏览器。
 - Web Bluetooth 仅允许在安全上下文中访问。`flutter run` 提供的本地地址可用；部署环境需使用 HTTPS。
+- Web Bluetooth 要求在设备选择前声明允许访问的服务。点击顶部的“Web 服务 UUID”配置按钮，填写当前工作区设备需要访问的全部服务 UUID（16 位、32 位或 128 位均可）；应用不会内置任何厂商设备 UUID。浏览器只能返回本次设备选择时已声明的服务，漏填的服务及其特征不会暴露给网页。
+- Web 端仅使用设备选择器发现设备，不启动实验性的广告监听；这可避免 Chrome/Linux 持续占用 BlueZ 扫描并阻塞后续 GATT 连接。
 
 ## 设计原则
 

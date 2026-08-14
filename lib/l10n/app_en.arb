@@ -87,4 +87,23 @@
   ,"writeWithoutResponse": "Write no response"
   ,"notify": "Notify"
   ,"indicate": "Indicate"
+  ,"read": "Read"
+  ,"readValue": "Read"
+  ,"dataSent": "Sent {length} bytes"
+  ,"@dataSent": {"placeholders": {"length": {"type": "int"}}}
+  ,"dataRead": "Read {length} bytes"
+  ,"@dataRead": {"placeholders": {"length": {"type": "int"}}}
+  ,"subscriptionEnabled": "Subscribed {mode}"
+  ,"@subscriptionEnabled": {"placeholders": {"mode": {"type": "String"}}}
+  ,"subscriptionDisabled": "Unsubscribed {mode}"
+  ,"@subscriptionDisabled": {"placeholders": {"mode": {"type": "String"}}}
+  ,"genericAccess": "Generic Access"
+  ,"genericAttribute": "Generic Attribute"
+  ,"deviceName": "Device Name"
+  ,"serviceChanged": "Service Changed"
+  ,"webServiceUuids": "Web service UUIDs"
+  ,"webServiceUuidsHint": "One UUID per line or separated by commas"
+  ,"webServiceUuidsInvalid": "Enter valid 16-bit, 32-bit, or 128-bit UUIDs."
+  ,"cancel": "Cancel"
+  ,"save": "Save"
 }
