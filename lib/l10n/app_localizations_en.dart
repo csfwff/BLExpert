@@ -274,4 +274,212 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get save => 'Save';
+
+  @override
+  String get communication => 'Communication';
+
+  @override
+  String get workspaceSettings => 'Workspace';
+
+  @override
+  String get deviceTools => 'Device';
+
+  @override
+  String get dataView => 'Data';
+
+  @override
+  String get editWorkspace => 'Edit workspace';
+
+  @override
+  String get deviceModel => 'Device model';
+
+  @override
+  String get description => 'Description';
+
+  @override
+  String get tags => 'Tags';
+
+  @override
+  String get workspaceDevices => 'Device profiles';
+
+  @override
+  String get sentPackets => 'Sent';
+
+  @override
+  String get receivedPackets => 'Received';
+
+  @override
+  String get noPacketData => 'No data';
+
+  @override
+  String get noCommands => 'This workspace has no commands yet.';
+
+  @override
+  String get editCommand => 'Edit command';
+
+  @override
+  String get deleteCommand => 'Delete command';
+
+  @override
+  String get commandGroup => 'Group';
+
+  @override
+  String get commandNotes => 'Notes';
+
+  @override
+  String get commandFormat => 'Payload format';
+
+  @override
+  String get commandHex => 'HEX';
+
+  @override
+  String get commandText => 'Text';
+
+  @override
+  String get commandEnabled => 'Enabled';
+
+  @override
+  String get invalidCommandPayload => 'Enter valid payload data.';
+
+  @override
+  String get commandLibrary => 'Commands';
+
+  @override
+  String get quickAccess => 'Quick access';
+
+  @override
+  String get noQuickCommands => 'No quick commands selected.';
+
+  @override
+  String get protocolProfiles => 'Protocols';
+
+  @override
+  String get newProtocol => 'New protocol';
+
+  @override
+  String get editProtocol => 'Edit protocol';
+
+  @override
+  String get deleteProtocol => 'Delete protocol';
+
+  @override
+  String get noProtocolProfiles =>
+      'This workspace has no protocol definitions yet.';
+
+  @override
+  String get protocolName => 'Protocol name';
+
+  @override
+  String get protocolHeader => 'Header HEX';
+
+  @override
+  String get protocolFooter => 'Footer HEX';
+
+  @override
+  String get sendFrame => 'Send frame';
+
+  @override
+  String get receiveFrame => 'Receive frame';
+
+  @override
+  String get lengthField => 'Length field';
+
+  @override
+  String get sequenceField => 'Sequence field';
+
+  @override
+  String get checksumField => 'Checksum field';
+
+  @override
+  String get fieldOffset => 'Field offset';
+
+  @override
+  String get fieldByteLength => 'Byte length';
+
+  @override
+  String get checksumAlgorithm => 'Checksum algorithm';
+
+  @override
+  String get byteOrder => 'Byte order';
+
+  @override
+  String get calculationRange => 'Calculation range';
+
+  @override
+  String get payloadRange => 'Payload';
+
+  @override
+  String get frameExcludingChecksum => 'Frame excluding checksum field';
+
+  @override
+  String get invalidProtocol =>
+      'Enter a protocol name and configure at least one valid frame rule.';
+
+  @override
+  String get newProtocolSegment => 'Add segment';
+
+  @override
+  String get editProtocolSegment => 'Edit segment';
+
+  @override
+  String get deleteProtocolSegment => 'Delete segment';
+
+  @override
+  String get noProtocolSegments => 'No segments configured yet.';
+
+  @override
+  String get segmentType => 'Segment type';
+
+  @override
+  String get segmentLabel => 'Segment label';
+
+  @override
+  String get fixedHexSegment => 'Fixed HEX';
+
+  @override
+  String get payloadSegment => 'Payload';
+
+  @override
+  String get invalidProtocolSegment => 'Enter a valid segment configuration.';
+
+  @override
+  String get moveUp => 'Move up';
+
+  @override
+  String get moveDown => 'Move down';
+
+  @override
+  String get scriptProtocolMode => 'Script protocol';
+
+  @override
+  String get editScriptConfig => 'Edit scripts';
+
+  @override
+  String get scriptEnabled => 'Enable script protocol mode';
+
+  @override
+  String get scriptEngineReady =>
+      'JavaScript runtime is available on this platform';
+
+  @override
+  String get scriptEngineUnavailable =>
+      'This platform only supports editing scripts';
+
+  @override
+  String get beforeSendScript => 'Before-send script';
+
+  @override
+  String get afterReceiveScript => 'After-receive script';
+
+  @override
+  String get loadProtocolSample => 'Load sample protocol scripts';
+
+  @override
+  String get scriptRuntime => 'Script runtime';
+
+  @override
+  String get enabledState => 'Enabled';
+
+  @override
+  String get disabledState => 'Disabled';
 }

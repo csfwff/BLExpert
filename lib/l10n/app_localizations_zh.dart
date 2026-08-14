@@ -271,4 +271,208 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get save => '保存';
+
+  @override
+  String get communication => '通信';
+
+  @override
+  String get workspaceSettings => '工作区设置';
+
+  @override
+  String get deviceTools => '设备';
+
+  @override
+  String get dataView => '数据';
+
+  @override
+  String get editWorkspace => '编辑工作区';
+
+  @override
+  String get deviceModel => '设备型号';
+
+  @override
+  String get description => '描述';
+
+  @override
+  String get tags => '标签';
+
+  @override
+  String get workspaceDevices => '设备配置';
+
+  @override
+  String get sentPackets => '发送';
+
+  @override
+  String get receivedPackets => '接收';
+
+  @override
+  String get noPacketData => '暂无数据';
+
+  @override
+  String get noCommands => '当前工作区还没有指令。';
+
+  @override
+  String get editCommand => '编辑指令';
+
+  @override
+  String get deleteCommand => '删除指令';
+
+  @override
+  String get commandGroup => '分组';
+
+  @override
+  String get commandNotes => '备注';
+
+  @override
+  String get commandFormat => '数据格式';
+
+  @override
+  String get commandHex => 'HEX';
+
+  @override
+  String get commandText => '文本';
+
+  @override
+  String get commandEnabled => '启用';
+
+  @override
+  String get invalidCommandPayload => '请输入有效的数据内容。';
+
+  @override
+  String get commandLibrary => '指令集';
+
+  @override
+  String get quickAccess => '快捷入口';
+
+  @override
+  String get noQuickCommands => '尚未选择快捷指令。';
+
+  @override
+  String get protocolProfiles => '协议定义';
+
+  @override
+  String get newProtocol => '新建协议';
+
+  @override
+  String get editProtocol => '编辑协议';
+
+  @override
+  String get deleteProtocol => '删除协议';
+
+  @override
+  String get noProtocolProfiles => '当前工作区还没有协议定义。';
+
+  @override
+  String get protocolName => '协议名称';
+
+  @override
+  String get protocolHeader => '协议头 HEX';
+
+  @override
+  String get protocolFooter => '协议尾 HEX';
+
+  @override
+  String get sendFrame => '发送帧';
+
+  @override
+  String get receiveFrame => '接收帧';
+
+  @override
+  String get lengthField => '长度字段';
+
+  @override
+  String get sequenceField => '包序号字段';
+
+  @override
+  String get checksumField => '校验字段';
+
+  @override
+  String get fieldOffset => '字段偏移';
+
+  @override
+  String get fieldByteLength => '字节长度';
+
+  @override
+  String get checksumAlgorithm => '校验算法';
+
+  @override
+  String get byteOrder => '字节序';
+
+  @override
+  String get calculationRange => '计算范围';
+
+  @override
+  String get payloadRange => '有效载荷';
+
+  @override
+  String get frameExcludingChecksum => '整帧（排除校验字段）';
+
+  @override
+  String get invalidProtocol => '请填写协议名称，并至少配置一项有效的帧规则。';
+
+  @override
+  String get newProtocolSegment => '新增片段';
+
+  @override
+  String get editProtocolSegment => '编辑片段';
+
+  @override
+  String get deleteProtocolSegment => '删除片段';
+
+  @override
+  String get noProtocolSegments => '尚未配置片段。';
+
+  @override
+  String get segmentType => '片段类型';
+
+  @override
+  String get segmentLabel => '片段名称';
+
+  @override
+  String get fixedHexSegment => '固定 HEX';
+
+  @override
+  String get payloadSegment => '实际数据';
+
+  @override
+  String get invalidProtocolSegment => '请填写有效的片段配置。';
+
+  @override
+  String get moveUp => '上移';
+
+  @override
+  String get moveDown => '下移';
+
+  @override
+  String get scriptProtocolMode => '脚本协议';
+
+  @override
+  String get editScriptConfig => '编辑脚本';
+
+  @override
+  String get scriptEnabled => '启用脚本协议模式';
+
+  @override
+  String get scriptEngineReady => '当前平台支持脚本运行时';
+
+  @override
+  String get scriptEngineUnavailable => '当前平台仅支持脚本编辑，不执行脚本';
+
+  @override
+  String get beforeSendScript => '发送前脚本';
+
+  @override
+  String get afterReceiveScript => '接收后脚本';
+
+  @override
+  String get loadProtocolSample => '装入样例协议脚本';
+
+  @override
+  String get scriptRuntime => '脚本运行时';
+
+  @override
+  String get enabledState => '已启用';
+
+  @override
+  String get disabledState => '未启用';
 }

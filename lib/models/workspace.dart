@@ -1,6 +1,9 @@
 import 'dart:convert';
 
 import 'device_profile.dart';
+import 'command_definition.dart';
+import 'protocol_profile.dart';
+import 'script_config.dart';
 
 /// 一类蓝牙设备的完整调试工作区。
 class Workspace {
@@ -11,6 +14,9 @@ class Workspace {
     required this.description,
     required this.tags,
     required this.devices,
+    required this.protocol,
+    required this.scriptConfig,
+    required this.commands,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -21,6 +27,9 @@ class Workspace {
   final String description;
   final List<String> tags;
   final List<DeviceProfile> devices;
+  final ProtocolDefinition protocol;
+  final ScriptConfig scriptConfig;
+  final List<CommandDefinition> commands;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -33,6 +42,9 @@ class Workspace {
       description: 'BLExpert 初始调试工作区。',
       tags: const <String>['入门', '蓝牙'],
       devices: const <DeviceProfile>[],
+      protocol: ProtocolDefinition.empty(),
+      scriptConfig: ScriptConfig.empty(),
+      commands: const <CommandDefinition>[],
       createdAt: now,
       updatedAt: now,
     );
@@ -48,10 +60,30 @@ class Workspace {
           .map((dynamic item) => item.toString())
           .toList(growable: false),
       devices: (json['devices'] as List<dynamic>? ?? const <dynamic>[])
-          .map((dynamic item) => DeviceProfile.fromJson(Map<String, dynamic>.from(item as Map)))
+          .map(
+            (dynamic item) =>
+                DeviceProfile.fromJson(Map<String, dynamic>.from(item as Map)),
+          )
           .toList(growable: false),
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
-      updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? DateTime.now(),
+      protocol: _protocolFromJson(json),
+      scriptConfig: ScriptConfig.fromJson(
+        Map<String, dynamic>.from(
+          json['scriptConfig'] as Map? ?? const <String, dynamic>{},
+        ),
+      ),
+      commands: (json['commands'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<Map>()
+          .map(
+            (Map item) =>
+                CommandDefinition.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .toList(growable: false),
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.now(),
+      updatedAt:
+          DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
+          DateTime.now(),
     );
   }
 
@@ -62,7 +94,14 @@ class Workspace {
       'deviceModel': deviceModel,
       'description': description,
       'tags': tags,
-      'devices': devices.map((DeviceProfile item) => item.toJson()).toList(growable: false),
+      'devices': devices
+          .map((DeviceProfile item) => item.toJson())
+          .toList(growable: false),
+      'protocol': protocol.toJson(),
+      'scriptConfig': scriptConfig.toJson(),
+      'commands': commands
+          .map((CommandDefinition item) => item.toJson())
+          .toList(growable: false),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -77,6 +116,9 @@ class Workspace {
     String? description,
     List<String>? tags,
     List<DeviceProfile>? devices,
+    ProtocolDefinition? protocol,
+    ScriptConfig? scriptConfig,
+    List<CommandDefinition>? commands,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -87,8 +129,27 @@ class Workspace {
       description: description ?? this.description,
       tags: tags ?? this.tags,
       devices: devices ?? this.devices,
+      protocol: protocol ?? this.protocol,
+      scriptConfig: scriptConfig ?? this.scriptConfig,
+      commands: commands ?? this.commands,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+}
+
+ProtocolDefinition _protocolFromJson(Map<String, dynamic> json) {
+  if (json['protocol'] case final Map protocolMap) {
+    return ProtocolDefinition.fromJson(Map<String, dynamic>.from(protocolMap));
+  }
+
+  final List<dynamic> legacyProfiles =
+      json['protocolProfiles'] as List<dynamic>? ?? const <dynamic>[];
+  if (legacyProfiles.isNotEmpty && legacyProfiles.first is Map) {
+    return ProtocolDefinition.fromJson(
+      Map<String, dynamic>.from(legacyProfiles.first as Map),
+    );
+  }
+
+  return ProtocolDefinition.empty();
 }

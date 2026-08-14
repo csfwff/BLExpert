@@ -40,6 +40,73 @@ void main() {
     expect(find.text('Quick commands'), findsOneWidget);
   });
 
+  testWidgets('工作台可切换工作区与设备功能页', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    expect(find.text('通信'), findsOneWidget);
+    expect(find.text('工作区设置'), findsOneWidget);
+    expect(find.text('协议定义'), findsOneWidget);
+    await tester.tap(find.text('工作区设置'));
+    await tester.pumpAndSettle();
+    expect(find.text('设备型号'), findsOneWidget);
+    expect(find.byTooltip('编辑工作区'), findsOneWidget);
+
+    await tester.tap(find.text('数据'));
+    await tester.pumpAndSettle();
+    expect(find.text('暂无数据'), findsOneWidget);
+
+    await tester.tap(find.text('快捷指令'));
+    await tester.pumpAndSettle();
+    expect(find.text('尚未选择快捷指令。'), findsOneWidget);
+  });
+
+  testWidgets('工作区指令可选择显示在右侧快捷区', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(find.text('指令集'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('新建指令'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '查询状态');
+    await tester.enterText(find.byType(TextField).at(1), '查询');
+    await tester.enterText(find.byType(TextField).at(2), 'AA 55 01');
+    await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('查询'), findsOneWidget);
+    expect(find.text('查询状态'), findsWidgets);
+    expect(find.text('AA 55 01'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('快捷入口'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('快捷指令'));
+    await tester.pumpAndSettle();
+    expect(find.text('查询状态'), findsWidgets);
+  });
+
+  testWidgets('可在左侧新增协议定义', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(find.text('协议定义'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('编辑协议'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '主协议');
+    await tester.enterText(find.byType(TextField).at(1), '测试设备主链路');
+    await tester.tap(find.byTooltip('新增片段').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(1), '帧头');
+    await tester.enterText(find.byType(TextField).at(2), 'AA 55');
+    await tester.tap(find.widgetWithText(FilledButton, '保存').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('主协议'), findsOneWidget);
+  });
+
   testWidgets('连接后可选择写入与订阅特征', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 

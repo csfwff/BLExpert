@@ -577,6 +577,414 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save'**
   String get save;
+
+  /// No description provided for @communication.
+  ///
+  /// In en, this message translates to:
+  /// **'Communication'**
+  String get communication;
+
+  /// No description provided for @workspaceSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspace'**
+  String get workspaceSettings;
+
+  /// No description provided for @deviceTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get deviceTools;
+
+  /// No description provided for @dataView.
+  ///
+  /// In en, this message translates to:
+  /// **'Data'**
+  String get dataView;
+
+  /// No description provided for @editWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit workspace'**
+  String get editWorkspace;
+
+  /// No description provided for @deviceModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Device model'**
+  String get deviceModel;
+
+  /// No description provided for @description.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get description;
+
+  /// No description provided for @tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get tags;
+
+  /// No description provided for @workspaceDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Device profiles'**
+  String get workspaceDevices;
+
+  /// No description provided for @sentPackets.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent'**
+  String get sentPackets;
+
+  /// No description provided for @receivedPackets.
+  ///
+  /// In en, this message translates to:
+  /// **'Received'**
+  String get receivedPackets;
+
+  /// No description provided for @noPacketData.
+  ///
+  /// In en, this message translates to:
+  /// **'No data'**
+  String get noPacketData;
+
+  /// No description provided for @noCommands.
+  ///
+  /// In en, this message translates to:
+  /// **'This workspace has no commands yet.'**
+  String get noCommands;
+
+  /// No description provided for @editCommand.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit command'**
+  String get editCommand;
+
+  /// No description provided for @deleteCommand.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete command'**
+  String get deleteCommand;
+
+  /// No description provided for @commandGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Group'**
+  String get commandGroup;
+
+  /// No description provided for @commandNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get commandNotes;
+
+  /// No description provided for @commandFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Payload format'**
+  String get commandFormat;
+
+  /// No description provided for @commandHex.
+  ///
+  /// In en, this message translates to:
+  /// **'HEX'**
+  String get commandHex;
+
+  /// No description provided for @commandText.
+  ///
+  /// In en, this message translates to:
+  /// **'Text'**
+  String get commandText;
+
+  /// No description provided for @commandEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get commandEnabled;
+
+  /// No description provided for @invalidCommandPayload.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter valid payload data.'**
+  String get invalidCommandPayload;
+
+  /// No description provided for @commandLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Commands'**
+  String get commandLibrary;
+
+  /// No description provided for @quickAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick access'**
+  String get quickAccess;
+
+  /// No description provided for @noQuickCommands.
+  ///
+  /// In en, this message translates to:
+  /// **'No quick commands selected.'**
+  String get noQuickCommands;
+
+  /// No description provided for @protocolProfiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Protocols'**
+  String get protocolProfiles;
+
+  /// No description provided for @newProtocol.
+  ///
+  /// In en, this message translates to:
+  /// **'New protocol'**
+  String get newProtocol;
+
+  /// No description provided for @editProtocol.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit protocol'**
+  String get editProtocol;
+
+  /// No description provided for @deleteProtocol.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete protocol'**
+  String get deleteProtocol;
+
+  /// No description provided for @noProtocolProfiles.
+  ///
+  /// In en, this message translates to:
+  /// **'This workspace has no protocol definitions yet.'**
+  String get noProtocolProfiles;
+
+  /// No description provided for @protocolName.
+  ///
+  /// In en, this message translates to:
+  /// **'Protocol name'**
+  String get protocolName;
+
+  /// No description provided for @protocolHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Header HEX'**
+  String get protocolHeader;
+
+  /// No description provided for @protocolFooter.
+  ///
+  /// In en, this message translates to:
+  /// **'Footer HEX'**
+  String get protocolFooter;
+
+  /// No description provided for @sendFrame.
+  ///
+  /// In en, this message translates to:
+  /// **'Send frame'**
+  String get sendFrame;
+
+  /// No description provided for @receiveFrame.
+  ///
+  /// In en, this message translates to:
+  /// **'Receive frame'**
+  String get receiveFrame;
+
+  /// No description provided for @lengthField.
+  ///
+  /// In en, this message translates to:
+  /// **'Length field'**
+  String get lengthField;
+
+  /// No description provided for @sequenceField.
+  ///
+  /// In en, this message translates to:
+  /// **'Sequence field'**
+  String get sequenceField;
+
+  /// No description provided for @checksumField.
+  ///
+  /// In en, this message translates to:
+  /// **'Checksum field'**
+  String get checksumField;
+
+  /// No description provided for @fieldOffset.
+  ///
+  /// In en, this message translates to:
+  /// **'Field offset'**
+  String get fieldOffset;
+
+  /// No description provided for @fieldByteLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Byte length'**
+  String get fieldByteLength;
+
+  /// No description provided for @checksumAlgorithm.
+  ///
+  /// In en, this message translates to:
+  /// **'Checksum algorithm'**
+  String get checksumAlgorithm;
+
+  /// No description provided for @byteOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Byte order'**
+  String get byteOrder;
+
+  /// No description provided for @calculationRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Calculation range'**
+  String get calculationRange;
+
+  /// No description provided for @payloadRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Payload'**
+  String get payloadRange;
+
+  /// No description provided for @frameExcludingChecksum.
+  ///
+  /// In en, this message translates to:
+  /// **'Frame excluding checksum field'**
+  String get frameExcludingChecksum;
+
+  /// No description provided for @invalidProtocol.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a protocol name and configure at least one valid frame rule.'**
+  String get invalidProtocol;
+
+  /// No description provided for @newProtocolSegment.
+  ///
+  /// In en, this message translates to:
+  /// **'Add segment'**
+  String get newProtocolSegment;
+
+  /// No description provided for @editProtocolSegment.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit segment'**
+  String get editProtocolSegment;
+
+  /// No description provided for @deleteProtocolSegment.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete segment'**
+  String get deleteProtocolSegment;
+
+  /// No description provided for @noProtocolSegments.
+  ///
+  /// In en, this message translates to:
+  /// **'No segments configured yet.'**
+  String get noProtocolSegments;
+
+  /// No description provided for @segmentType.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment type'**
+  String get segmentType;
+
+  /// No description provided for @segmentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment label'**
+  String get segmentLabel;
+
+  /// No description provided for @fixedHexSegment.
+  ///
+  /// In en, this message translates to:
+  /// **'Fixed HEX'**
+  String get fixedHexSegment;
+
+  /// No description provided for @payloadSegment.
+  ///
+  /// In en, this message translates to:
+  /// **'Payload'**
+  String get payloadSegment;
+
+  /// No description provided for @invalidProtocolSegment.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid segment configuration.'**
+  String get invalidProtocolSegment;
+
+  /// No description provided for @moveUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Move up'**
+  String get moveUp;
+
+  /// No description provided for @moveDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Move down'**
+  String get moveDown;
+
+  /// No description provided for @scriptProtocolMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Script protocol'**
+  String get scriptProtocolMode;
+
+  /// No description provided for @editScriptConfig.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit scripts'**
+  String get editScriptConfig;
+
+  /// No description provided for @scriptEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable script protocol mode'**
+  String get scriptEnabled;
+
+  /// No description provided for @scriptEngineReady.
+  ///
+  /// In en, this message translates to:
+  /// **'JavaScript runtime is available on this platform'**
+  String get scriptEngineReady;
+
+  /// No description provided for @scriptEngineUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This platform only supports editing scripts'**
+  String get scriptEngineUnavailable;
+
+  /// No description provided for @beforeSendScript.
+  ///
+  /// In en, this message translates to:
+  /// **'Before-send script'**
+  String get beforeSendScript;
+
+  /// No description provided for @afterReceiveScript.
+  ///
+  /// In en, this message translates to:
+  /// **'After-receive script'**
+  String get afterReceiveScript;
+
+  /// No description provided for @loadProtocolSample.
+  ///
+  /// In en, this message translates to:
+  /// **'Load sample protocol scripts'**
+  String get loadProtocolSample;
+
+  /// No description provided for @scriptRuntime.
+  ///
+  /// In en, this message translates to:
+  /// **'Script runtime'**
+  String get scriptRuntime;
+
+  /// No description provided for @enabledState.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get enabledState;
+
+  /// No description provided for @disabledState.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get disabledState;
 }
 
 class _AppLocalizationsDelegate
