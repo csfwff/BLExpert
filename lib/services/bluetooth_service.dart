@@ -38,6 +38,18 @@ class BluetoothServiceEvent {
   final bool isError;
 }
 
+class BluetoothIncomingData {
+  const BluetoothIncomingData({
+    required this.deviceId,
+    required this.sourceKey,
+    required this.bytes,
+  });
+
+  final String deviceId;
+  final String sourceKey;
+  final List<int> bytes;
+}
+
 enum BluetoothSubscriptionMode { notify, indicate }
 
 /// A GATT characteristic exposed to the debugger after service discovery.
@@ -120,7 +132,7 @@ abstract class BluetoothService {
 
   Future<void> sendData(String deviceId, List<int> bytes);
 
-  Stream<List<int>> watchIncomingData(String deviceId);
+  Stream<BluetoothIncomingData> watchIncomingData(String deviceId);
 
   Stream<BluetoothServiceEvent> watchEvents();
 
@@ -151,8 +163,8 @@ class UniversalBleService implements BluetoothService {
       StreamController<List<BluetoothDeviceInfo>>.broadcast();
   final StreamController<BluetoothServiceEvent> _eventsController =
       StreamController<BluetoothServiceEvent>.broadcast();
-  final Map<String, StreamController<List<int>>> _incomingControllers =
-      <String, StreamController<List<int>>>{};
+  final Map<String, StreamController<BluetoothIncomingData>>
+  _incomingControllers = <String, StreamController<BluetoothIncomingData>>{};
   final Map<String, BluetoothDeviceInfo> _devices =
       <String, BluetoothDeviceInfo>{};
   final Map<String, List<BluetoothCharacteristicInfo>> _characteristics =
@@ -589,9 +601,12 @@ class UniversalBleService implements BluetoothService {
   }
 
   @override
-  Stream<List<int>> watchIncomingData(String deviceId) {
+  Stream<BluetoothIncomingData> watchIncomingData(String deviceId) {
     return _incomingControllers
-        .putIfAbsent(deviceId, () => StreamController<List<int>>.broadcast())
+        .putIfAbsent(
+          deviceId,
+          () => StreamController<BluetoothIncomingData>.broadcast(),
+        )
         .stream;
   }
 
@@ -635,20 +650,31 @@ class UniversalBleService implements BluetoothService {
     Uint8List value,
     int? timestamp,
   ) {
-    final bool isSubscribed =
+    final BluetoothCharacteristicInfo? source =
         (_characteristics[deviceId] ?? const <BluetoothCharacteristicInfo>[])
-            .any(
-              (BluetoothCharacteristicInfo item) =>
-                  item.characteristicId.toLowerCase() ==
+            .cast<BluetoothCharacteristicInfo?>()
+            .firstWhere(
+              (BluetoothCharacteristicInfo? item) =>
+                  item!.characteristicId.toLowerCase() ==
                       characteristicId.toLowerCase() &&
                   item.isSubscribed,
+              orElse: () => null,
             );
-    if (!isSubscribed) {
+    if (source == null) {
       return;
     }
     _incomingControllers
-        .putIfAbsent(deviceId, () => StreamController<List<int>>.broadcast())
-        .add(List<int>.unmodifiable(value));
+        .putIfAbsent(
+          deviceId,
+          () => StreamController<BluetoothIncomingData>.broadcast(),
+        )
+        .add(
+          BluetoothIncomingData(
+            deviceId: deviceId,
+            sourceKey: source.key,
+            bytes: List<int>.unmodifiable(value),
+          ),
+        );
   }
 
   void _setConnected(String deviceId, bool connected) {
@@ -759,7 +785,7 @@ class UniversalBleService implements BluetoothService {
     UniversalBle.onValueChange = null;
     await _devicesController.close();
     await _eventsController.close();
-    for (final StreamController<List<int>> controller
+    for (final StreamController<BluetoothIncomingData> controller
         in _incomingControllers.values) {
       await controller.close();
     }
@@ -778,8 +804,8 @@ class MockBluetoothService implements BluetoothService {
 
   final StreamController<List<BluetoothDeviceInfo>> _scannedDevicesController =
       StreamController<List<BluetoothDeviceInfo>>.broadcast();
-  final Map<String, StreamController<List<int>>> _incomingControllers =
-      <String, StreamController<List<int>>>{};
+  final Map<String, StreamController<BluetoothIncomingData>>
+  _incomingControllers = <String, StreamController<BluetoothIncomingData>>{};
 
   final List<BluetoothDeviceInfo> _devices = <BluetoothDeviceInfo>[
     const BluetoothDeviceInfo(
@@ -898,9 +924,6 @@ class MockBluetoothService implements BluetoothService {
       );
     }
     final List<int> value = <int>[0x12, 0x34];
-    _incomingControllers
-        .putIfAbsent(deviceId, () => StreamController<List<int>>.broadcast())
-        .add(value);
     return value;
   }
 
@@ -916,14 +939,26 @@ class MockBluetoothService implements BluetoothService {
       throw StateError('No write characteristic selected for $deviceId.');
     }
     _incomingControllers
-        .putIfAbsent(deviceId, () => StreamController<List<int>>.broadcast())
-        .add(bytes);
+        .putIfAbsent(
+          deviceId,
+          () => StreamController<BluetoothIncomingData>.broadcast(),
+        )
+        .add(
+          BluetoothIncomingData(
+            deviceId: deviceId,
+            sourceKey: 'mock/write',
+            bytes: List<int>.unmodifiable(bytes),
+          ),
+        );
   }
 
   @override
-  Stream<List<int>> watchIncomingData(String deviceId) {
+  Stream<BluetoothIncomingData> watchIncomingData(String deviceId) {
     return _incomingControllers
-        .putIfAbsent(deviceId, () => StreamController<List<int>>.broadcast())
+        .putIfAbsent(
+          deviceId,
+          () => StreamController<BluetoothIncomingData>.broadcast(),
+        )
         .stream;
   }
 
@@ -989,7 +1024,7 @@ class MockBluetoothService implements BluetoothService {
   @override
   Future<void> dispose() async {
     await _scannedDevicesController.close();
-    for (final StreamController<List<int>> controller
+    for (final StreamController<BluetoothIncomingData> controller
         in _incomingControllers.values) {
       await controller.close();
     }

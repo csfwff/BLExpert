@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/workspace.dart';
+import '../models/script_config.dart';
 
 /// Keeps the current list of workspaces in memory and prepares them for local
 /// persistence or export/import.
@@ -35,7 +36,9 @@ class WorkspaceManager {
   }
 
   void upsertWorkspace(Workspace workspace) {
-    final int index = _workspaces.indexWhere((Workspace item) => item.id == workspace.id);
+    final int index = _workspaces.indexWhere(
+      (Workspace item) => item.id == workspace.id,
+    );
     if (index >= 0) {
       _workspaces[index] = workspace;
     } else {
@@ -50,7 +53,9 @@ class WorkspaceManager {
       return;
     }
 
-    _workspaces = _workspaces.where((Workspace item) => item.id != workspaceId).toList(growable: false);
+    _workspaces = _workspaces
+        .where((Workspace item) => item.id != workspaceId)
+        .toList(growable: false);
     if (_activeWorkspaceId == workspaceId && _workspaces.isNotEmpty) {
       _activeWorkspaceId = _workspaces.first.id;
     }
@@ -63,7 +68,7 @@ class WorkspaceManager {
     if (jsonText == null || jsonText.trim().isEmpty) {
       return;
     }
-    importWorkspaces(jsonText);
+    _restoreWorkspaces(jsonText, imported: false);
   }
 
   /// Persists protocols, script configuration, commands and workspace metadata.
@@ -82,25 +87,49 @@ class WorkspaceManager {
     final Map<String, dynamic> payload = <String, dynamic>{
       'version': 1,
       'activeWorkspaceId': _activeWorkspaceId,
-      'workspaces': _workspaces.map((Workspace workspace) => workspace.toJson()).toList(growable: false),
+      'workspaces': _workspaces
+          .map((Workspace workspace) => workspace.toJson())
+          .toList(growable: false),
     };
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
 
   void importWorkspaces(String jsonText) {
-    final Map<String, dynamic> payload = json.decode(jsonText) as Map<String, dynamic>;
-    final List<dynamic> rawWorkspaces = payload['workspaces'] as List<dynamic>? ?? const <dynamic>[];
+    _restoreWorkspaces(jsonText, imported: true);
+  }
+
+  void _restoreWorkspaces(String jsonText, {required bool imported}) {
+    final Map<String, dynamic> payload =
+        json.decode(jsonText) as Map<String, dynamic>;
+    final List<dynamic> rawWorkspaces =
+        payload['workspaces'] as List<dynamic>? ?? const <dynamic>[];
 
     _workspaces = rawWorkspaces
-        .map((dynamic item) => Workspace.fromJson(Map<String, dynamic>.from(item as Map)))
+        .map(
+          (dynamic item) =>
+              Workspace.fromJson(Map<String, dynamic>.from(item as Map)),
+        )
+        .map(
+          (Workspace workspace) => imported
+              ? workspace.copyWith(
+                  scriptConfig: workspace.scriptConfig.copyWith(
+                    enabled: false,
+                    trustState: ScriptTrustState.importedUntrusted,
+                    source: 'imported JSON',
+                  ),
+                )
+              : workspace,
+        )
         .toList(growable: false);
 
     if (_workspaces.isEmpty) {
       _workspaces = <Workspace>[Workspace.empty()];
     }
 
-    final String candidateId = payload['activeWorkspaceId'] as String? ?? _workspaces.first.id;
-    _activeWorkspaceId = _workspaces.any((Workspace workspace) => workspace.id == candidateId)
+    final String candidateId =
+        payload['activeWorkspaceId'] as String? ?? _workspaces.first.id;
+    _activeWorkspaceId =
+        _workspaces.any((Workspace workspace) => workspace.id == candidateId)
         ? candidateId
         : _workspaces.first.id;
   }

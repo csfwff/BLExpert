@@ -9,6 +9,10 @@ class DeviceProfile {
     required this.notes,
     required this.commands,
     required this.scriptConfig,
+    this.serviceUuid,
+    this.writeCharacteristicUuid,
+    this.subscribeCharacteristicUuid,
+    this.webServiceUuid,
   });
 
   final String id;
@@ -17,6 +21,10 @@ class DeviceProfile {
   final String notes;
   final List<String> commands;
   final ScriptConfig scriptConfig;
+  final String? serviceUuid;
+  final String? writeCharacteristicUuid;
+  final String? subscribeCharacteristicUuid;
+  final String? webServiceUuid;
 
   factory DeviceProfile.fromJson(Map<String, dynamic> json) {
     return DeviceProfile(
@@ -29,9 +37,15 @@ class DeviceProfile {
           .toList(growable: false),
       scriptConfig: ScriptConfig.fromJson(
         Map<String, dynamic>.from(
-          json['scriptConfig'] as Map<dynamic, dynamic>? ?? const <String, dynamic>{},
+          json['scriptConfig'] as Map<dynamic, dynamic>? ??
+              const <String, dynamic>{},
         ),
       ),
+      serviceUuid: json['serviceUuid'] as String?,
+      writeCharacteristicUuid: json['writeCharacteristicUuid'] as String?,
+      subscribeCharacteristicUuid:
+          json['subscribeCharacteristicUuid'] as String?,
+      webServiceUuid: json['webServiceUuid'] as String?,
     );
   }
 
@@ -43,6 +57,16 @@ class DeviceProfile {
       'notes': notes,
       'commands': commands,
       'scriptConfig': scriptConfig.toJson(),
+      if (serviceUuid != null && serviceUuid!.isNotEmpty)
+        'serviceUuid': serviceUuid,
+      if (writeCharacteristicUuid != null &&
+          writeCharacteristicUuid!.isNotEmpty)
+        'writeCharacteristicUuid': writeCharacteristicUuid,
+      if (subscribeCharacteristicUuid != null &&
+          subscribeCharacteristicUuid!.isNotEmpty)
+        'subscribeCharacteristicUuid': subscribeCharacteristicUuid,
+      if (webServiceUuid != null && webServiceUuid!.isNotEmpty)
+        'webServiceUuid': webServiceUuid,
     };
   }
 
@@ -53,6 +77,14 @@ class DeviceProfile {
     String? notes,
     List<String>? commands,
     ScriptConfig? scriptConfig,
+    String? serviceUuid,
+    bool clearServiceUuid = false,
+    String? writeCharacteristicUuid,
+    bool clearWriteCharacteristicUuid = false,
+    String? subscribeCharacteristicUuid,
+    bool clearSubscribeCharacteristicUuid = false,
+    String? webServiceUuid,
+    bool clearWebServiceUuid = false,
   }) {
     return DeviceProfile(
       id: id ?? this.id,
@@ -61,7 +93,16 @@ class DeviceProfile {
       notes: notes ?? this.notes,
       commands: commands ?? this.commands,
       scriptConfig: scriptConfig ?? this.scriptConfig,
+      serviceUuid: clearServiceUuid ? null : (serviceUuid ?? this.serviceUuid),
+      writeCharacteristicUuid: clearWriteCharacteristicUuid
+          ? null
+          : (writeCharacteristicUuid ?? this.writeCharacteristicUuid),
+      subscribeCharacteristicUuid: clearSubscribeCharacteristicUuid
+          ? null
+          : (subscribeCharacteristicUuid ?? this.subscribeCharacteristicUuid),
+      webServiceUuid: clearWebServiceUuid
+          ? null
+          : (webServiceUuid ?? this.webServiceUuid),
     );
   }
 }
-

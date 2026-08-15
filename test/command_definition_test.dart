@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:blexpert/models/command_definition.dart';
 import 'package:blexpert/models/data_mapping.dart';
+import 'package:blexpert/models/device_profile.dart';
 import 'package:blexpert/models/protocol_profile.dart';
 import 'package:blexpert/models/script_config.dart';
 import 'package:blexpert/models/workspace.dart';
@@ -392,5 +393,54 @@ void main() {
       reader.activeWorkspace.scriptConfig.beforeSendScript,
       contains('beforeSend'),
     );
+  });
+
+  test('external import disables scripts and marks them untrusted', () {
+    final Workspace workspace = Workspace.empty().copyWith(
+      scriptConfig: const ScriptConfig(
+        enabled: true,
+        beforeSendScript: 'function beforeSend() { return {}; }',
+        afterReceiveScript: '',
+        language: 'javascript',
+      ),
+    );
+    final WorkspaceManager manager = WorkspaceManager();
+    manager.importWorkspaces(
+      '{"activeWorkspaceId":"${workspace.id}","workspaces":[${workspace.toPrettyJson()}]}',
+    );
+
+    expect(manager.activeWorkspace.scriptConfig.enabled, isFalse);
+    expect(
+      manager.activeWorkspace.scriptConfig.trustState,
+      ScriptTrustState.importedUntrusted,
+    );
+    expect(manager.activeWorkspace.scriptConfig.source, 'imported JSON');
+  });
+
+  test('device connection defaults round-trip through workspace JSON', () {
+    final Workspace workspace = Workspace.empty().copyWith(
+      devices: <DeviceProfile>[
+        DeviceProfile(
+          id: 'device-1',
+          name: 'Meter',
+          protocol: 'BLE',
+          notes: '',
+          commands: const <String>[],
+          scriptConfig: ScriptConfig.empty(),
+          serviceUuid: '180F',
+          writeCharacteristicUuid: '2A19',
+          subscribeCharacteristicUuid: '2A1A',
+          webServiceUuid: '180F',
+        ),
+      ],
+    );
+
+    final DeviceProfile restored = Workspace.fromJson(
+      workspace.toJson(),
+    ).devices.single;
+    expect(restored.serviceUuid, '180F');
+    expect(restored.writeCharacteristicUuid, '2A19');
+    expect(restored.subscribeCharacteristicUuid, '2A1A');
+    expect(restored.webServiceUuid, '180F');
   });
 }

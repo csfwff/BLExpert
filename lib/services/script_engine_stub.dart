@@ -1,3 +1,5 @@
+import '../models/script_config.dart';
+
 class ScriptEngineResult {
   const ScriptEngineResult({
     required this.bytes,
@@ -17,16 +19,36 @@ class ScriptEngineResult {
 }
 
 class ScriptEngineService {
+  static const int maxPacketBytes = 4 * 1024;
+
   bool get isRuntimeAvailable => false;
 
-  Future<ScriptEngineResult> beforeSend(dynamic config, List<int> bytes) async {
+  Future<ScriptEngineResult> beforeSend(
+    ScriptConfig config,
+    List<int> bytes,
+  ) async {
+    if (config.enabled) {
+      throw UnsupportedError(
+        'Web does not execute JavaScript protocol scripts.',
+      );
+    }
     return const ScriptEngineResult(
       bytes: <int>[],
       logs: <String>['Web 端当前不执行 JavaScript 协议脚本。'],
     ).copyWith(bytes: bytes);
   }
 
-  Future<ScriptEngineResult> afterReceive(dynamic config, List<int> bytes) async {
+  Future<ScriptEngineResult> afterReceive(
+    ScriptConfig config,
+    List<int> bytes,
+  ) async {
+    if (config.enabled) {
+      return ScriptEngineResult(
+        bytes: bytes,
+        logs: const <String>['Web 端未执行 JavaScript，已跳过响应映射。'],
+        valid: false,
+      );
+    }
     return const ScriptEngineResult(
       bytes: <int>[],
       logs: <String>['Web 端当前不执行 JavaScript 协议脚本。'],

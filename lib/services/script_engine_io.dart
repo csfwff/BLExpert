@@ -24,7 +24,10 @@ class ScriptEngineResult {
 }
 
 class ScriptEngineService {
-  JavascriptRuntime? _runtime;
+  static const int maxScriptCodeUnits = 64 * 1024;
+  static const int maxPacketBytes = 4 * 1024;
+  static const int maxLogEntries = 20;
+  static const int maxLogCodeUnits = 512;
 
   bool get isRuntimeAvailable => true;
 
@@ -32,14 +35,21 @@ class ScriptEngineService {
     ScriptConfig config,
     List<int> bytes,
   ) async {
-    if (!config.enabled || config.beforeSendScript.trim().isEmpty) {
+    if (!config.enabled) {
       return ScriptEngineResult(bytes: bytes, logs: const <String>[]);
     }
+    if (config.beforeSendScript.trim().isEmpty) {
+      throw const FormatException(
+        'Enabled script protocol requires beforeSend(context).',
+      );
+    }
+    _validateInput(config.beforeSendScript, bytes);
     return _run(
       script: config.beforeSendScript,
       functionName: 'beforeSend',
       context: <String, dynamic>{'payloadHex': _toHex(bytes)},
       fallbackBytes: bytes,
+      requireFrame: true,
     );
   }
 
@@ -50,11 +60,13 @@ class ScriptEngineService {
     if (!config.enabled || config.afterReceiveScript.trim().isEmpty) {
       return ScriptEngineResult(bytes: bytes, logs: const <String>[]);
     }
+    _validateInput(config.afterReceiveScript, bytes);
     return _run(
       script: config.afterReceiveScript,
       functionName: 'afterReceive',
       context: <String, dynamic>{'frameHex': _toHex(bytes)},
       fallbackBytes: bytes,
+      requireFrame: false,
     );
   }
 
@@ -63,10 +75,12 @@ class ScriptEngineService {
     required String functionName,
     required Map<String, dynamic> context,
     required List<int> fallbackBytes,
+    required bool requireFrame,
   }) {
-    final JavascriptRuntime runtime = _runtime ??= getJavascriptRuntime();
+    final JavascriptRuntime runtime = getJavascriptRuntime(xhr: false);
     final String contextJson = jsonEncode(context);
-    final String harness = '''
+    final String harness =
+        '''
 var __blexpertContext = $contextJson;
 $scriptBuiltins
 $script
@@ -83,39 +97,73 @@ $script
   }
 })();
 ''';
-    final JsEvalResult value = runtime.evaluate(harness);
-    final Map<String, dynamic> payload =
-        jsonDecode(value.stringResult) as Map<String, dynamic>;
-    if (payload['ok'] != true) {
-      throw StateError(payload['error']?.toString() ?? 'Script execution failed');
+    try {
+      final JsEvalResult value = runtime.evaluate(harness);
+      final Map<String, dynamic> payload =
+          jsonDecode(value.stringResult) as Map<String, dynamic>;
+      if (payload['ok'] != true) {
+        final String error =
+            payload['error']?.toString() ?? 'Script execution failed';
+        throw StateError(error.substring(0, error.length.clamp(0, 256)));
+      }
+      final Map<String, dynamic> result = Map<String, dynamic>.from(
+        payload['result'] as Map? ?? const <String, dynamic>{},
+      );
+      final String? frameHex = result['frameHex']?.toString();
+      final String? payloadHex = result['payloadHex']?.toString();
+      final String? outputHex = frameHex ?? payloadHex;
+      final List<int> output = outputHex == null || outputHex.trim().isEmpty
+          ? (requireFrame
+                ? throw const FormatException(
+                    'Script must return a non-empty frameHex.',
+                  )
+                : fallbackBytes)
+          : _parseHex(outputHex);
+      if (output.length > maxPacketBytes) {
+        throw const FormatException(
+          'Script output exceeds the 4096-byte limit.',
+        );
+      }
+      final List<String> logs =
+          (result['logs'] as List<dynamic>? ?? const <dynamic>[])
+              .take(maxLogEntries)
+              .map((dynamic item) {
+                final String text = item.toString();
+                return text.substring(0, text.length.clamp(0, maxLogCodeUnits));
+              })
+              .toList(growable: false);
+      return ScriptEngineResult(
+        bytes: output,
+        logs: logs,
+        payloadHex: payloadHex,
+        cmdHex: result['cmdHex']?.toString(),
+        dataHex: result['dataHex']?.toString(),
+        valid: result['valid'] as bool?,
+      );
+    } finally {
+      runtime.dispose();
     }
-    final Map<String, dynamic> result = Map<String, dynamic>.from(
-      payload['result'] as Map? ?? const <String, dynamic>{},
-    );
-    final String? frameHex = result['frameHex']?.toString();
-    final String? payloadHex = result['payloadHex']?.toString();
-    final List<int> bytes = _parseHex(frameHex ?? payloadHex ?? '') ?? fallbackBytes;
-    return ScriptEngineResult(
-      bytes: bytes,
-      logs: (result['logs'] as List<dynamic>? ?? const <dynamic>[])
-          .map((dynamic item) => item.toString())
-          .toList(growable: false),
-      payloadHex: payloadHex,
-      cmdHex: result['cmdHex']?.toString(),
-      dataHex: result['dataHex']?.toString(),
-      valid: result['valid'] as bool?,
-    );
   }
 
-  void dispose() {
-    _runtime?.dispose();
-    _runtime = null;
+  void _validateInput(String script, List<int> bytes) {
+    if (script.length > maxScriptCodeUnits) {
+      throw const FormatException('Script exceeds the 64 KiB limit.');
+    }
+    if (bytes.length > maxPacketBytes) {
+      throw const FormatException('Script input exceeds the 4096-byte limit.');
+    }
   }
+
+  void dispose() {}
 }
 
-List<int>? _parseHex(String value) {
-  final String compact = value.replaceAll(RegExp(r'[^0-9a-fA-F]'), '');
-  if (compact.isEmpty || compact.length.isOdd) return null;
+List<int> _parseHex(String value) {
+  final String compact = value.replaceAll(RegExp(r'[\s:_-]'), '');
+  if (compact.isEmpty ||
+      compact.length.isOdd ||
+      !RegExp(r'^[0-9a-fA-F]+$').hasMatch(compact)) {
+    throw const FormatException('Script returned invalid HEX.');
+  }
   return <int>[
     for (int i = 0; i < compact.length; i += 2)
       int.parse(compact.substring(i, i + 2), radix: 16),

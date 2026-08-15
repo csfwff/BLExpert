@@ -8,11 +8,14 @@ import 'l10n/app_localizations.dart';
 import 'models/workspace.dart';
 import 'models/command_definition.dart';
 import 'models/data_mapping.dart';
+import 'models/device_profile.dart';
 import 'models/protocol_profile.dart';
 import 'models/script_config.dart';
 import 'services/bluetooth_service.dart';
 import 'services/script_engine.dart';
 import 'services/command_payload_encoder.dart';
+import 'services/packet_encoder.dart';
+import 'services/packet_decoder.dart';
 import 'services/data_mapper.dart';
 import 'services/workspace_manager.dart';
 import 'utils/ascii_utils.dart';
@@ -169,13 +172,17 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const int _maxConsoleLogs = 2000;
+  static const int _maxPendingReceiveEvents = 64;
   late final WorkspaceManager _workspaceManager;
   late final BluetoothService _bluetoothService;
   late final ScriptEngineService _scriptEngine;
+  final PacketEncoder _packetEncoder = PacketEncoder();
+  final PacketDecoder _packetDecoder = PacketDecoder();
   late final StreamSubscription<List<BluetoothDeviceInfo>> _scanSubscription;
   late final StreamSubscription<BluetoothServiceEvent>
   _serviceEventSubscription;
-  StreamSubscription<List<int>>? _dataSubscription;
+  StreamSubscription<BluetoothIncomingData>? _dataSubscription;
   final TextEditingController _inputController = TextEditingController();
 
   List<BluetoothDeviceInfo> _devices = <BluetoothDeviceInfo>[];
@@ -193,6 +200,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _inspectorOpen = true;
   List<String> _webOptionalServices = <String>[];
   Future<void> _saveWorkspaceChain = Future<void>.value();
+  final List<BluetoothIncomingData> _pendingReceiveEvents =
+      <BluetoothIncomingData>[];
+  bool _processingReceiveEvents = false;
 
   @override
   void initState() {
@@ -281,57 +291,145 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     await _dataSubscription?.cancel();
     _dataSubscription = _bluetoothService.watchIncomingData(deviceId).listen((
-      List<int> payload,
+      BluetoothIncomingData event,
     ) {
       if (!mounted) {
         return;
       }
-      unawaited(_handleIncomingData(payload));
+      _enqueueIncomingData(event);
     });
   }
 
-  Future<void> _handleIncomingData(List<int> payload) async {
+  void _enqueueIncomingData(BluetoothIncomingData event) {
+    if (_pendingReceiveEvents.length >= _maxPendingReceiveEvents) {
+      setState(() {
+        _logs.insert(
+          0,
+          _LogEntry(_LogKind.received, DateTime.now(), event.bytes),
+        );
+        _logs.insert(
+          0,
+          _LogEntry.system(
+            timestamp: DateTime.now(),
+            message: 'RX 处理队列已满，已保留原始数据并跳过协议/脚本处理。',
+          ),
+        );
+        _trimLogs();
+      });
+      return;
+    }
+    _pendingReceiveEvents.add(event);
+    if (!_processingReceiveEvents) unawaited(_drainReceiveQueue());
+  }
+
+  Future<void> _drainReceiveQueue() async {
+    _processingReceiveEvents = true;
+    try {
+      while (mounted && _pendingReceiveEvents.isNotEmpty) {
+        final BluetoothIncomingData event = _pendingReceiveEvents.removeAt(0);
+        await _handleIncomingData(event.bytes, sourceKey: event.sourceKey);
+      }
+    } finally {
+      _processingReceiveEvents = false;
+    }
+  }
+
+  Future<void> _handleIncomingData(
+    List<int> payload, {
+    String sourceKey = 'read',
+  }) async {
     final Workspace workspace = _workspaceManager.activeWorkspace;
     try {
-      final ScriptEngineResult result = await _scriptEngine.afterReceive(
-        workspace.scriptConfig,
-        payload,
-      );
-      if (!mounted) return;
-      final List<int> decodedPayload = result.bytes;
-      final String? commandHex =
-          result.cmdHex ??
-          (decodedPayload.isEmpty
-              ? null
-              : decodedPayload.first.toRadixString(16).padLeft(2, '0'));
-      final String dataHex =
-          result.dataHex ??
-          (decodedPayload.length < 2 ? '' : _toHex(decodedPayload.sublist(1)));
-      final ParsedResponse? parsed = result.valid == false || commandHex == null
-          ? null
-          : DataMapper.tryParse(
-              mappings: workspace.responseMappings,
-              commandHex: commandHex,
-              dataHex: dataHex,
+      final bool hasStandardProtocol =
+          workspace.protocol.receiveSegments.isNotEmpty;
+      final List<PacketDecodeEvent> decodedEvents = hasStandardProtocol
+          ? _packetDecoder.add(
+              '${_selectedDeviceId ?? 'default'}/$sourceKey',
+              payload,
+              workspace.protocol,
+            )
+          : <PacketDecodeEvent>[];
+      final List<PacketDecodeEvent> frameEvents = decodedEvents
+          .where(
+            (PacketDecodeEvent event) =>
+                event.status == PacketDecodeStatus.frame,
+          )
+          .toList(growable: false);
+      if (hasStandardProtocol && frameEvents.isEmpty) {
+        for (final PacketDecodeEvent event in decodedEvents.where(
+          (PacketDecodeEvent event) =>
+              event.status == PacketDecodeStatus.invalid ||
+              event.status == PacketDecodeStatus.configurationError,
+        )) {
+          _addSystemLog('RX 解码失败：${event.message}');
+        }
+        if (mounted) {
+          setState(() {
+            _logs.insert(
+              0,
+              _LogEntry(_LogKind.received, DateTime.now(), payload),
             );
+            _trimLogs();
+          });
+        }
+        return;
+      }
+      final List<ScriptEngineResult> results = hasStandardProtocol
+          ? frameEvents
+                .map(
+                  (PacketDecodeEvent event) => ScriptEngineResult(
+                    bytes: event.payload,
+                    logs: <String>['标准解帧：${_toHex(event.frame)}'],
+                  ),
+                )
+                .toList(growable: false)
+          : <ScriptEngineResult>[
+              await _scriptEngine.afterReceive(workspace.scriptConfig, payload),
+            ];
+      if (!mounted) return;
+      final List<ParsedResponse> parsedResponses = <ParsedResponse>[];
+      for (final ScriptEngineResult result in results) {
+        final List<int> decodedPayload = result.bytes;
+        final String? commandHex =
+            result.cmdHex ??
+            (decodedPayload.isEmpty
+                ? null
+                : decodedPayload.first.toRadixString(16).padLeft(2, '0'));
+        final String dataHex =
+            result.dataHex ??
+            (decodedPayload.length < 2
+                ? ''
+                : _toHex(decodedPayload.sublist(1)));
+        final ParsedResponse? parsed =
+            result.valid == false || commandHex == null
+            ? null
+            : DataMapper.tryParse(
+                mappings: workspace.responseMappings,
+                commandHex: commandHex,
+                dataHex: dataHex,
+              );
+        if (parsed != null) parsedResponses.add(parsed);
+      }
       setState(() {
         _logs.insert(0, _LogEntry(_LogKind.received, DateTime.now(), payload));
-        if (!listEquals(result.bytes, payload)) {
-          _logs.insert(
-            0,
-            _LogEntry.system(
-              timestamp: DateTime.now(),
-              message: '脚本解码：${_toHex(result.bytes)}',
-            ),
-          );
+        for (final ScriptEngineResult result in results) {
+          if (!hasStandardProtocol && !listEquals(result.bytes, payload)) {
+            _logs.insert(
+              0,
+              _LogEntry.system(
+                timestamp: DateTime.now(),
+                message: '脚本解码：${_toHex(result.bytes)}',
+              ),
+            );
+          }
+          for (final String log in result.logs.reversed) {
+            _logs.insert(
+              0,
+              _LogEntry.system(timestamp: DateTime.now(), message: log),
+            );
+          }
         }
-        for (final String log in result.logs.reversed) {
-          _logs.insert(
-            0,
-            _LogEntry.system(timestamp: DateTime.now(), message: log),
-          );
-        }
-        if (parsed != null) {
+        for (final ParsedResponse parsed in parsedResponses) {
           for (final ParsedDataValue value in parsed.values) {
             _monitoredValues[_monitorFieldId(
               parsed.mapping,
@@ -370,6 +468,7 @@ class _HomeScreenState extends State<HomeScreen> {
             }
           }
         }
+        _trimLogs();
       });
     } catch (error) {
       _showBluetoothError(error);
@@ -381,6 +480,8 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     setState(() {
+      _packetDecoder.reset();
+      _pendingReceiveEvents.clear();
       _selectedDeviceId = deviceId;
       _characteristics = <BluetoothCharacteristicInfo>[];
     });
@@ -547,6 +648,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _updateProtocol(ProtocolDefinition protocol) {
+    _packetDecoder.reset();
     final Workspace workspace = _workspaceManager.activeWorkspace;
     setState(
       () => _upsertWorkspace(
@@ -555,14 +657,46 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _updateScriptConfig(ScriptConfig scriptConfig) {
+  Future<void> _updateScriptConfig(ScriptConfig scriptConfig) async {
     final Workspace workspace = _workspaceManager.activeWorkspace;
+    ScriptConfig accepted = scriptConfig;
+    if (scriptConfig.enabled &&
+        workspace.scriptConfig.trustState ==
+            ScriptTrustState.importedUntrusted) {
+      final bool confirmed =
+          await showDialog<bool>(
+            context: context,
+            builder: (BuildContext context) => AlertDialog(
+              title: const Text('启用未信任脚本？'),
+              content: Text(
+                '来源：${scriptConfig.source}\n'
+                '代码规模：${scriptConfig.beforeSendScript.length + scriptConfig.afterReceiveScript.length} 字符\n\n'
+                '脚本可修改发送到真实设备的 BLE 数据。仅在已审查脚本内容并信任来源时启用。',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('保持禁用'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('信任并启用'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+      if (!confirmed || !mounted) {
+        if (mounted) setState(() {});
+        return;
+      }
+      accepted = scriptConfig.copyWith(
+        trustState: ScriptTrustState.trustedByUser,
+      );
+    }
     setState(
       () => _upsertWorkspace(
-        workspace.copyWith(
-          scriptConfig: scriptConfig,
-          updatedAt: DateTime.now(),
-        ),
+        workspace.copyWith(scriptConfig: accepted, updatedAt: DateTime.now()),
       ),
     );
   }
@@ -1028,8 +1162,12 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       } else {
         await _bluetoothService.connect(device.id);
-        final characteristics = await _bluetoothService.discoverCharacteristics(
+        final discovered = await _bluetoothService.discoverCharacteristics(
           device.id,
+        );
+        final characteristics = await _restoreConnectionDefaults(
+          device.id,
+          discovered,
         );
         if (mounted) {
           setState(() {
@@ -1078,6 +1216,7 @@ class _HomeScreenState extends State<HomeScreen> {
           )
           .toList(growable: false);
     });
+    _saveConnectionDefaults(write: characteristic);
   }
 
   Future<void> _setSubscription(
@@ -1113,6 +1252,7 @@ class _HomeScreenState extends State<HomeScreen> {
           )
           .toList(growable: false);
     });
+    if (enabled) _saveConnectionDefaults(subscribe: characteristic);
     final String modeLabel = mode == BluetoothSubscriptionMode.indicate
         ? l10n.indicate
         : l10n.notify;
@@ -1123,14 +1263,163 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<List<BluetoothCharacteristicInfo>> _restoreConnectionDefaults(
+    String deviceId,
+    List<BluetoothCharacteristicInfo> discovered,
+  ) async {
+    final DeviceProfile? profile = _workspaceManager.activeWorkspace.devices
+        .cast<DeviceProfile?>()
+        .firstWhere(
+          (DeviceProfile? item) => item!.id == deviceId,
+          orElse: () => null,
+        );
+    if (profile == null) return discovered;
+    List<BluetoothCharacteristicInfo> restored = discovered;
+    final BluetoothCharacteristicInfo? write = _findConfiguredCharacteristic(
+      restored,
+      profile.writeCharacteristicUuid,
+      profile.serviceUuid,
+    );
+    if (profile.writeCharacteristicUuid?.isNotEmpty == true) {
+      if (write == null ||
+          (!write.canWrite && !write.canWriteWithoutResponse)) {
+        _addSystemLog('默认写入特征不可用：${profile.writeCharacteristicUuid}');
+      } else {
+        await _bluetoothService.setWriteCharacteristic(deviceId, write);
+        restored = restored
+            .map(
+              (BluetoothCharacteristicInfo item) =>
+                  item.copyWith(isWriteTarget: item.key == write.key),
+            )
+            .toList(growable: false);
+        _addSystemLog('已恢复默认写入特征：${write.characteristicId}');
+      }
+    }
+    final BluetoothCharacteristicInfo? subscribe =
+        _findConfiguredCharacteristic(
+          restored,
+          profile.subscribeCharacteristicUuid,
+          profile.serviceUuid,
+        );
+    if (profile.subscribeCharacteristicUuid?.isNotEmpty == true) {
+      if (subscribe == null || !subscribe.canSubscribe) {
+        _addSystemLog('默认订阅特征不可用：${profile.subscribeCharacteristicUuid}');
+      } else {
+        final BluetoothSubscriptionMode mode =
+            subscribe.canIndicate && !subscribe.canNotify
+            ? BluetoothSubscriptionMode.indicate
+            : BluetoothSubscriptionMode.notify;
+        await _bluetoothService.setCharacteristicSubscription(
+          deviceId,
+          subscribe,
+          true,
+          mode: mode,
+        );
+        restored = restored
+            .map(
+              (BluetoothCharacteristicInfo item) => item.key == subscribe.key
+                  ? item.copyWith(isSubscribed: true, subscriptionMode: mode)
+                  : item,
+            )
+            .toList(growable: false);
+        _addSystemLog('已恢复默认订阅特征：${subscribe.characteristicId}');
+      }
+    }
+    return restored;
+  }
+
+  BluetoothCharacteristicInfo? _findConfiguredCharacteristic(
+    List<BluetoothCharacteristicInfo> characteristics,
+    String? characteristicUuid,
+    String? serviceUuid,
+  ) {
+    if (characteristicUuid == null || characteristicUuid.isEmpty) return null;
+    final String characteristic = characteristicUuid.toLowerCase();
+    final String? service = serviceUuid?.toLowerCase();
+    return characteristics.cast<BluetoothCharacteristicInfo?>().firstWhere(
+      (BluetoothCharacteristicInfo? item) =>
+          item!.characteristicId.toLowerCase() == characteristic &&
+          (service == null ||
+              service.isEmpty ||
+              item.serviceId.toLowerCase() == service),
+      orElse: () => null,
+    );
+  }
+
+  void _saveConnectionDefaults({
+    BluetoothCharacteristicInfo? write,
+    BluetoothCharacteristicInfo? subscribe,
+  }) {
+    final BluetoothDeviceInfo? device = _selectedDevice;
+    if (device == null) return;
+    final Workspace workspace = _workspaceManager.activeWorkspace;
+    final DeviceProfile profile =
+        workspace.devices.cast<DeviceProfile?>().firstWhere(
+          (DeviceProfile? item) => item!.id == device.id,
+          orElse: () => null,
+        ) ??
+        DeviceProfile(
+          id: device.id,
+          name: device.name,
+          protocol: device.protocol,
+          notes: '',
+          commands: const <String>[],
+          scriptConfig: ScriptConfig.empty(),
+        );
+    final DeviceProfile updated = profile.copyWith(
+      serviceUuid: write?.serviceId ?? subscribe?.serviceId,
+      writeCharacteristicUuid: write?.characteristicId,
+      subscribeCharacteristicUuid: subscribe?.characteristicId,
+      webServiceUuid: write?.serviceId ?? subscribe?.serviceId,
+    );
+    _upsertWorkspace(
+      workspace.copyWith(
+        devices: <DeviceProfile>[
+          for (final DeviceProfile item in workspace.devices)
+            if (item.id != updated.id) item,
+          updated,
+        ],
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
+
   Future<void> _send(List<int> bytes) async {
     final device = _selectedDevice;
     if (device == null || !_hasWriteTarget) return;
     try {
       final Workspace workspace = _workspaceManager.activeWorkspace;
-      final ScriptEngineResult result = await _scriptEngine.beforeSend(
-        workspace.scriptConfig,
-        bytes,
+      final bool hasStandardProtocol =
+          workspace.protocol.sendSegments.isNotEmpty;
+      final List<int> businessPayload = List<int>.unmodifiable(bytes);
+      ScriptEngineResult result;
+      if (hasStandardProtocol) {
+        final PacketEncoderResult encoded = _packetEncoder.encode(
+          workspace.protocol,
+          businessPayload,
+        );
+        result = ScriptEngineResult(
+          bytes: encoded.frame,
+          logs: <String>[
+            'standard protocol encoded ${encoded.frame.length} bytes',
+          ],
+          payloadHex: _formatHexForLog(encoded.payload),
+        );
+      } else {
+        result = await _scriptEngine.beforeSend(
+          workspace.scriptConfig,
+          businessPayload,
+        );
+      }
+      if (result.bytes.isEmpty) {
+        throw const FormatException('最终发送帧不能为空。');
+      }
+      if (result.bytes.length > ScriptEngineService.maxPacketBytes) {
+        throw const FormatException('最终发送帧超过 4096 字节上限。');
+      }
+      _addSystemLog(
+        'TX payload: ${result.payloadHex ?? _formatHexForLog(businessPayload)} | '
+        'frame: ${_formatHexForLog(result.bytes)}',
       );
       await _bluetoothService.sendData(device.id, result.bytes);
       if (!mounted) return;
@@ -1142,6 +1431,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _LogEntry.system(timestamp: DateTime.now(), message: log),
           );
         }
+        _trimLogs();
       });
       _addSystemLog(
         AppLocalizations.of(context)!.dataSent(result.bytes.length),
@@ -1150,6 +1440,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _showBluetoothError(error);
     }
   }
+
+  String _formatHexForLog(List<int> bytes) => bytes
+      .map((int value) => value.toRadixString(16).padLeft(2, '0').toUpperCase())
+      .join(' ');
 
   Future<void> _readCharacteristic(
     BluetoothCharacteristicInfo characteristic,
@@ -1161,7 +1455,7 @@ class _HomeScreenState extends State<HomeScreen> {
         deviceId,
         characteristic,
       );
-      await _handleIncomingData(value);
+      await _handleIncomingData(value, sourceKey: characteristic.key);
       if (!mounted) return;
       _addSystemLog(AppLocalizations.of(context)!.dataRead(value.length));
     } catch (error) {
@@ -1182,6 +1476,7 @@ class _HomeScreenState extends State<HomeScreen> {
           message: '$message\n${error.toString()}',
         ),
       );
+      _trimLogs();
     });
     ScaffoldMessenger.of(
       context,
@@ -1197,7 +1492,14 @@ class _HomeScreenState extends State<HomeScreen> {
         0,
         _LogEntry.system(timestamp: DateTime.now(), message: message),
       );
+      _trimLogs();
     });
+  }
+
+  void _trimLogs() {
+    if (_logs.length > _maxConsoleLogs) {
+      _logs.removeRange(_maxConsoleLogs, _logs.length);
+    }
   }
 
   String _bluetoothErrorMessage(Object error) {
@@ -1251,6 +1553,8 @@ class _HomeScreenState extends State<HomeScreen> {
             workspaces: _workspaceManager.workspaces,
             onSelected: (String workspaceId) {
               setState(() {
+                _packetDecoder.reset();
+                _pendingReceiveEvents.clear();
                 _workspaceManager.setActiveWorkspace(workspaceId);
                 _persistWorkspaces();
               });
@@ -1636,6 +1940,9 @@ class _ProtocolConfigurationPanelState
   @override
   void didUpdateWidget(covariant _ProtocolConfigurationPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _mode = widget.scriptConfig.enabled
+        ? _ProtocolMode.script
+        : _ProtocolMode.standard;
     if (oldWidget.protocol != widget.protocol) {
       _protocolNameController.text = widget.protocol.name;
       _descriptionController.text = widget.protocol.description;
