@@ -789,13 +789,6 @@ class MockBluetoothService implements BluetoothService {
       protocol: 'BLE',
       connected: false,
     ),
-    const BluetoothDeviceInfo(
-      id: 'spp-001',
-      name: '经典蓝牙调试板',
-      rssi: -61,
-      protocol: 'SPP',
-      connected: false,
-    ),
   ];
   final Map<String, List<BluetoothCharacteristicInfo>> _characteristics =
       <String, List<BluetoothCharacteristicInfo>>{

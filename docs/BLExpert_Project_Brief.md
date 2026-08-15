@@ -33,8 +33,7 @@ BLExpert 是一款基于 Flutter 的跨平台蓝牙调试与分析工具，面�
 
 协议覆盖范围：
 
-- BLE
-- 经典蓝牙 SPP
+- BLE Central（本项目不支持经典蓝牙 SPP）
 
 ### 2.3 可编程脚本引擎
 
@@ -80,9 +79,8 @@ BLExpert 是一款基于 Flutter 的跨平台蓝牙调试与分析工具，面�
 ## 3. 技术选型建议
 
 - Flutter 3.19+ 或最新稳定版
-- BLE：`flutter_blue_plus` 或 `universal_ble`
-- 经典蓝牙：`flutter_bluetooth_serial`
-- 脚本引擎：`flutter_jscore`、`dart_jscore` 或统一跨平台方案 `flutter_js`
+- BLE：`universal_ble`
+- 脚本引擎：`flutter_js`
 - 状态管理：`provider` 或 `riverpod`
 - 本地持久化：`shared_preferences` + `path_provider`
 - 图表：`fl_chart`

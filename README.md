@@ -1,113 +1,109 @@
 # BLExpert
 
-BLExpert 是一款使用 Flutter 开发的跨平台蓝牙调试与分析工具。
+BLExpert 是一款基于 Flutter 的跨平台 BLE 协议调试与分析工具。它面向嵌入式、IoT、测试和现场支持工程师，将设备连接、原始收发、协议配置、参数化指令和响应字段映射组织为可复用的工作区。
 
-目标平台：
+> 当前版本可用于 BLE 基础调试和工作区配置验证。标准协议自动封包/解帧、日志导出和脚本安全隔离仍在开发中，详见“当前边界”。
 
-- Android
-- iOS
-- Windows
-- macOS
-- Web
+## 当前能力
 
-## 项目目标
+### 调试工作台
 
-BLExpert 面向物联网和嵌入式设备开发场景，重点解决设备协议差异大、调试流程分散、团队协作成本高等问题。
+- 三种工作模式：`调试`、`配置`、`记录`。
+- 桌面端使用模式导航、设备与特征区、通信控制台和可收起 Inspector；窄屏端使用底部导航。
+- 支持亮色、暗色和跟随系统主题，以及中文、英文和跟随系统语言。
+- 通信控制台记录带时间戳的发送、接收、系统和错误事件，支持 HEX/文本手动发送、自动滚动和清空。
 
-应用以“工作区”为核心组织单位，把设备信息、指令集、解析脚本、数据映射表、收发日志和导入导出配置集中管理，让同一类设备的调试过程可以复用、分享和持续沉淀。
+### BLE Central
 
-## 核心能力
+- 基于 `universal_ble` 实现扫描、连接、断开、服务/特征发现。
+- 支持 Read、Write、Write without response、Notify 和 Indicate。
+- 可手动选择写入目标特征和通知/指示订阅特征。
+- 保留 Mock 蓝牙服务：`flutter run --dart-define=USE_MOCK_BLUETOOTH=true`。
+- 覆盖 Android、iOS、Windows、macOS、Linux 和 Web 的 BLE 调试路径，实际平台能力受系统蓝牙栈和浏览器限制。
 
-- 工作区管理：为不同设备或项目建立独立配置空间。
-- 蓝牙通信：支持 BLE 与经典蓝牙 SPP 的扫描、连接、断开、读写和通知订阅。
-- 脚本引擎：通过 JavaScript 在发送前和接收后处理 HEX 数据。
-- 数据解析：把原始 HEX 数据解析为温度、湿度、电量、状态位等结构化字段。
-- 导入导出：将完整工作区导出为单文件 JSON，便于团队协作。
-- 实时可视化：支持 HEX、ASCII、JSON、时间戳日志，后续扩展图表监控。
+### 工作区与协议配置
 
-## 当前状态
+- 工作区保存元信息、协议段、脚本配置、指令、响应映射和最近活动工作区。
+- 使用 `shared_preferences` 保存工作区列表和当前工作区；支持完整工作区 JSON 导入/导出与旧字段兼容读取。
+- 协议编辑支持发送/接收片段：固定 HEX、业务载荷、长度、序号和校验。
+- 已提供 XOR、SUM8、CRC8、CRC16-MODBUS、CRC16-CCITT、CRC32 等协议配置枚举。
+- 标准协议目前是配置模型和编辑器，尚未接入自动长度填充、序号生成、CRC 计算和发送封包。
 
-当前仓库已完成第一版基础骨架：
+### 指令与数据映射
 
-- Flutter 应用入口已替换为 BLExpert 工作台。
-- 已建立工作区、设备配置、脚本配置等基础模型。
-- 已建立工作区管理器，支持 JSON 导入导出的基础能力。
-- 已建立蓝牙服务抽象层，并提供 Mock 实现用于桌面/Web 预览和早期开发。
-- 首页已包含工作区、设备扫描、调试控制台三个区域。
-- 界面支持亮色、暗色和跟随系统三种主题模式。
-- 已接入 Flutter 国际化，支持中文、英文和跟随系统语言；可从顶部语言菜单切换。
-- 已接入 `universal_ble` 的真实 BLE Central 实现：扫描、连接、GATT 服务发现、用户选择通知订阅和写入特征。
+- 指令支持 HEX 或文本业务载荷、启用状态和快捷入口。
+- HEX 指令支持 `{{key}}` 参数占位符：整数、HEX、ASCII、UTF-8、布尔、枚举及当前日期/时间字节。
+- 响应映射按 `CMD` 匹配，字段偏移相对解码后的 `DATA`；支持数值、HEX、ASCII、UTF-8、布尔、枚举、位域、字节序、比例、数值偏移和单位。
+- Inspector 会展示最近一次成功映射的字段值和已启用的快捷指令。
 
-## 蓝牙实现说明
+### JavaScript 协议脚本
 
-- BLE 适配层使用 `universal_ble`，许可证为 BSD 3-Clause，可用于商业项目。
-- 默认运行时使用真实 BLE；Android、iOS、macOS、Windows、Linux 和 Web 均由插件覆盖。
-- 当前基础调试流程会自动选择设备首个可写特征和首个可通知 / 指示特征。后续工作区配置将允许固定指定服务和特征 UUID。
-- 经典蓝牙 SPP 不属于 BLE，需作为独立的平台适配器实现，当前未接入。
-- 本地演示可使用 Mock 服务：`flutter run --dart-define=USE_MOCK_BLUETOOTH=true`。
-- Linux 连接未配对 BLE 设备时会通过系统 `bluetoothctl` 设置临时信任状态；请确保系统已安装 `bluez`，并允许当前用户访问 Bluetooth D-Bus 服务。
-- 部分 Linux/BlueZ 版本不会通过 D-Bus 暴露 Generic Access 的 `1800/2A00`，因此 Linux 只展示 BlueZ 在当前 GATT 会话中真实暴露、可以安全操作的特征。应用不会合成特征或用广播名称替代读取值；其他平台仍按系统蓝牙栈返回的完整特征列表工作。
+- 原生平台通过 `flutter_js` 支持 `beforeSend(context)` 和 `afterReceive(context)`。
+- 提供 HEX、校验和、CRC、MD5 等 JavaScript 内置工具函数。
+- Web 端保留脚本配置，但不执行 JavaScript 脚本。
+- 脚本执行超时、资源隔离、导入信任边界和输出限制尚未完成；不要将来源不明工作区中的脚本视为安全可执行代码。
 
-## 项目资料
+## 当前边界与已知限制
 
-更多项目说明请查看：
-
-- [项目说明文档](docs/BLExpert_Project_Brief.md)
-- [Agent 协作说明](agent.md)
-
-## 建议目录结构
-
-```bash
-lib/
-├── main.dart
-├── models/
-├── services/
-├── providers/
-├── screens/
-├── widgets/
-└── utils/
-```
-
-## 开发优先级
-
-下一阶段建议按以下顺序推进：
-
-1. 拆分 `main.dart`，补齐 `screens/`、`widgets/`、`providers/` 目录。
-2. 接入状态管理，统一管理工作区、扫描状态、连接状态和日志。
-3. 接入真实 BLE 插件，优先实现扫描、连接、服务发现、特征值读写。
-4. 设计经典蓝牙 SPP 的平台适配方案。
-5. 完善 HEX 工具、CRC 工具和数据日志结构。
-6. 集成 JavaScript 脚本引擎。
-7. 实现工作区持久化、导入导出和示例工作区。
+- 产品范围仅包含 BLE Central；不计划支持经典蓝牙 SPP。
+- 标准协议配置尚未形成运行闭环：没有 `PacketEncoder`、接收缓冲、粘包/拆包恢复和通用 CRC 验证。
+- 响应映射依赖脚本或未来协议层先提供稳定的 `CMD/DATA`；原始 BLE 通知不会自动按配置解帧。
+- 工作区尚未保存默认服务 UUID、默认写入特征或默认订阅特征，因此重新连接后仍需手动选择。
+- 工作区导入会直接恢复脚本的 `enabled` 状态；在脚本安全 P0 完成前，应只导入可信来源的配置。
+- 会话记录目前是内存日志视图，没有持久化、筛选、书签和正式导出能力。
+- 尚未完成多平台真机回归与发布准备。
 
 ## 运行项目
+
+环境要求：Flutter SDK（Dart `^3.12.1`）。
 
 ```bash
 flutter pub get
 flutter run
 ```
 
-### Web Bluetooth 调试
+开发验证：
 
-Chrome 的 Web Bluetooth 在 Linux 等平台需要启用实验性 Web 平台功能。使用以下命令启动 Flutter Web，Flutter 会将参数传给它启动的 Chrome：
+```bash
+flutter analyze
+flutter test
+```
+
+当前仓库测试覆盖工作区/指令/协议 JSON 兼容、参数化载荷编码、响应字段映射、Web 服务 UUID 解析和核心 Widget 工作流。
+
+## Web Bluetooth 调试
+
+Web Bluetooth 需要 Chrome 或 Chromium，并受浏览器安全模型约束。Linux 等平台通常还要启用实验性 Web 平台功能：
 
 ```bash
 flutter run -d chrome \
   --web-browser-flag=--enable-experimental-web-platform-features
 ```
 
-VS Code 用户可从“运行和调试”选择 `BLExpert Web Bluetooth` 配置；该配置已包含相同参数。首次使用时还应确认：
+使用前请注意：
 
-- 使用 Google Chrome 或 Chromium，且蓝牙适配器已开启。
-- 在 Chrome 地址栏打开 `chrome://flags/#enable-experimental-web-platform-features`，确认该实验功能为 `Enabled`，然后重启浏览器。
-- Web Bluetooth 仅允许在安全上下文中访问。`flutter run` 提供的本地地址可用；部署环境需使用 HTTPS。
-- Web Bluetooth 要求在设备选择前声明允许访问的服务。点击顶部的“Web 服务 UUID”配置按钮，填写当前工作区设备需要访问的全部服务 UUID（16 位、32 位或 128 位均可）；应用不会内置任何厂商设备 UUID。浏览器只能返回本次设备选择时已声明的服务，漏填的服务及其特征不会暴露给网页。
-- Web 端仅使用设备选择器发现设备，不启动实验性的广告监听；这可避免 Chrome/Linux 持续占用 BlueZ 扫描并阻塞后续 GATT 连接。
+- 本地 `flutter run` 地址可使用；部署环境必须使用 HTTPS。
+- 在 Chrome 中启用 `chrome://flags/#enable-experimental-web-platform-features` 后重启浏览器。
+- 设备选择前必须配置需要访问的服务 UUID。应用支持 16 位、32 位和 128 位服务 UUID，并会标准化处理。
+- 未通过 Web Bluetooth `optionalServices` 声明的服务和特征不会暴露给网页；修改 UUID 后需重新扫描并重新选择设备。
+- Web 端不运行 JavaScript 协议脚本，但原始 BLE 调试仍可使用。
 
-## 设计原则
+## Linux / BlueZ 说明
 
-- 优先使用中文界面和中文文档。
-- 默认跟随系统主题，同时允许用户手动切换亮色和暗色模式。
-- 首页应直接呈现可用工具，不做营销页。
-- 调试界面应保持专业、紧凑、易扫描。
-- 平台特定能力必须放在服务层或适配层，避免 UI 直接绑定插件。
+- 连接未配对设备时，应用会通过系统能力尝试设置临时信任；请确保已安装 `bluez`，且当前用户可访问 Bluetooth D-Bus 服务。
+- 连接前会停止扫描，降低 BlueZ 扫描与 GATT 连接的竞态风险。
+- Linux 仅展示 BlueZ 在当前 GATT 会话中真实暴露且可安全操作的服务和特征；不会合成特征或用广播名称替代读取值。
+
+## 文档
+
+- [项目说明](docs/BLExpert_Project_Brief.md)
+- [当前阶段总结与下一步](docs/BLExpert_阶段总结与下一步计划.md)
+- [开发计划](docs/BLExpert_开发计划.md)
+- [UI 设计规范与下一轮改造方向](docs/BLExpert_UI设计规范与改造方向.md)
+- [脚本执行安全评估与整改计划](docs/脚本执行安全评估与整改计划.md)
+- [AI 协议文档自动配置方案评估](docs/BLExpert_AI协议文档自动配置方案评估.md)
+- [Agent 协作说明](agent.md)
+
+## 项目级技能
+
+仓库在 `.agents/skills/` 固化了项目级设计技能，包括 `ui-ux-pro-max`。UI 设计、评审和实现任务应先加载对应技能，并遵循 [UI 设计规范与下一轮改造方向](docs/BLExpert_UI设计规范与改造方向.md)。
