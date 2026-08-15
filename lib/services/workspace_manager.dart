@@ -1,17 +1,23 @@
 import 'dart:convert';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/workspace.dart';
 
 /// Keeps the current list of workspaces in memory and prepares them for local
 /// persistence or export/import.
 class WorkspaceManager {
-  WorkspaceManager() {
+  WorkspaceManager({SharedPreferences? preferences}) {
+    _preferences = preferences;
     _workspaces = <Workspace>[Workspace.empty()];
     _activeWorkspaceId = _workspaces.first.id;
   }
 
+  static const String _storageKey = 'blexpert.workspace-store.v1';
+
   late List<Workspace> _workspaces;
   late String _activeWorkspaceId;
+  SharedPreferences? _preferences;
 
   List<Workspace> get workspaces => List<Workspace>.unmodifiable(_workspaces);
 
@@ -50,6 +56,28 @@ class WorkspaceManager {
     }
   }
 
+  /// Loads every persisted workspace and restores the active workspace ID.
+  Future<void> load() async {
+    _preferences ??= await SharedPreferences.getInstance();
+    final String? jsonText = _preferences!.getString(_storageKey);
+    if (jsonText == null || jsonText.trim().isEmpty) {
+      return;
+    }
+    importWorkspaces(jsonText);
+  }
+
+  /// Persists protocols, script configuration, commands and workspace metadata.
+  Future<void> save() async {
+    _preferences ??= await SharedPreferences.getInstance();
+    final bool saved = await _preferences!.setString(
+      _storageKey,
+      exportWorkspaces(),
+    );
+    if (!saved) {
+      throw StateError('Unable to save workspace configuration.');
+    }
+  }
+
   String exportWorkspaces() {
     final Map<String, dynamic> payload = <String, dynamic>{
       'version': 1,
@@ -77,4 +105,3 @@ class WorkspaceManager {
         : _workspaces.first.id;
   }
 }
-

@@ -1,8 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:blexpert/models/command_definition.dart';
+import 'package:blexpert/models/data_mapping.dart';
 import 'package:blexpert/models/protocol_profile.dart';
+import 'package:blexpert/models/script_config.dart';
 import 'package:blexpert/models/workspace.dart';
+import 'package:blexpert/services/workspace_manager.dart';
+import 'package:blexpert/services/command_payload_encoder.dart';
+import 'package:blexpert/services/data_mapper.dart';
+import 'package:blexpert/utils/ascii_utils.dart';
 
 void main() {
   test('command definitions round-trip through workspace JSON', () {
@@ -88,5 +95,302 @@ void main() {
     expect(workspace.commands, isEmpty);
     expect(workspace.protocol.sendSegments, isEmpty);
     expect(workspace.protocol.receiveSegments, isEmpty);
+  });
+
+  test('parameterized HEX command expands business payload placeholders', () {
+    const CommandDefinition command = CommandDefinition(
+      id: 'set-level',
+      name: 'Set level',
+      group: 'Control',
+      payload: 'AA {{level}} {{enabled}}',
+      format: CommandPayloadFormat.hex,
+      notes: '',
+      enabled: true,
+      isQuickAccess: true,
+      parameters: <CommandParameter>[
+        CommandParameter(
+          key: 'level',
+          label: 'Level',
+          type: CommandParameterType.uint8,
+          defaultValue: '0',
+          min: 0,
+          max: 100,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'enabled',
+          label: 'Enabled',
+          type: CommandParameterType.boolean,
+          defaultValue: 'true',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+      ],
+    );
+
+    expect(
+      CommandPayloadEncoder.encode(command, <String, String>{
+        'level': '75',
+        'enabled': 'false',
+      }),
+      <int>[0xAA, 75, 0],
+    );
+  });
+
+  test('individual current time parameters encode one byte each', () {
+    const CommandDefinition command = CommandDefinition(
+      id: 'clock',
+      name: 'Clock',
+      group: '',
+      payload: '{{year}} {{month}} {{day}} {{hour}} {{minute}} {{second}}',
+      format: CommandPayloadFormat.hex,
+      notes: '',
+      enabled: true,
+      isQuickAccess: false,
+      parameters: <CommandParameter>[
+        CommandParameter(
+          key: 'year',
+          label: 'Year',
+          type: CommandParameterType.currentYear,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'month',
+          label: 'Month',
+          type: CommandParameterType.currentMonth,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'day',
+          label: 'Day',
+          type: CommandParameterType.currentDay,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'hour',
+          label: 'Hour',
+          type: CommandParameterType.currentHour,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'minute',
+          label: 'Minute',
+          type: CommandParameterType.currentMinute,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'second',
+          label: 'Second',
+          type: CommandParameterType.currentSecond,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+      ],
+    );
+
+    final DateTime before = DateTime.now();
+    final List<int> bytes = CommandPayloadEncoder.encode(
+      command,
+      const <String, String>{},
+    );
+    final DateTime after = DateTime.now();
+    expect(bytes, hasLength(6));
+    expect(bytes[0], anyOf(before.year % 100, after.year % 100));
+    expect(bytes[1], anyOf(before.month, after.month));
+    expect(bytes[2], anyOf(before.day, after.day));
+    expect(bytes[3], anyOf(before.hour, after.hour));
+    expect(bytes[4], anyOf(before.minute, after.minute));
+  });
+
+  test('data mapper parses CMD response fields from DATA offsets', () {
+    const ResponseMapping mapping = ResponseMapping(
+      id: 'status',
+      name: 'Status response',
+      commandHex: 'A1',
+      fields: <DataField>[
+        DataField(
+          key: 'temperature',
+          label: 'Temperature',
+          offset: 0,
+          byteLength: 2,
+          type: DataFieldType.int16,
+          byteOrder: ProtocolByteOrder.bigEndian,
+          scale: 0.1,
+          offsetValue: 0,
+          unit: 'C',
+          bit: null,
+          enumValues: <String, String>{},
+        ),
+        DataField(
+          key: 'charging',
+          label: 'Charging',
+          offset: 2,
+          byteLength: 1,
+          type: DataFieldType.bit,
+          byteOrder: ProtocolByteOrder.littleEndian,
+          scale: 1,
+          offsetValue: 0,
+          unit: '',
+          bit: 1,
+          enumValues: <String, String>{},
+          visibleInDataPanel: false,
+        ),
+      ],
+    );
+
+    final ParsedResponse? result = DataMapper.tryParse(
+      mappings: const <ResponseMapping>[mapping],
+      commandHex: 'A1',
+      dataHex: '00 EA 02',
+    );
+
+    expect(result, isNotNull);
+    expect(result!.values[0].displayValue, '23.4');
+    expect(result.values[0].unit, 'C');
+    expect(result.values[1].value, isTrue);
+    expect(mapping.fields[0].visibleInDataPanel, isTrue);
+    expect(mapping.fields[1].visibleInDataPanel, isFalse);
+  });
+
+  test('workspace persists command parameters and response mappings', () {
+    final Workspace workspace = Workspace.empty().copyWith(
+      commands: const <CommandDefinition>[
+        CommandDefinition(
+          id: 'command',
+          name: 'Command',
+          group: '',
+          payload: 'A0 {{mode}}',
+          format: CommandPayloadFormat.hex,
+          notes: '',
+          enabled: true,
+          isQuickAccess: false,
+          parameters: <CommandParameter>[
+            CommandParameter(
+              key: 'mode',
+              label: 'Mode',
+              type: CommandParameterType.enumValue,
+              defaultValue: '1',
+              min: null,
+              max: null,
+              options: <CommandParameterOption>[
+                CommandParameterOption(label: 'On', value: '1'),
+              ],
+            ),
+          ],
+        ),
+      ],
+      responseMappings: const <ResponseMapping>[
+        ResponseMapping(
+          id: 'response',
+          name: 'Response',
+          commandHex: 'A0',
+          fields: <DataField>[
+            DataField(
+              key: 'hidden',
+              label: 'Hidden',
+              offset: 0,
+              byteLength: 1,
+              type: DataFieldType.uint8,
+              byteOrder: ProtocolByteOrder.littleEndian,
+              scale: 1,
+              offsetValue: 0,
+              unit: '',
+              bit: null,
+              enumValues: <String, String>{},
+              visibleInDataPanel: false,
+            ),
+          ],
+          asciiLogEnabled: true,
+        ),
+      ],
+    );
+    final Workspace restored = Workspace.fromJson(workspace.toJson());
+    expect(
+      restored.commands.single.parameters.single.options.single.label,
+      'On',
+    );
+    expect(restored.responseMappings.single.commandHex, 'A0');
+    expect(restored.responseMappings.single.asciiLogEnabled, isTrue);
+    expect(
+      restored.responseMappings.single.fields.single.visibleInDataPanel,
+      isFalse,
+    );
+  });
+
+  test('printable ASCII removes NUL and control bytes from padded data', () {
+    expect(
+      printableAscii(<int>[
+        ...'02.01'.codeUnits,
+        0,
+        0,
+        ...'M01'.codeUnits,
+        0,
+        0,
+        ...'Infinix'.codeUnits,
+        0,
+        0x0A,
+      ]),
+      '02.01M01Infinix',
+    );
+  });
+
+  test('workspace store persists protocol and script configuration', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final Workspace workspace = Workspace.empty().copyWith(
+      protocol: ProtocolDefinition(
+        name: 'Encrypted protocol',
+        description: 'Uses a script for full-frame encryption.',
+        sendSegments: const <ProtocolSegment>[
+          ProtocolSegment(
+            id: 'payload',
+            type: ProtocolSegmentType.payload,
+            label: 'Payload',
+            byteLength: null,
+            byteOrder: null,
+            fixedHex: '',
+            checksumAlgorithm: null,
+            calculationRange: null,
+          ),
+        ],
+        receiveSegments: const <ProtocolSegment>[],
+      ),
+      scriptConfig: const ScriptConfig(
+        enabled: true,
+        beforeSendScript: 'function beforeSend(context) { return {}; }',
+        afterReceiveScript: 'function afterReceive(context) { return {}; }',
+        language: 'javascript',
+      ),
+    );
+    final WorkspaceManager writer = WorkspaceManager();
+    writer.upsertWorkspace(workspace);
+    await writer.save();
+
+    final WorkspaceManager reader = WorkspaceManager();
+    await reader.load();
+
+    expect(reader.activeWorkspace.protocol.name, 'Encrypted protocol');
+    expect(reader.activeWorkspace.scriptConfig.enabled, isTrue);
+    expect(
+      reader.activeWorkspace.scriptConfig.beforeSendScript,
+      contains('beforeSend'),
+    );
   });
 }

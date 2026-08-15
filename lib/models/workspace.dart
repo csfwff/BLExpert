@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'device_profile.dart';
 import 'command_definition.dart';
+import 'data_mapping.dart';
 import 'protocol_profile.dart';
 import 'script_config.dart';
 
@@ -17,6 +18,7 @@ class Workspace {
     required this.protocol,
     required this.scriptConfig,
     required this.commands,
+    required this.responseMappings,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -30,6 +32,7 @@ class Workspace {
   final ProtocolDefinition protocol;
   final ScriptConfig scriptConfig;
   final List<CommandDefinition> commands;
+  final List<ResponseMapping> responseMappings;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -45,6 +48,7 @@ class Workspace {
       protocol: ProtocolDefinition.empty(),
       scriptConfig: ScriptConfig.empty(),
       commands: const <CommandDefinition>[],
+      responseMappings: const <ResponseMapping>[],
       createdAt: now,
       updatedAt: now,
     );
@@ -78,6 +82,14 @@ class Workspace {
                 CommandDefinition.fromJson(Map<String, dynamic>.from(item)),
           )
           .toList(growable: false),
+      responseMappings:
+          (json['responseMappings'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map>()
+              .map(
+                (Map item) =>
+                    ResponseMapping.fromJson(Map<String, dynamic>.from(item)),
+              )
+              .toList(growable: false),
       createdAt:
           DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
@@ -102,6 +114,9 @@ class Workspace {
       'commands': commands
           .map((CommandDefinition item) => item.toJson())
           .toList(growable: false),
+      'responseMappings': responseMappings
+          .map((ResponseMapping item) => item.toJson())
+          .toList(growable: false),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -119,6 +134,7 @@ class Workspace {
     ProtocolDefinition? protocol,
     ScriptConfig? scriptConfig,
     List<CommandDefinition>? commands,
+    List<ResponseMapping>? responseMappings,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -132,6 +148,7 @@ class Workspace {
       protocol: protocol ?? this.protocol,
       scriptConfig: scriptConfig ?? this.scriptConfig,
       commands: commands ?? this.commands,
+      responseMappings: responseMappings ?? this.responseMappings,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

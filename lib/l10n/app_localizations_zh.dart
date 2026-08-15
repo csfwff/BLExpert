@@ -475,4 +475,141 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get disabledState => '未启用';
+
+  @override
+  String get standardProtocol => '普通协议';
+
+  @override
+  String get standardProtocolHint =>
+      '适用于可由固定 HEX、实际数据、长度、序号和校验字段描述的协议。按片段顺序配置，发送与接收可独立定义。';
+
+  @override
+  String get scriptProtocolHint =>
+      '适用于加密、转义、动态 CRC、TLV 或自定义拆包等复杂协议。脚本接管完整数据帧的编码和解码。';
+
+  @override
+  String get scriptMethods => '必须实现的方法';
+
+  @override
+  String get beforeSendContract => '发送前调用。输入业务载荷 HEX，返回完整待发送帧 HEX。';
+
+  @override
+  String get afterReceiveContract => '接收后调用。输入完整接收帧 HEX，返回解码后的业务载荷和校验状态。';
+
+  @override
+  String get scriptBuiltins => '内置脚本工具';
+
+  @override
+  String get scriptBuiltinsHint =>
+      '脚本运行时自动注入。校验函数返回无符号整数，哈希函数返回大写 HEX；value 可传 HEX 字符串或字节数组。';
+
+  @override
+  String get dataMappings => '数据映射';
+
+  @override
+  String get addResponseMapping => '新增响应映射';
+
+  @override
+  String get dataMappingHint => '接收后先由协议或脚本得到 CMD 和 DATA；字段偏移从 DATA 的第 0 字节开始。';
+
+  @override
+  String get noResponseMappings => '尚未配置响应映射。';
+
+  @override
+  String mappingFieldCount(String command, int count) {
+    return 'CMD $command | $count 个字段';
+  }
+
+  @override
+  String get newResponseMapping => '新增响应映射';
+
+  @override
+  String get editResponseMapping => '编辑响应映射';
+
+  @override
+  String get deleteResponseMapping => '删除响应映射';
+
+  @override
+  String get responseName => '响应名称';
+
+  @override
+  String get responseCommandHex => '响应 CMD HEX';
+
+  @override
+  String get responseFieldsHint => '字段（偏移相对于 DATA）';
+
+  @override
+  String get addDataField => '新增字段';
+
+  @override
+  String get responseAsciiLog => 'ASCII 日志转码';
+
+  @override
+  String get responseAsciiLogHint => '命中此响应时，过滤空字节和控制字符后额外记录 ASCII 文本。';
+
+  @override
+  String get invalidResponseMapping => '请输入响应名称、一个 CMD 字节和字段 key。';
+
+  @override
+  String asciiDecodedLog(String name, String value) {
+    return 'ASCII $name: $value';
+  }
+
+  @override
+  String get fieldKey => '字段 key';
+
+  @override
+  String get fieldLabel => '字段名称';
+
+  @override
+  String get deleteDataField => '删除字段';
+
+  @override
+  String get dataOffset => 'DATA 偏移';
+
+  @override
+  String get dataFieldType => '字段类型';
+
+  @override
+  String get numericScale => '比例';
+
+  @override
+  String get numericOffset => '数值偏移';
+
+  @override
+  String get unit => '单位';
+
+  @override
+  String get bitNumber => '位号';
+
+  @override
+  String get bitNumberHint => '从 0 开始';
+
+  @override
+  String get enumValues => '枚举值';
+
+  @override
+  String get enumValuesHint => '数值=显示名称，多个选项以逗号分隔';
+
+  @override
+  String get commandsAndData => '指令与数据';
+
+  @override
+  String get mappedData => '映射数据';
+
+  @override
+  String get noMappedFields => '尚未选择要显示的映射字段。';
+
+  @override
+  String get showInDataPanel => '显示在数据面板';
+
+  @override
+  String commandLog(String name, String parameters) {
+    return '指令 $name: $parameters';
+  }
+
+  @override
+  String responseLog(String name, String command, String values) {
+    return '响应 $name（CMD $command）: $values';
+  }
 }

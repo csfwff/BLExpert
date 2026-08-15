@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_js/flutter_js.dart';
 
 import '../models/script_config.dart';
+import 'script_builtins.dart';
 
 class ScriptEngineResult {
   const ScriptEngineResult({
@@ -67,6 +68,7 @@ class ScriptEngineService {
     final String contextJson = jsonEncode(context);
     final String harness = '''
 var __blexpertContext = $contextJson;
+$scriptBuiltins
 $script
 (function() {
   try {

@@ -25,7 +25,7 @@ void main() {
     expect(find.text('BLExpert'), findsWidgets);
     expect(find.text('默认工作区'), findsOneWidget);
     expect(find.text('控制台'), findsOneWidget);
-    expect(find.text('快捷指令'), findsOneWidget);
+    expect(find.text('指令与数据'), findsOneWidget);
   });
 
   testWidgets('可从语言菜单切换至英文界面', (WidgetTester tester) async {
@@ -37,7 +37,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Console'), findsOneWidget);
-    expect(find.text('Quick commands'), findsOneWidget);
+    expect(find.text('Commands & data'), findsOneWidget);
   });
 
   testWidgets('工作台可切换工作区与设备功能页', (WidgetTester tester) async {
@@ -51,13 +51,10 @@ void main() {
     expect(find.text('设备型号'), findsOneWidget);
     expect(find.byTooltip('编辑工作区'), findsOneWidget);
 
-    await tester.tap(find.text('数据'));
-    await tester.pumpAndSettle();
-    expect(find.text('暂无数据'), findsOneWidget);
-
-    await tester.tap(find.text('快捷指令'));
+    await tester.tap(find.text('指令与数据'));
     await tester.pumpAndSettle();
     expect(find.text('尚未选择快捷指令。'), findsOneWidget);
+    expect(find.text('尚未选择要显示的映射字段。'), findsOneWidget);
   });
 
   testWidgets('工作区指令可选择显示在右侧快捷区', (WidgetTester tester) async {
@@ -80,7 +77,7 @@ void main() {
 
     await tester.tap(find.byTooltip('快捷入口'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('快捷指令'));
+    await tester.tap(find.text('指令与数据'));
     await tester.pumpAndSettle();
     expect(find.text('查询状态'), findsWidgets);
   });
@@ -90,21 +87,15 @@ void main() {
 
     await tester.tap(find.text('协议定义'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('编辑协议'));
-    await tester.pumpAndSettle();
-
     await tester.enterText(find.byType(TextField).at(0), '主协议');
     await tester.enterText(find.byType(TextField).at(1), '测试设备主链路');
     await tester.tap(find.byTooltip('新增片段').first);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(1), '帧头');
-    await tester.enterText(find.byType(TextField).at(2), 'AA 55');
-    await tester.tap(find.widgetWithText(FilledButton, '保存').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+    await tester.tap(find.text('固定 HEX').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('主协议'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '主协议'), findsOneWidget);
+    expect(find.text('固定 HEX'), findsWidgets);
   });
 
   testWidgets('连接后可选择写入与订阅特征', (WidgetTester tester) async {

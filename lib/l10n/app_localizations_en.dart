@@ -482,4 +482,146 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get disabledState => 'Disabled';
+
+  @override
+  String get standardProtocol => 'Standard protocol';
+
+  @override
+  String get standardProtocolHint =>
+      'Use for protocols described by fixed HEX, payload, length, sequence, and checksum fields. Configure ordered segments separately for send and receive.';
+
+  @override
+  String get scriptProtocolHint =>
+      'Use for encryption, escaping, dynamic CRC, TLV, or custom framing. Scripts take ownership of full-frame encoding and decoding.';
+
+  @override
+  String get scriptMethods => 'Required methods';
+
+  @override
+  String get beforeSendContract =>
+      'Called before sending. Accepts business payload HEX and returns the complete frame HEX to write.';
+
+  @override
+  String get afterReceiveContract =>
+      'Called after receiving. Accepts a complete received frame HEX and returns decoded payload and validation state.';
+
+  @override
+  String get scriptBuiltins => 'Built-in script tools';
+
+  @override
+  String get scriptBuiltinsHint =>
+      'Injected automatically by the runtime. Checksums return unsigned integers, hashes return uppercase HEX; value accepts HEX text or byte arrays.';
+
+  @override
+  String get dataMappings => 'Data mappings';
+
+  @override
+  String get addResponseMapping => 'Add response mapping';
+
+  @override
+  String get dataMappingHint =>
+      'After protocol or script decoding produces CMD and DATA, field offsets begin at DATA byte 0.';
+
+  @override
+  String get noResponseMappings => 'No response mappings configured.';
+
+  @override
+  String mappingFieldCount(String command, int count) {
+    return 'CMD $command | $count fields';
+  }
+
+  @override
+  String get newResponseMapping => 'New response mapping';
+
+  @override
+  String get editResponseMapping => 'Edit response mapping';
+
+  @override
+  String get deleteResponseMapping => 'Delete response mapping';
+
+  @override
+  String get responseName => 'Response name';
+
+  @override
+  String get responseCommandHex => 'Response CMD HEX';
+
+  @override
+  String get responseFieldsHint => 'Fields (offsets are relative to DATA)';
+
+  @override
+  String get addDataField => 'Add field';
+
+  @override
+  String get responseAsciiLog => 'ASCII log decoding';
+
+  @override
+  String get responseAsciiLogHint =>
+      'When this response matches, append printable ASCII with NUL and control bytes removed.';
+
+  @override
+  String get invalidResponseMapping =>
+      'Enter a response name, one CMD byte, and field keys.';
+
+  @override
+  String asciiDecodedLog(String name, String value) {
+    return 'ASCII $name: $value';
+  }
+
+  @override
+  String get fieldKey => 'Field key';
+
+  @override
+  String get fieldLabel => 'Field label';
+
+  @override
+  String get deleteDataField => 'Delete field';
+
+  @override
+  String get dataOffset => 'DATA offset';
+
+  @override
+  String get dataFieldType => 'Field type';
+
+  @override
+  String get numericScale => 'Scale';
+
+  @override
+  String get numericOffset => 'Numeric offset';
+
+  @override
+  String get unit => 'Unit';
+
+  @override
+  String get bitNumber => 'Bit number';
+
+  @override
+  String get bitNumberHint => 'Zero-based';
+
+  @override
+  String get enumValues => 'Enum values';
+
+  @override
+  String get enumValuesHint => 'value=display name, separated by commas';
+
+  @override
+  String get commandsAndData => 'Commands & data';
+
+  @override
+  String get mappedData => 'Mapped data';
+
+  @override
+  String get noMappedFields => 'No mapped fields selected for display.';
+
+  @override
+  String get showInDataPanel => 'Show in data panel';
+
+  @override
+  String commandLog(String name, String parameters) {
+    return 'Command $name: $parameters';
+  }
+
+  @override
+  String responseLog(String name, String command, String values) {
+    return 'Response $name (CMD $command): $values';
+  }
 }

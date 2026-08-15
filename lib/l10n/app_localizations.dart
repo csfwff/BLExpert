@@ -985,6 +985,258 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Disabled'**
   String get disabledState;
+
+  /// No description provided for @standardProtocol.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard protocol'**
+  String get standardProtocol;
+
+  /// No description provided for @standardProtocolHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use for protocols described by fixed HEX, payload, length, sequence, and checksum fields. Configure ordered segments separately for send and receive.'**
+  String get standardProtocolHint;
+
+  /// No description provided for @scriptProtocolHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use for encryption, escaping, dynamic CRC, TLV, or custom framing. Scripts take ownership of full-frame encoding and decoding.'**
+  String get scriptProtocolHint;
+
+  /// No description provided for @scriptMethods.
+  ///
+  /// In en, this message translates to:
+  /// **'Required methods'**
+  String get scriptMethods;
+
+  /// No description provided for @beforeSendContract.
+  ///
+  /// In en, this message translates to:
+  /// **'Called before sending. Accepts business payload HEX and returns the complete frame HEX to write.'**
+  String get beforeSendContract;
+
+  /// No description provided for @afterReceiveContract.
+  ///
+  /// In en, this message translates to:
+  /// **'Called after receiving. Accepts a complete received frame HEX and returns decoded payload and validation state.'**
+  String get afterReceiveContract;
+
+  /// No description provided for @scriptBuiltins.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in script tools'**
+  String get scriptBuiltins;
+
+  /// No description provided for @scriptBuiltinsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Injected automatically by the runtime. Checksums return unsigned integers, hashes return uppercase HEX; value accepts HEX text or byte arrays.'**
+  String get scriptBuiltinsHint;
+
+  /// No description provided for @dataMappings.
+  ///
+  /// In en, this message translates to:
+  /// **'Data mappings'**
+  String get dataMappings;
+
+  /// No description provided for @addResponseMapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Add response mapping'**
+  String get addResponseMapping;
+
+  /// No description provided for @dataMappingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'After protocol or script decoding produces CMD and DATA, field offsets begin at DATA byte 0.'**
+  String get dataMappingHint;
+
+  /// No description provided for @noResponseMappings.
+  ///
+  /// In en, this message translates to:
+  /// **'No response mappings configured.'**
+  String get noResponseMappings;
+
+  /// No description provided for @mappingFieldCount.
+  ///
+  /// In en, this message translates to:
+  /// **'CMD {command} | {count} fields'**
+  String mappingFieldCount(String command, int count);
+
+  /// No description provided for @newResponseMapping.
+  ///
+  /// In en, this message translates to:
+  /// **'New response mapping'**
+  String get newResponseMapping;
+
+  /// No description provided for @editResponseMapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit response mapping'**
+  String get editResponseMapping;
+
+  /// No description provided for @deleteResponseMapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete response mapping'**
+  String get deleteResponseMapping;
+
+  /// No description provided for @responseName.
+  ///
+  /// In en, this message translates to:
+  /// **'Response name'**
+  String get responseName;
+
+  /// No description provided for @responseCommandHex.
+  ///
+  /// In en, this message translates to:
+  /// **'Response CMD HEX'**
+  String get responseCommandHex;
+
+  /// No description provided for @responseFieldsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Fields (offsets are relative to DATA)'**
+  String get responseFieldsHint;
+
+  /// No description provided for @addDataField.
+  ///
+  /// In en, this message translates to:
+  /// **'Add field'**
+  String get addDataField;
+
+  /// No description provided for @responseAsciiLog.
+  ///
+  /// In en, this message translates to:
+  /// **'ASCII log decoding'**
+  String get responseAsciiLog;
+
+  /// No description provided for @responseAsciiLogHint.
+  ///
+  /// In en, this message translates to:
+  /// **'When this response matches, append printable ASCII with NUL and control bytes removed.'**
+  String get responseAsciiLogHint;
+
+  /// No description provided for @invalidResponseMapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a response name, one CMD byte, and field keys.'**
+  String get invalidResponseMapping;
+
+  /// No description provided for @asciiDecodedLog.
+  ///
+  /// In en, this message translates to:
+  /// **'ASCII {name}: {value}'**
+  String asciiDecodedLog(String name, String value);
+
+  /// No description provided for @fieldKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Field key'**
+  String get fieldKey;
+
+  /// No description provided for @fieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Field label'**
+  String get fieldLabel;
+
+  /// No description provided for @deleteDataField.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete field'**
+  String get deleteDataField;
+
+  /// No description provided for @dataOffset.
+  ///
+  /// In en, this message translates to:
+  /// **'DATA offset'**
+  String get dataOffset;
+
+  /// No description provided for @dataFieldType.
+  ///
+  /// In en, this message translates to:
+  /// **'Field type'**
+  String get dataFieldType;
+
+  /// No description provided for @numericScale.
+  ///
+  /// In en, this message translates to:
+  /// **'Scale'**
+  String get numericScale;
+
+  /// No description provided for @numericOffset.
+  ///
+  /// In en, this message translates to:
+  /// **'Numeric offset'**
+  String get numericOffset;
+
+  /// No description provided for @unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Unit'**
+  String get unit;
+
+  /// No description provided for @bitNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Bit number'**
+  String get bitNumber;
+
+  /// No description provided for @bitNumberHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Zero-based'**
+  String get bitNumberHint;
+
+  /// No description provided for @enumValues.
+  ///
+  /// In en, this message translates to:
+  /// **'Enum values'**
+  String get enumValues;
+
+  /// No description provided for @enumValuesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'value=display name, separated by commas'**
+  String get enumValuesHint;
+
+  /// No description provided for @commandsAndData.
+  ///
+  /// In en, this message translates to:
+  /// **'Commands & data'**
+  String get commandsAndData;
+
+  /// No description provided for @mappedData.
+  ///
+  /// In en, this message translates to:
+  /// **'Mapped data'**
+  String get mappedData;
+
+  /// No description provided for @noMappedFields.
+  ///
+  /// In en, this message translates to:
+  /// **'No mapped fields selected for display.'**
+  String get noMappedFields;
+
+  /// No description provided for @showInDataPanel.
+  ///
+  /// In en, this message translates to:
+  /// **'Show in data panel'**
+  String get showInDataPanel;
+
+  /// No description provided for @commandLog.
+  ///
+  /// In en, this message translates to:
+  /// **'Command {name}: {parameters}'**
+  String commandLog(String name, String parameters);
+
+  /// No description provided for @responseLog.
+  ///
+  /// In en, this message translates to:
+  /// **'Response {name} (CMD {command}): {values}'**
+  String responseLog(String name, String command, String values);
 }
 
 class _AppLocalizationsDelegate

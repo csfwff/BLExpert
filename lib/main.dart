@@ -7,11 +7,15 @@ import 'package:flutter/material.dart';
 import 'l10n/app_localizations.dart';
 import 'models/workspace.dart';
 import 'models/command_definition.dart';
+import 'models/data_mapping.dart';
 import 'models/protocol_profile.dart';
 import 'models/script_config.dart';
 import 'services/bluetooth_service.dart';
 import 'services/script_engine.dart';
+import 'services/command_payload_encoder.dart';
+import 'services/data_mapper.dart';
 import 'services/workspace_manager.dart';
+import 'utils/ascii_utils.dart';
 import 'utils/web_service_uuid_parser.dart';
 
 void main() => runApp(const BlexpertApp());
@@ -123,17 +127,21 @@ class _HomeScreenState extends State<HomeScreen> {
   List<BluetoothCharacteristicInfo> _characteristics =
       <BluetoothCharacteristicInfo>[];
   final List<_LogEntry> _logs = <_LogEntry>[];
+  final Map<String, _MonitoredFieldValue> _monitoredValues =
+      <String, _MonitoredFieldValue>{};
   String? _selectedDeviceId;
   bool _scanning = false;
   bool _connecting = false;
   bool _hexMode = true;
   bool _autoScroll = true;
   List<String> _webOptionalServices = <String>[];
+  Future<void> _saveWorkspaceChain = Future<void>.value();
 
   @override
   void initState() {
     super.initState();
     _workspaceManager = WorkspaceManager();
+    unawaited(_restoreWorkspaces());
     _scriptEngine = ScriptEngineService();
     _bluetoothService =
         widget.bluetoothService ??
@@ -183,6 +191,32 @@ class _HomeScreenState extends State<HomeScreen> {
     return null;
   }
 
+  Future<void> _restoreWorkspaces() async {
+    try {
+      await _workspaceManager.load();
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (error) {
+      _addSystemLog('工作区配置加载失败：$error');
+    }
+  }
+
+  void _persistWorkspaces() {
+    _saveWorkspaceChain = _saveWorkspaceChain
+        .then((_) => _workspaceManager.save())
+        .catchError((Object error) {
+          if (mounted) {
+            _addSystemLog('工作区配置保存失败：$error');
+          }
+        });
+  }
+
+  void _upsertWorkspace(Workspace workspace) {
+    _workspaceManager.upsertWorkspace(workspace);
+    _persistWorkspaces();
+  }
+
   Future<void> _watchSelectedIncomingData() async {
     final String? deviceId = _selectedDeviceId;
     if (deviceId == null) {
@@ -207,6 +241,22 @@ class _HomeScreenState extends State<HomeScreen> {
         payload,
       );
       if (!mounted) return;
+      final List<int> decodedPayload = result.bytes;
+      final String? commandHex =
+          result.cmdHex ??
+          (decodedPayload.isEmpty
+              ? null
+              : decodedPayload.first.toRadixString(16).padLeft(2, '0'));
+      final String dataHex =
+          result.dataHex ??
+          (decodedPayload.length < 2 ? '' : _toHex(decodedPayload.sublist(1)));
+      final ParsedResponse? parsed = result.valid == false || commandHex == null
+          ? null
+          : DataMapper.tryParse(
+              mappings: workspace.responseMappings,
+              commandHex: commandHex,
+              dataHex: dataHex,
+            );
       setState(() {
         _logs.insert(0, _LogEntry(_LogKind.received, DateTime.now(), payload));
         if (!listEquals(result.bytes, payload)) {
@@ -219,7 +269,49 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
         for (final String log in result.logs.reversed) {
-          _logs.insert(0, _LogEntry.system(timestamp: DateTime.now(), message: log));
+          _logs.insert(
+            0,
+            _LogEntry.system(timestamp: DateTime.now(), message: log),
+          );
+        }
+        if (parsed != null) {
+          for (final ParsedDataValue value in parsed.values) {
+            _monitoredValues[_monitorFieldId(
+              parsed.mapping,
+              value.key,
+            )] = _MonitoredFieldValue(
+              responseName: parsed.mapping.name,
+              commandHex: parsed.commandHex,
+              value: value,
+              timestamp: parsed.timestamp,
+            );
+          }
+          _logs.insert(
+            0,
+            _LogEntry.system(
+              timestamp: DateTime.now(),
+              message: _formatParsedResponseLog(
+                parsed,
+                AppLocalizations.of(context)!,
+              ),
+            ),
+          );
+          if (parsed.mapping.asciiLogEnabled) {
+            final String ascii = printableAscii(
+              _parseHex(parsed.dataHex) ?? const <int>[],
+            );
+            if (ascii.isNotEmpty) {
+              _logs.insert(
+                0,
+                _LogEntry.system(
+                  timestamp: DateTime.now(),
+                  message: AppLocalizations.of(
+                    context,
+                  )!.asciiDecodedLog(parsed.mapping.name, ascii),
+                ),
+              );
+            }
+          }
         }
       });
     } catch (error) {
@@ -394,36 +486,24 @@ class _HomeScreenState extends State<HomeScreen> {
     descriptionController.dispose();
     tagsController.dispose();
     if (updated == null || !mounted) return;
-    setState(() => _workspaceManager.upsertWorkspace(updated));
+    setState(() => _upsertWorkspace(updated));
   }
 
-  Future<void> _editProtocol() async {
-    final AppLocalizations l10n = AppLocalizations.of(context)!;
+  void _updateProtocol(ProtocolDefinition protocol) {
     final Workspace workspace = _workspaceManager.activeWorkspace;
-    final TextEditingController nameController = TextEditingController(
-      text: workspace.protocol.name,
-    );
-    final TextEditingController descriptionController = TextEditingController(
-      text: workspace.protocol.description,
-    );
-    final ProtocolDefinition? protocol = await showDialog<ProtocolDefinition>(
-      context: context,
-      builder: (BuildContext context) => _ProtocolEditorDialog(
-        existing: workspace.protocol,
-        nameController: nameController,
-        descriptionController: descriptionController,
-        l10n: l10n,
+    setState(
+      () => _upsertWorkspace(
+        workspace.copyWith(protocol: protocol, updatedAt: DateTime.now()),
       ),
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      nameController.dispose();
-      descriptionController.dispose();
-    });
-    if (protocol == null || !mounted) return;
+  }
+
+  void _updateScriptConfig(ScriptConfig scriptConfig) {
+    final Workspace workspace = _workspaceManager.activeWorkspace;
     setState(
-      () => _workspaceManager.upsertWorkspace(
+      () => _upsertWorkspace(
         workspace.copyWith(
-          protocol: protocol,
+          scriptConfig: scriptConfig,
           updatedAt: DateTime.now(),
         ),
       ),
@@ -451,6 +531,9 @@ class _HomeScreenState extends State<HomeScreen> {
             existing?.format ?? CommandPayloadFormat.hex;
         bool enabled = existing?.enabled ?? true;
         bool isQuickAccess = existing?.isQuickAccess ?? false;
+        final List<CommandParameter> parameters = <CommandParameter>[
+          ...?existing?.parameters,
+        ];
         String? validationError;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) =>
@@ -505,6 +588,30 @@ class _HomeScreenState extends State<HomeScreen> {
                             errorText: validationError,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: <Widget>[
+                            const Expanded(
+                              child: Text('参数（在 HEX 中使用 {{key}}）'),
+                            ),
+                            IconButton(
+                              tooltip: '新增参数',
+                              onPressed: () => setDialogState(
+                                () => parameters.add(_newCommandParameter()),
+                              ),
+                              icon: const Icon(Icons.add, size: 19),
+                            ),
+                          ],
+                        ),
+                        for (int index = 0; index < parameters.length; index++)
+                          _CommandParameterEditor(
+                            parameter: parameters[index],
+                            onChanged: (CommandParameter value) =>
+                                setDialogState(() => parameters[index] = value),
+                            onDelete: () => setDialogState(
+                              () => parameters.removeAt(index),
+                            ),
+                          ),
                         TextField(
                           controller: notesController,
                           minLines: 1,
@@ -542,10 +649,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     onPressed: () {
                       final String name = nameController.text.trim();
                       final String payload = payloadController.text.trim();
+                      final String validationPayload = payload.replaceAll(
+                        RegExp(r'\{\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\}'),
+                        '00',
+                      );
                       if (name.isEmpty ||
                           payload.isEmpty ||
                           (format == CommandPayloadFormat.hex &&
-                              _parseHex(payload) == null)) {
+                              _parseHex(validationPayload) == null) ||
+                          parameters.any(
+                            (CommandParameter parameter) =>
+                                parameter.key.trim().isEmpty ||
+                                !payload.contains('{{${parameter.key.trim()}}'),
+                          )) {
                         setDialogState(
                           () => validationError = l10n.invalidCommandPayload,
                         );
@@ -563,6 +679,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           notes: notesController.text.trim(),
                           enabled: enabled,
                           isQuickAccess: isQuickAccess,
+                          parameters: parameters,
                         ),
                       );
                     },
@@ -587,111 +704,8 @@ class _HomeScreenState extends State<HomeScreen> {
       command,
     ];
     setState(
-      () => _workspaceManager.upsertWorkspace(
+      () => _upsertWorkspace(
         workspace.copyWith(commands: commands, updatedAt: DateTime.now()),
-      ),
-    );
-  }
-
-  Future<void> _editScriptConfig() async {
-    final Workspace workspace = _workspaceManager.activeWorkspace;
-    final AppLocalizations l10n = AppLocalizations.of(context)!;
-    final TextEditingController beforeSendController = TextEditingController(
-      text: workspace.scriptConfig.beforeSendScript,
-    );
-    final TextEditingController afterReceiveController = TextEditingController(
-      text: workspace.scriptConfig.afterReceiveScript,
-    );
-    final ScriptConfig? updated = await showDialog<ScriptConfig>(
-      context: context,
-      builder: (BuildContext context) {
-        bool enabled = workspace.scriptConfig.enabled;
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
-            title: Text(l10n.scriptProtocolMode),
-            content: SizedBox(
-              width: 760,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(l10n.scriptEnabled),
-                      subtitle: Text(
-                        _scriptEngine.isRuntimeAvailable
-                            ? l10n.scriptEngineReady
-                            : l10n.scriptEngineUnavailable,
-                      ),
-                      value: enabled,
-                      onChanged: (bool value) => setDialogState(() => enabled = value),
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          beforeSendController.text = _defaultBeforeSendScript;
-                          afterReceiveController.text = _defaultAfterReceiveScript;
-                        },
-                        icon: const Icon(Icons.auto_fix_high_outlined),
-                        label: Text(l10n.loadProtocolSample),
-                      ),
-                    ),
-                    TextField(
-                      controller: beforeSendController,
-                      minLines: 14,
-                      maxLines: 22,
-                      decoration: InputDecoration(
-                        labelText: l10n.beforeSendScript,
-                        border: const OutlineInputBorder(),
-                      ),
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: afterReceiveController,
-                      minLines: 14,
-                      maxLines: 22,
-                      decoration: InputDecoration(
-                        labelText: l10n.afterReceiveScript,
-                        border: const OutlineInputBorder(),
-                      ),
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () {
-                  Navigator.of(context).pop(
-                    workspace.scriptConfig.copyWith(
-                      enabled: enabled,
-                      beforeSendScript: beforeSendController.text,
-                      afterReceiveScript: afterReceiveController.text,
-                    ),
-                  );
-                },
-                child: Text(l10n.save),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      beforeSendController.dispose();
-      afterReceiveController.dispose();
-    });
-    if (updated == null || !mounted) return;
-    setState(
-      () => _workspaceManager.upsertWorkspace(
-        workspace.copyWith(scriptConfig: updated, updatedAt: DateTime.now()),
       ),
     );
   }
@@ -699,7 +713,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _deleteCommand(CommandDefinition command) {
     final Workspace workspace = _workspaceManager.activeWorkspace;
     setState(
-      () => _workspaceManager.upsertWorkspace(
+      () => _upsertWorkspace(
         workspace.copyWith(
           commands: workspace.commands
               .where((CommandDefinition item) => item.id != command.id)
@@ -713,7 +727,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _setCommandEnabled(CommandDefinition command, bool enabled) {
     final Workspace workspace = _workspaceManager.activeWorkspace;
     setState(
-      () => _workspaceManager.upsertWorkspace(
+      () => _upsertWorkspace(
         workspace.copyWith(
           commands: workspace.commands
               .map(
@@ -731,7 +745,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _setCommandQuickAccess(CommandDefinition command, bool enabled) {
     final Workspace workspace = _workspaceManager.activeWorkspace;
     setState(
-      () => _workspaceManager.upsertWorkspace(
+      () => _upsertWorkspace(
         workspace.copyWith(
           commands: workspace.commands
               .map(
@@ -739,6 +753,191 @@ class _HomeScreenState extends State<HomeScreen> {
                     ? item.copyWith(isQuickAccess: enabled)
                     : item,
               )
+              .toList(growable: false),
+          updatedAt: DateTime.now(),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendCommandDefinition(
+    CommandDefinition command,
+    Map<String, String> values,
+  ) async {
+    try {
+      final List<int> bytes = CommandPayloadEncoder.encode(command, values);
+      _addSystemLog(
+        _formatCommandSendLog(command, values, AppLocalizations.of(context)!),
+      );
+      await _send(bytes);
+    } catch (error) {
+      _showBluetoothError(error);
+    }
+  }
+
+  Future<void> _editResponseMapping([ResponseMapping? existing]) async {
+    final TextEditingController nameController = TextEditingController(
+      text: existing?.name ?? '',
+    );
+    final TextEditingController commandController = TextEditingController(
+      text: existing?.commandHex ?? '',
+    );
+    final ResponseMapping? mapping = await showDialog<ResponseMapping>(
+      context: context,
+      builder: (BuildContext context) {
+        final List<DataField> fields = <DataField>[...?existing?.fields];
+        bool asciiLogEnabled = existing?.asciiLogEnabled ?? false;
+        String? validationError;
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) =>
+              AlertDialog(
+                title: Text(
+                  existing == null
+                      ? AppLocalizations.of(context)!.newResponseMapping
+                      : AppLocalizations.of(context)!.editResponseMapping,
+                ),
+                content: SizedBox(
+                  width: 640,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        TextField(
+                          controller: nameController,
+                          decoration: InputDecoration(
+                            labelText: AppLocalizations.of(
+                              context,
+                            )!.responseName,
+                          ),
+                        ),
+                        TextField(
+                          controller: commandController,
+                          decoration: InputDecoration(
+                            labelText: AppLocalizations.of(
+                              context,
+                            )!.responseCommandHex,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                AppLocalizations.of(
+                                  context,
+                                )!.responseFieldsHint,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: AppLocalizations.of(
+                                context,
+                              )!.addDataField,
+                              onPressed: () => setDialogState(
+                                () => fields.add(_newDataField(fields.length)),
+                              ),
+                              icon: const Icon(Icons.add),
+                            ),
+                          ],
+                        ),
+                        for (int index = 0; index < fields.length; index++)
+                          _MappingFieldEditor(
+                            field: fields[index],
+                            onChanged: (DataField value) =>
+                                setDialogState(() => fields[index] = value),
+                            onDelete: () =>
+                                setDialogState(() => fields.removeAt(index)),
+                          ),
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            AppLocalizations.of(context)!.responseAsciiLog,
+                          ),
+                          subtitle: Text(
+                            AppLocalizations.of(context)!.responseAsciiLogHint,
+                          ),
+                          value: asciiLogEnabled,
+                          onChanged: (bool value) =>
+                              setDialogState(() => asciiLogEnabled = value),
+                        ),
+                        if (validationError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              validationError!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(AppLocalizations.of(context)!.cancel),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      final String commandHex = commandController.text
+                          .replaceAll(RegExp(r'[^0-9a-fA-F]'), '');
+                      if (nameController.text.trim().isEmpty ||
+                          commandHex.length != 2 ||
+                          fields.any(
+                            (DataField field) => field.key.trim().isEmpty,
+                          )) {
+                        setDialogState(
+                          () => validationError = AppLocalizations.of(
+                            context,
+                          )!.invalidResponseMapping,
+                        );
+                        return;
+                      }
+                      Navigator.of(context).pop(
+                        ResponseMapping(
+                          id:
+                              existing?.id ??
+                              'mapping-${DateTime.now().microsecondsSinceEpoch}',
+                          name: nameController.text.trim(),
+                          commandHex: commandHex.toUpperCase(),
+                          fields: fields,
+                          asciiLogEnabled: asciiLogEnabled,
+                        ),
+                      );
+                    },
+                    child: Text(AppLocalizations.of(context)!.save),
+                  ),
+                ],
+              ),
+        );
+      },
+    );
+    nameController.dispose();
+    commandController.dispose();
+    if (mapping == null || !mounted) return;
+    final Workspace workspace = _workspaceManager.activeWorkspace;
+    setState(
+      () => _upsertWorkspace(
+        workspace.copyWith(
+          responseMappings: <ResponseMapping>[
+            for (final ResponseMapping item in workspace.responseMappings)
+              if (item.id != mapping.id) item,
+            mapping,
+          ],
+          updatedAt: DateTime.now(),
+        ),
+      ),
+    );
+  }
+
+  void _deleteResponseMapping(ResponseMapping mapping) {
+    final Workspace workspace = _workspaceManager.activeWorkspace;
+    setState(
+      () => _upsertWorkspace(
+        workspace.copyWith(
+          responseMappings: workspace.responseMappings
+              .where((ResponseMapping item) => item.id != mapping.id)
               .toList(growable: false),
           updatedAt: DateTime.now(),
         ),
@@ -881,10 +1080,15 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _logs.insert(0, _LogEntry(_LogKind.sent, DateTime.now(), result.bytes));
         for (final String log in result.logs.reversed) {
-          _logs.insert(0, _LogEntry.system(timestamp: DateTime.now(), message: log));
+          _logs.insert(
+            0,
+            _LogEntry.system(timestamp: DateTime.now(), message: log),
+          );
         }
       });
-      _addSystemLog(AppLocalizations.of(context)!.dataSent(result.bytes.length));
+      _addSystemLog(
+        AppLocalizations.of(context)!.dataSent(result.bytes.length),
+      );
     } catch (error) {
       _showBluetoothError(error);
     }
@@ -900,13 +1104,8 @@ class _HomeScreenState extends State<HomeScreen> {
         deviceId,
         characteristic,
       );
+      await _handleIncomingData(value);
       if (!mounted) return;
-      setState(
-        () => _logs.insert(
-          0,
-          _LogEntry(_LogKind.received, DateTime.now(), value),
-        ),
-      );
       _addSystemLog(AppLocalizations.of(context)!.dataRead(value.length));
     } catch (error) {
       _showBluetoothError(error);
@@ -1000,7 +1199,10 @@ class _HomeScreenState extends State<HomeScreen> {
             workspace: workspace,
             workspaces: _workspaceManager.workspaces,
             onSelected: (String workspaceId) {
-              setState(() => _workspaceManager.setActiveWorkspace(workspaceId));
+              setState(() {
+                _workspaceManager.setActiveWorkspace(workspaceId);
+                _persistWorkspaces();
+              });
             },
             l10n: l10n,
           ),
@@ -1053,13 +1255,17 @@ class _HomeScreenState extends State<HomeScreen> {
             canSend: _selectedDevice?.connected == true && _hasWriteTarget,
             workspace: workspace,
             onEditWorkspace: _editActiveWorkspace,
-            onEditProtocol: _editProtocol,
-            onEditScriptConfig: _editScriptConfig,
+            onProtocolChanged: _updateProtocol,
+            onScriptConfigChanged: _updateScriptConfig,
             onNewCommand: () => _editCommand(),
             onEditCommand: _editCommand,
             onDeleteCommand: _deleteCommand,
             onCommandEnabledChanged: _setCommandEnabled,
             onCommandQuickAccessChanged: _setCommandQuickAccess,
+            responseMappings: workspace.responseMappings,
+            onNewResponseMapping: () => _editResponseMapping(),
+            onEditResponseMapping: _editResponseMapping,
+            onDeleteResponseMapping: _deleteResponseMapping,
             l10n: l10n,
           );
           final sidePanel = _DeviceWorkbenchPanel(
@@ -1069,9 +1275,10 @@ class _HomeScreenState extends State<HomeScreen> {
             onSelectWrite: _setWriteCharacteristic,
             onSubscriptionChanged: _setSubscription,
             onRead: _readCharacteristic,
-            onSend: _send,
+            onSendCommand: _sendCommandDefinition,
             commands: workspace.commands,
-            logs: _logs,
+            responseMappings: workspace.responseMappings,
+            monitoredValues: _monitoredValues,
             l10n: l10n,
           );
           if (wide) {
@@ -1215,13 +1422,17 @@ class _WorkbenchPanel extends StatelessWidget {
     required this.canSend,
     required this.workspace,
     required this.onEditWorkspace,
-    required this.onEditProtocol,
-    required this.onEditScriptConfig,
+    required this.onProtocolChanged,
+    required this.onScriptConfigChanged,
     required this.onNewCommand,
     required this.onEditCommand,
     required this.onDeleteCommand,
     required this.onCommandEnabledChanged,
     required this.onCommandQuickAccessChanged,
+    required this.responseMappings,
+    required this.onNewResponseMapping,
+    required this.onEditResponseMapping,
+    required this.onDeleteResponseMapping,
     required this.l10n,
   });
 
@@ -1236,13 +1447,17 @@ class _WorkbenchPanel extends StatelessWidget {
   final bool canSend;
   final Workspace workspace;
   final VoidCallback onEditWorkspace;
-  final VoidCallback onEditProtocol;
-  final VoidCallback onEditScriptConfig;
+  final ValueChanged<ProtocolDefinition> onProtocolChanged;
+  final ValueChanged<ScriptConfig> onScriptConfigChanged;
   final VoidCallback onNewCommand;
   final ValueChanged<CommandDefinition> onEditCommand;
   final ValueChanged<CommandDefinition> onDeleteCommand;
   final void Function(CommandDefinition, bool) onCommandEnabledChanged;
   final void Function(CommandDefinition, bool) onCommandQuickAccessChanged;
+  final List<ResponseMapping> responseMappings;
+  final VoidCallback onNewResponseMapping;
+  final ValueChanged<ResponseMapping> onEditResponseMapping;
+  final ValueChanged<ResponseMapping> onDeleteResponseMapping;
   final AppLocalizations l10n;
 
   @override
@@ -1268,12 +1483,12 @@ class _WorkbenchPanel extends StatelessWidget {
                   text: l10n.protocolProfiles,
                 ),
                 Tab(
-                  icon: const Icon(Icons.code_outlined),
-                  text: l10n.scriptProtocolMode,
-                ),
-                Tab(
                   icon: const Icon(Icons.list_alt_outlined),
                   text: l10n.commandLibrary,
+                ),
+                Tab(
+                  icon: const Icon(Icons.data_object_outlined),
+                  text: l10n.dataMappings,
                 ),
               ],
             ),
@@ -1298,14 +1513,11 @@ class _WorkbenchPanel extends StatelessWidget {
                   onEdit: onEditWorkspace,
                   l10n: l10n,
                 ),
-                _ProtocolLibraryPanel(
+                _ProtocolConfigurationPanel(
                   protocol: workspace.protocol,
-                  onEditProtocol: onEditProtocol,
-                  l10n: l10n,
-                ),
-                _ScriptLibraryPanel(
                   scriptConfig: workspace.scriptConfig,
-                  onEdit: onEditScriptConfig,
+                  onProtocolChanged: onProtocolChanged,
+                  onScriptConfigChanged: onScriptConfigChanged,
                   runtimeAvailable: !kIsWeb,
                   l10n: l10n,
                 ),
@@ -1316,6 +1528,13 @@ class _WorkbenchPanel extends StatelessWidget {
                   onDeleteCommand: onDeleteCommand,
                   onEnabledChanged: onCommandEnabledChanged,
                   onQuickAccessChanged: onCommandQuickAccessChanged,
+                  l10n: l10n,
+                ),
+                _DataMappingLibraryPanel(
+                  mappings: responseMappings,
+                  onNew: onNewResponseMapping,
+                  onEdit: onEditResponseMapping,
+                  onDelete: onDeleteResponseMapping,
                   l10n: l10n,
                 ),
               ],
@@ -1397,81 +1616,250 @@ class _WorkspaceField extends StatelessWidget {
   }
 }
 
-class _ProtocolLibraryPanel extends StatelessWidget {
-  const _ProtocolLibraryPanel({
+enum _ProtocolMode { standard, script }
+
+class _ProtocolConfigurationPanel extends StatefulWidget {
+  const _ProtocolConfigurationPanel({
     required this.protocol,
-    required this.onEditProtocol,
+    required this.scriptConfig,
+    required this.onProtocolChanged,
+    required this.onScriptConfigChanged,
+    required this.runtimeAvailable,
     required this.l10n,
   });
 
   final ProtocolDefinition protocol;
-  final VoidCallback onEditProtocol;
+  final ScriptConfig scriptConfig;
+  final ValueChanged<ProtocolDefinition> onProtocolChanged;
+  final ValueChanged<ScriptConfig> onScriptConfigChanged;
+  final bool runtimeAvailable;
   final AppLocalizations l10n;
 
   @override
+  State<_ProtocolConfigurationPanel> createState() =>
+      _ProtocolConfigurationPanelState();
+}
+
+class _ProtocolConfigurationPanelState
+    extends State<_ProtocolConfigurationPanel> {
+  late final TextEditingController _protocolNameController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _beforeSendController;
+  late final TextEditingController _afterReceiveController;
+  late _ProtocolMode _mode;
+
+  @override
+  void initState() {
+    super.initState();
+    _mode = widget.scriptConfig.enabled
+        ? _ProtocolMode.script
+        : _ProtocolMode.standard;
+    _protocolNameController = TextEditingController(text: widget.protocol.name);
+    _descriptionController = TextEditingController(
+      text: widget.protocol.description,
+    );
+    _beforeSendController = TextEditingController(
+      text: widget.scriptConfig.beforeSendScript,
+    );
+    _afterReceiveController = TextEditingController(
+      text: widget.scriptConfig.afterReceiveScript,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProtocolConfigurationPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.protocol != widget.protocol) {
+      _protocolNameController.text = widget.protocol.name;
+      _descriptionController.text = widget.protocol.description;
+    }
+    if (oldWidget.scriptConfig != widget.scriptConfig) {
+      _beforeSendController.text = widget.scriptConfig.beforeSendScript;
+      _afterReceiveController.text = widget.scriptConfig.afterReceiveScript;
+    }
+  }
+
+  @override
+  void dispose() {
+    _protocolNameController.dispose();
+    _descriptionController.dispose();
+    _beforeSendController.dispose();
+    _afterReceiveController.dispose();
+    super.dispose();
+  }
+
+  void _updateProtocol({
+    List<ProtocolSegment>? sendSegments,
+    List<ProtocolSegment>? receiveSegments,
+  }) {
+    widget.onProtocolChanged(
+      widget.protocol.copyWith(
+        name: _protocolNameController.text.trim(),
+        description: _descriptionController.text.trim(),
+        sendSegments: sendSegments,
+        receiveSegments: receiveSegments,
+      ),
+    );
+  }
+
+  void _updateScript({bool? enabled}) {
+    widget.onScriptConfigChanged(
+      widget.scriptConfig.copyWith(
+        enabled: enabled,
+        beforeSendScript: _beforeSendController.text,
+        afterReceiveScript: _afterReceiveController.text,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final l10n = widget.l10n;
     return ListView(
       padding: const EdgeInsets.all(18),
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                l10n.protocolProfiles,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-            IconButton(
-              tooltip: l10n.editProtocol,
-              onPressed: onEditProtocol,
-              icon: const Icon(Icons.edit_outlined, size: 19),
-            ),
-          ],
+        Text(
+          l10n.protocolProfiles,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 12),
-        if (protocol.name.isEmpty &&
-            protocol.sendSegments.isEmpty &&
-            protocol.receiveSegments.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 28),
-            child: Center(child: Text(l10n.noProtocolProfiles)),
-          )
-        else ...<Widget>[
-          Text(protocol.name.isEmpty ? '-' : protocol.name),
-          if (protocol.description.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 6),
-            Text(protocol.description, style: Theme.of(context).textTheme.bodySmall),
+        TextField(
+          controller: _protocolNameController,
+          onChanged: (_) => _updateProtocol(),
+          decoration: InputDecoration(labelText: l10n.protocolName),
+        ),
+        TextField(
+          controller: _descriptionController,
+          onChanged: (_) => _updateProtocol(),
+          minLines: 1,
+          maxLines: 3,
+          decoration: InputDecoration(labelText: l10n.description),
+        ),
+        const SizedBox(height: 14),
+        SegmentedButton<_ProtocolMode>(
+          segments: <ButtonSegment<_ProtocolMode>>[
+            ButtonSegment(
+              value: _ProtocolMode.standard,
+              icon: const Icon(Icons.account_tree_outlined),
+              label: Text(l10n.standardProtocol),
+            ),
+            ButtonSegment(
+              value: _ProtocolMode.script,
+              icon: const Icon(Icons.code_outlined),
+              label: Text(l10n.scriptProtocolMode),
+            ),
           ],
-          const SizedBox(height: 14),
-          _ProtocolSectionSummary(
-            title: l10n.sendFrame,
-            segments: protocol.sendSegments,
+          selected: <_ProtocolMode>{_mode},
+          onSelectionChanged: (Set<_ProtocolMode> value) {
+            final _ProtocolMode mode = value.first;
+            setState(() => _mode = mode);
+            _updateScript(enabled: mode == _ProtocolMode.script);
+          },
+        ),
+        const SizedBox(height: 12),
+        _ProtocolModeNote(mode: _mode, l10n: l10n),
+        const SizedBox(height: 18),
+        if (_mode == _ProtocolMode.standard)
+          _StandardProtocolEditor(
+            protocol: widget.protocol,
+            onProtocolChanged: _updateProtocol,
+            l10n: l10n,
+          )
+        else
+          _ScriptProtocolEditor(
+            config: widget.scriptConfig,
+            beforeSendController: _beforeSendController,
+            afterReceiveController: _afterReceiveController,
+            runtimeAvailable: widget.runtimeAvailable,
+            onChanged: _updateScript,
             l10n: l10n,
           ),
-          const SizedBox(height: 12),
-          _ProtocolSectionSummary(
-            title: l10n.receiveFrame,
-            segments: protocol.receiveSegments,
-            l10n: l10n,
-          ),
-        ],
       ],
     );
   }
 }
 
-class _ProtocolSectionSummary extends StatelessWidget {
-  const _ProtocolSectionSummary({
-    required this.title,
-    required this.segments,
+class _ProtocolModeNote extends StatelessWidget {
+  const _ProtocolModeNote({required this.mode, required this.l10n});
+
+  final _ProtocolMode mode;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool standard = mode == _ProtocolMode.standard;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: standard
+            ? Theme.of(context).colorScheme.secondaryContainer
+            : Theme.of(context).colorScheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        standard ? l10n.standardProtocolHint : l10n.scriptProtocolHint,
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+    );
+  }
+}
+
+class _StandardProtocolEditor extends StatelessWidget {
+  const _StandardProtocolEditor({
+    required this.protocol,
+    required this.onProtocolChanged,
     required this.l10n,
   });
 
-  final String title;
-  final List<ProtocolSegment> segments;
+  final ProtocolDefinition protocol;
+  final void Function({
+    List<ProtocolSegment>? sendSegments,
+    List<ProtocolSegment>? receiveSegments,
+  })
+  onProtocolChanged;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        _InlineProtocolSegmentSection(
+          title: l10n.sendFrame,
+          segments: protocol.sendSegments,
+          l10n: l10n,
+          onChanged: (List<ProtocolSegment> value) =>
+              onProtocolChanged(sendSegments: value),
+        ),
+        const Divider(height: 30),
+        _InlineProtocolSegmentSection(
+          title: l10n.receiveFrame,
+          segments: protocol.receiveSegments,
+          l10n: l10n,
+          onChanged: (List<ProtocolSegment> value) =>
+              onProtocolChanged(receiveSegments: value),
+        ),
+      ],
+    );
+  }
+}
+
+class _ScriptProtocolEditor extends StatelessWidget {
+  const _ScriptProtocolEditor({
+    required this.config,
+    required this.beforeSendController,
+    required this.afterReceiveController,
+    required this.runtimeAvailable,
+    required this.onChanged,
+    required this.l10n,
+  });
+
+  final ScriptConfig config;
+  final TextEditingController beforeSendController;
+  final TextEditingController afterReceiveController;
+  final bool runtimeAvailable;
+  final void Function({bool? enabled}) onChanged;
   final AppLocalizations l10n;
 
   @override
@@ -1479,218 +1867,163 @@ class _ProtocolSectionSummary extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(title, style: Theme.of(context).textTheme.labelLarge),
-        const SizedBox(height: 6),
-        if (segments.isEmpty)
-          Text('-', style: Theme.of(context).textTheme.bodySmall)
-        else
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: segments
-                .map(
-                  (ProtocolSegment segment) => _CapabilityChip(
-                    label: _segmentSummary(segment, l10n),
-                  ),
-                )
-                .toList(growable: false),
-          ),
-      ],
-    );
-  }
-}
-
-String _segmentSummary(ProtocolSegment segment, AppLocalizations l10n) {
-  return switch (segment.type) {
-    ProtocolSegmentType.fixedHex =>
-      '${segment.label.isEmpty ? l10n.fixedHexSegment : segment.label}: ${segment.fixedHex.isEmpty ? '-' : segment.fixedHex}',
-    ProtocolSegmentType.payload =>
-      segment.label.isEmpty ? l10n.payloadSegment : segment.label,
-    ProtocolSegmentType.length =>
-      '${segment.label.isEmpty ? l10n.lengthField : segment.label} ${segment.byteLength ?? 1}B',
-    ProtocolSegmentType.sequence =>
-      '${segment.label.isEmpty ? l10n.sequenceField : segment.label} ${segment.byteLength ?? 1}B',
-    ProtocolSegmentType.checksum =>
-      '${segment.label.isEmpty ? l10n.checksumField : segment.label} ${_checksumLabel(segment.checksumAlgorithm ?? ProtocolChecksumAlgorithm.crc16Modbus, l10n)}',
-  };
-}
-
-class _ProtocolEditorDialog extends StatefulWidget {
-  const _ProtocolEditorDialog({
-    required this.existing,
-    required this.nameController,
-    required this.descriptionController,
-    required this.l10n,
-  });
-
-  final ProtocolDefinition existing;
-  final TextEditingController nameController;
-  final TextEditingController descriptionController;
-  final AppLocalizations l10n;
-
-  @override
-  State<_ProtocolEditorDialog> createState() => _ProtocolEditorDialogState();
-}
-
-class _ProtocolEditorDialogState extends State<_ProtocolEditorDialog> {
-  late List<ProtocolSegment> _sendSegments;
-  late List<ProtocolSegment> _receiveSegments;
-  String? _validationError;
-
-  @override
-  void initState() {
-    super.initState();
-    _sendSegments = List<ProtocolSegment>.from(widget.existing.sendSegments);
-    _receiveSegments = List<ProtocolSegment>.from(widget.existing.receiveSegments);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(
-        widget.l10n.editProtocol,
-      ),
-      content: SizedBox(
-        width: 560,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              TextField(
-                controller: widget.nameController,
-                autofocus: true,
-                decoration: InputDecoration(labelText: widget.l10n.protocolName),
-              ),
-              TextField(
-                controller: widget.descriptionController,
-                minLines: 1,
-                maxLines: 3,
-                decoration: InputDecoration(labelText: widget.l10n.description),
-              ),
-              const SizedBox(height: 14),
-              _ProtocolSegmentSection(
-                title: widget.l10n.sendFrame,
-                segments: _sendSegments,
-                l10n: widget.l10n,
-                onChanged: (List<ProtocolSegment> value) {
-                  setState(() => _sendSegments = value);
-                },
-              ),
-              const Divider(height: 28),
-              _ProtocolSegmentSection(
-                title: widget.l10n.receiveFrame,
-                segments: _receiveSegments,
-                l10n: widget.l10n,
-                onChanged: (List<ProtocolSegment> value) {
-                  setState(() => _receiveSegments = value);
-                },
-              ),
-              if (_validationError != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Text(
-                    _validationError!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(widget.l10n.cancel),
-        ),
-        FilledButton(
-          onPressed: () {
-            final String name = widget.nameController.text.trim();
-            if (name.isEmpty ||
-                !_validSegments(_sendSegments) ||
-                !_validSegments(_receiveSegments)) {
-              setState(() => _validationError = widget.l10n.invalidProtocol);
-              return;
-            }
-            Navigator.of(context).pop(
-              ProtocolDefinition(
-                name: name,
-                description: widget.descriptionController.text.trim(),
-                sendSegments: List<ProtocolSegment>.unmodifiable(_sendSegments),
-                receiveSegments: List<ProtocolSegment>.unmodifiable(_receiveSegments),
-              ),
-            );
-          },
-          child: Text(widget.l10n.save),
-        ),
-      ],
-    );
-  }
-}
-
-class _ScriptLibraryPanel extends StatelessWidget {
-  const _ScriptLibraryPanel({
-    required this.scriptConfig,
-    required this.onEdit,
-    required this.runtimeAvailable,
-    required this.l10n,
-  });
-
-  final ScriptConfig scriptConfig;
-  final VoidCallback onEdit;
-  final bool runtimeAvailable;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(18),
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                l10n.scriptProtocolMode,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-            IconButton(
-              tooltip: l10n.editScriptConfig,
-              onPressed: onEdit,
-              icon: const Icon(Icons.edit_outlined, size: 18),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _WorkspaceField(
-          label: l10n.scriptEnabled,
-          value: scriptConfig.enabled ? l10n.enabledState : l10n.disabledState,
-        ),
         _WorkspaceField(
           label: l10n.scriptRuntime,
-          value: runtimeAvailable ? l10n.scriptEngineReady : l10n.scriptEngineUnavailable,
+          value: runtimeAvailable
+              ? l10n.scriptEngineReady
+              : l10n.scriptEngineUnavailable,
         ),
-        _WorkspaceField(
-          label: l10n.beforeSendScript,
-          value: scriptConfig.beforeSendScript.trim().isEmpty
-              ? l10n.none
-              : scriptConfig.beforeSendScript.split('\n').first,
+        Text(l10n.scriptMethods, style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        _ScriptMethodContract(
+          title: 'beforeSend(context)',
+          details: l10n.beforeSendContract,
+          signature: 'context.payloadHex -> { frameHex, logs? }',
         ),
-        _WorkspaceField(
-          label: l10n.afterReceiveScript,
-          value: scriptConfig.afterReceiveScript.trim().isEmpty
-              ? l10n.none
-              : scriptConfig.afterReceiveScript.split('\n').first,
+        const SizedBox(height: 8),
+        _ScriptMethodContract(
+          title: 'afterReceive(context)',
+          details: l10n.afterReceiveContract,
+          signature:
+              'context.frameHex -> { payloadHex, cmdHex?, dataHex?, valid?, logs? }',
+        ),
+        const SizedBox(height: 12),
+        _ScriptBuiltinLibrary(l10n: l10n),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              beforeSendController.text = _defaultBeforeSendScript;
+              afterReceiveController.text = _defaultAfterReceiveScript;
+              onChanged();
+            },
+            icon: const Icon(Icons.auto_fix_high_outlined),
+            label: Text(l10n.loadProtocolSample),
+          ),
+        ),
+        TextField(
+          controller: beforeSendController,
+          minLines: 16,
+          maxLines: 28,
+          onChanged: (_) => onChanged(),
+          decoration: InputDecoration(
+            labelText: l10n.beforeSendScript,
+            border: const OutlineInputBorder(),
+          ),
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: afterReceiveController,
+          minLines: 16,
+          maxLines: 28,
+          onChanged: (_) => onChanged(),
+          decoration: InputDecoration(
+            labelText: l10n.afterReceiveScript,
+            border: const OutlineInputBorder(),
+          ),
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
         ),
       ],
     );
   }
 }
 
-class _ProtocolSegmentSection extends StatelessWidget {
-  const _ProtocolSegmentSection({
+class _ScriptMethodContract extends StatelessWidget {
+  const _ScriptMethodContract({
+    required this.title,
+    required this.details,
+    required this.signature,
+  });
+
+  final String title;
+  final String details;
+  final String signature;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).dividerColor),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(title, style: const TextStyle(fontFamily: 'monospace')),
+          const SizedBox(height: 3),
+          Text(details, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 5),
+          Text(
+            signature,
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(fontFamily: 'monospace'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScriptBuiltinLibrary extends StatelessWidget {
+  const _ScriptBuiltinLibrary({required this.l10n});
+
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> functions = <String>[
+      'hexToBytes(value) / bytesToHex(value)',
+      'uintToHex(value, byteLength, littleEndian)',
+      'xorBytes(value, key)',
+      'sum8(value)',
+      'crc8(value, polynomial?, initial?)',
+      'crc16Modbus(value)',
+      'crc16Ccitt(value, initial?)',
+      'crc32(value)',
+      'md5Hex(value) / md5Text(value)',
+    ];
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            l10n.scriptBuiltins,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            l10n.scriptBuiltinsHint,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          ...functions.map(
+            (String function) => Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Text(
+                function,
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(fontFamily: 'monospace'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineProtocolSegmentSection extends StatelessWidget {
+  const _InlineProtocolSegmentSection({
     required this.title,
     required this.segments,
     required this.l10n,
@@ -1712,56 +2045,63 @@ class _ProtocolSegmentSection extends StatelessWidget {
             Expanded(
               child: Text(title, style: Theme.of(context).textTheme.titleSmall),
             ),
-            IconButton(
+            PopupMenuButton<ProtocolSegmentType>(
               tooltip: l10n.newProtocolSegment,
-              onPressed: () async {
-                final ProtocolSegment? segment = await _showSegmentDialog(
-                  context,
-                  l10n,
-                );
-                if (segment == null) return;
-                onChanged(<ProtocolSegment>[...segments, segment]);
-              },
               icon: const Icon(Icons.add, size: 18),
+              onSelected: (ProtocolSegmentType type) {
+                onChanged(<ProtocolSegment>[
+                  ...segments,
+                  _newProtocolSegment(type),
+                ]);
+              },
+              itemBuilder: (BuildContext context) => ProtocolSegmentType.values
+                  .map(
+                    (ProtocolSegmentType type) =>
+                        PopupMenuItem<ProtocolSegmentType>(
+                          value: type,
+                          child: Text(_segmentTypeLabel(type, l10n)),
+                        ),
+                  )
+                  .toList(growable: false),
             ),
           ],
         ),
         const SizedBox(height: 6),
         if (segments.isEmpty)
-          Text(l10n.noProtocolSegments, style: Theme.of(context).textTheme.bodySmall)
+          Text(
+            l10n.noProtocolSegments,
+            style: Theme.of(context).textTheme.bodySmall,
+          )
         else
           ...List<Widget>.generate(segments.length, (int index) {
             final ProtocolSegment segment = segments[index];
-            return _ProtocolSegmentTile(
+            return _InlineProtocolSegmentTile(
               segment: segment,
               canMoveUp: index > 0,
               canMoveDown: index < segments.length - 1,
               l10n: l10n,
               onMoveUp: () {
-                final List<ProtocolSegment> updated = List<ProtocolSegment>.from(segments);
+                final List<ProtocolSegment> updated =
+                    List<ProtocolSegment>.from(segments);
                 final ProtocolSegment item = updated.removeAt(index);
                 updated.insert(index - 1, item);
                 onChanged(updated);
               },
               onMoveDown: () {
-                final List<ProtocolSegment> updated = List<ProtocolSegment>.from(segments);
+                final List<ProtocolSegment> updated =
+                    List<ProtocolSegment>.from(segments);
                 final ProtocolSegment item = updated.removeAt(index);
                 updated.insert(index + 1, item);
                 onChanged(updated);
               },
               onDelete: () {
-                final List<ProtocolSegment> updated = List<ProtocolSegment>.from(segments)
-                  ..removeAt(index);
+                final List<ProtocolSegment> updated =
+                    List<ProtocolSegment>.from(segments)..removeAt(index);
                 onChanged(updated);
               },
-              onEdit: () async {
-                final ProtocolSegment? updatedSegment = await _showSegmentDialog(
-                  context,
-                  l10n,
-                  existing: segment,
-                );
-                if (updatedSegment == null) return;
-                final List<ProtocolSegment> updated = List<ProtocolSegment>.from(segments);
+              onChanged: (ProtocolSegment updatedSegment) {
+                final List<ProtocolSegment> updated =
+                    List<ProtocolSegment>.from(segments);
                 updated[index] = updatedSegment;
                 onChanged(updated);
               },
@@ -1772,8 +2112,8 @@ class _ProtocolSegmentSection extends StatelessWidget {
   }
 }
 
-class _ProtocolSegmentTile extends StatelessWidget {
-  const _ProtocolSegmentTile({
+class _InlineProtocolSegmentTile extends StatelessWidget {
+  const _InlineProtocolSegmentTile({
     required this.segment,
     required this.canMoveUp,
     required this.canMoveDown,
@@ -1781,7 +2121,7 @@ class _ProtocolSegmentTile extends StatelessWidget {
     required this.onMoveUp,
     required this.onMoveDown,
     required this.onDelete,
-    required this.onEdit,
+    required this.onChanged,
   });
 
   final ProtocolSegment segment;
@@ -1791,7 +2131,7 @@ class _ProtocolSegmentTile extends StatelessWidget {
   final VoidCallback onMoveUp;
   final VoidCallback onMoveDown;
   final VoidCallback onDelete;
-  final VoidCallback onEdit;
+  final ValueChanged<ProtocolSegment> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1805,19 +2145,154 @@ class _ProtocolSegmentTile extends StatelessWidget {
       child: Row(
         children: <Widget>[
           Expanded(
-            child: InkWell(
-              onTap: onEdit,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(segment.label.isEmpty ? _segmentTypeLabel(segment.type, l10n) : segment.label),
-                  const SizedBox(height: 2),
-                  Text(
-                    _segmentSummary(segment, l10n),
-                    style: Theme.of(context).textTheme.bodySmall,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(_segmentTypeLabel(segment.type, l10n)),
+                const SizedBox(height: 6),
+                TextFormField(
+                  initialValue: segment.label,
+                  onChanged: (String value) =>
+                      onChanged(segment.copyWith(label: value)),
+                  decoration: InputDecoration(
+                    labelText: l10n.segmentLabel,
+                    isDense: true,
+                  ),
+                ),
+                if (segment.type == ProtocolSegmentType.fixedHex)
+                  TextFormField(
+                    initialValue: segment.fixedHex,
+                    onChanged: (String value) =>
+                        onChanged(segment.copyWith(fixedHex: value)),
+                    decoration: InputDecoration(
+                      labelText: l10n.fixedHexSegment,
+                      isDense: true,
+                    ),
+                  ),
+                if (segment.type == ProtocolSegmentType.length ||
+                    segment.type == ProtocolSegmentType.sequence)
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: '${segment.byteLength ?? 1}',
+                          keyboardType: TextInputType.number,
+                          onChanged: (String value) => onChanged(
+                            segment.copyWith(
+                              byteLength: int.tryParse(value) ?? 1,
+                            ),
+                          ),
+                          decoration: InputDecoration(
+                            labelText: l10n.fieldByteLength,
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonFormField<ProtocolByteOrder>(
+                          initialValue:
+                              segment.byteOrder ??
+                              ProtocolByteOrder.littleEndian,
+                          isDense: true,
+                          decoration: InputDecoration(
+                            labelText: l10n.byteOrder,
+                            isDense: true,
+                          ),
+                          items: ProtocolByteOrder.values
+                              .map(
+                                (ProtocolByteOrder item) =>
+                                    DropdownMenuItem<ProtocolByteOrder>(
+                                      value: item,
+                                      child: Text(_byteOrderLabel(item, l10n)),
+                                    ),
+                              )
+                              .toList(growable: false),
+                          onChanged: (ProtocolByteOrder? value) {
+                            if (value != null) {
+                              onChanged(segment.copyWith(byteOrder: value));
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                if (segment.type == ProtocolSegmentType.length ||
+                    segment.type == ProtocolSegmentType.checksum)
+                  DropdownButtonFormField<ProtocolCalculationRange>(
+                    initialValue:
+                        segment.calculationRange ??
+                        ProtocolCalculationRange.payloadOnly,
+                    isDense: true,
+                    decoration: InputDecoration(
+                      labelText: l10n.calculationRange,
+                      isDense: true,
+                    ),
+                    items: ProtocolCalculationRange.values
+                        .map(
+                          (ProtocolCalculationRange item) =>
+                              DropdownMenuItem<ProtocolCalculationRange>(
+                                value: item,
+                                child: Text(_calculationRangeLabel(item, l10n)),
+                              ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (ProtocolCalculationRange? value) {
+                      if (value != null) {
+                        onChanged(segment.copyWith(calculationRange: value));
+                      }
+                    },
+                  ),
+                if (segment.type == ProtocolSegmentType.checksum) ...<Widget>[
+                  DropdownButtonFormField<ProtocolChecksumAlgorithm>(
+                    initialValue:
+                        segment.checksumAlgorithm ??
+                        ProtocolChecksumAlgorithm.crc16Modbus,
+                    isDense: true,
+                    decoration: InputDecoration(
+                      labelText: l10n.checksumAlgorithm,
+                      isDense: true,
+                    ),
+                    items: ProtocolChecksumAlgorithm.values
+                        .map(
+                          (ProtocolChecksumAlgorithm item) =>
+                              DropdownMenuItem<ProtocolChecksumAlgorithm>(
+                                value: item,
+                                child: Text(_checksumLabel(item, l10n)),
+                              ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (ProtocolChecksumAlgorithm? value) {
+                      if (value != null) {
+                        onChanged(segment.copyWith(checksumAlgorithm: value));
+                      }
+                    },
+                  ),
+                  DropdownButtonFormField<ProtocolByteOrder>(
+                    initialValue:
+                        segment.byteOrder ?? ProtocolByteOrder.littleEndian,
+                    isDense: true,
+                    decoration: InputDecoration(
+                      labelText: l10n.byteOrder,
+                      isDense: true,
+                    ),
+                    items: ProtocolByteOrder.values
+                        .map(
+                          (ProtocolByteOrder item) =>
+                              DropdownMenuItem<ProtocolByteOrder>(
+                                value: item,
+                                child: Text(_byteOrderLabel(item, l10n)),
+                              ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (ProtocolByteOrder? value) {
+                      if (value != null) {
+                        onChanged(segment.copyWith(byteOrder: value));
+                      }
+                    },
                   ),
                 ],
-              ),
+              ],
             ),
           ),
           IconButton(
@@ -1831,11 +2306,6 @@ class _ProtocolSegmentTile extends StatelessWidget {
             icon: const Icon(Icons.arrow_downward, size: 18),
           ),
           IconButton(
-            tooltip: l10n.editProtocol,
-            onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined, size: 18),
-          ),
-          IconButton(
             tooltip: l10n.deleteProtocolSegment,
             onPressed: onDelete,
             icon: const Icon(Icons.delete_outline, size: 18),
@@ -1846,15 +2316,17 @@ class _ProtocolSegmentTile extends StatelessWidget {
   }
 }
 
-String _checksumLabel(ProtocolChecksumAlgorithm algorithm, AppLocalizations l10n) =>
-    switch (algorithm) {
-      ProtocolChecksumAlgorithm.xor => 'XOR',
-      ProtocolChecksumAlgorithm.sum8 => 'SUM8',
-      ProtocolChecksumAlgorithm.crc8 => 'CRC8',
-      ProtocolChecksumAlgorithm.crc16Modbus => 'CRC16-MODBUS',
-      ProtocolChecksumAlgorithm.crc16Ccitt => 'CRC16-CCITT',
-      ProtocolChecksumAlgorithm.crc32 => 'CRC32',
-    };
+String _checksumLabel(
+  ProtocolChecksumAlgorithm algorithm,
+  AppLocalizations l10n,
+) => switch (algorithm) {
+  ProtocolChecksumAlgorithm.xor => 'XOR',
+  ProtocolChecksumAlgorithm.sum8 => 'SUM8',
+  ProtocolChecksumAlgorithm.crc8 => 'CRC8',
+  ProtocolChecksumAlgorithm.crc16Modbus => 'CRC16-MODBUS',
+  ProtocolChecksumAlgorithm.crc16Ccitt => 'CRC16-CCITT',
+  ProtocolChecksumAlgorithm.crc32 => 'CRC32',
+};
 
 String _byteOrderLabel(ProtocolByteOrder order, AppLocalizations l10n) =>
     order == ProtocolByteOrder.littleEndian ? 'Little-endian' : 'Big-endian';
@@ -1875,229 +2347,33 @@ String _segmentTypeLabel(ProtocolSegmentType type, AppLocalizations l10n) =>
       ProtocolSegmentType.checksum => l10n.checksumField,
     };
 
-bool _validSegments(List<ProtocolSegment> segments) {
-  if (segments.isEmpty) {
-    return false;
-  }
-  final int payloadCount = segments
-      .where((ProtocolSegment segment) => segment.type == ProtocolSegmentType.payload)
-      .length;
-  if (payloadCount != 1) {
-    return false;
-  }
-  for (final ProtocolSegment segment in segments) {
-    if (segment.type == ProtocolSegmentType.fixedHex && _parseHex(segment.fixedHex) == null) {
-      return false;
-    }
-    if ((segment.type == ProtocolSegmentType.length ||
-            segment.type == ProtocolSegmentType.sequence) &&
-        (segment.byteLength == null || segment.byteLength! <= 0)) {
-      return false;
-    }
-    if (segment.type == ProtocolSegmentType.checksum && segment.checksumAlgorithm == null) {
-      return false;
-    }
-  }
-  return true;
-}
-
-Future<ProtocolSegment?> _showSegmentDialog(
-  BuildContext context,
-  AppLocalizations l10n, {
-  ProtocolSegment? existing,
-}) async {
-  final TextEditingController labelController = TextEditingController(
-    text: existing?.label ?? '',
+ProtocolSegment _newProtocolSegment(ProtocolSegmentType type) {
+  final String id = 'segment-${DateTime.now().microsecondsSinceEpoch}';
+  return ProtocolSegment(
+    id: id,
+    type: type,
+    label: '',
+    byteLength:
+        type == ProtocolSegmentType.length ||
+            type == ProtocolSegmentType.sequence
+        ? 1
+        : null,
+    byteOrder:
+        type == ProtocolSegmentType.length ||
+            type == ProtocolSegmentType.sequence ||
+            type == ProtocolSegmentType.checksum
+        ? ProtocolByteOrder.littleEndian
+        : null,
+    fixedHex: type == ProtocolSegmentType.fixedHex ? '00' : '',
+    checksumAlgorithm: type == ProtocolSegmentType.checksum
+        ? ProtocolChecksumAlgorithm.crc16Modbus
+        : null,
+    calculationRange:
+        type == ProtocolSegmentType.length ||
+            type == ProtocolSegmentType.checksum
+        ? ProtocolCalculationRange.payloadOnly
+        : null,
   );
-  final TextEditingController fixedHexController = TextEditingController(
-    text: existing?.fixedHex ?? '',
-  );
-  final TextEditingController byteLengthController = TextEditingController(
-    text: existing?.byteLength?.toString() ?? '',
-  );
-  final ProtocolSegment? result = await showDialog<ProtocolSegment>(
-    context: context,
-    builder: (BuildContext context) {
-      ProtocolSegmentType type = existing?.type ?? ProtocolSegmentType.fixedHex;
-      ProtocolByteOrder byteOrder = existing?.byteOrder ?? ProtocolByteOrder.littleEndian;
-      ProtocolChecksumAlgorithm checksum =
-          existing?.checksumAlgorithm ?? ProtocolChecksumAlgorithm.crc16Modbus;
-      ProtocolCalculationRange range =
-          existing?.calculationRange ?? ProtocolCalculationRange.payloadOnly;
-      String? validationError;
-      return StatefulBuilder(
-        builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
-          title: Text(existing == null ? l10n.newProtocolSegment : l10n.editProtocolSegment),
-          content: SizedBox(
-            width: 460,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  DropdownButtonFormField<ProtocolSegmentType>(
-                    initialValue: type,
-                    decoration: InputDecoration(labelText: l10n.segmentType),
-                    items: ProtocolSegmentType.values
-                        .map(
-                          (ProtocolSegmentType item) => DropdownMenuItem<ProtocolSegmentType>(
-                            value: item,
-                            child: Text(_segmentTypeLabel(item, l10n)),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (ProtocolSegmentType? value) {
-                      if (value != null) {
-                        setDialogState(() {
-                          type = value;
-                          validationError = null;
-                        });
-                      }
-                    },
-                  ),
-                  TextField(
-                    controller: labelController,
-                    decoration: InputDecoration(labelText: l10n.segmentLabel),
-                  ),
-                  if (type == ProtocolSegmentType.fixedHex)
-                    TextField(
-                      controller: fixedHexController,
-                      decoration: InputDecoration(
-                        labelText: l10n.fixedHexSegment,
-                        errorText: validationError,
-                      ),
-                    ),
-                  if (type == ProtocolSegmentType.length || type == ProtocolSegmentType.sequence) ...<Widget>[
-                    TextField(
-                      controller: byteLengthController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: l10n.fieldByteLength,
-                        errorText: validationError,
-                      ),
-                    ),
-                    DropdownButtonFormField<ProtocolByteOrder>(
-                      initialValue: byteOrder,
-                      decoration: InputDecoration(labelText: l10n.byteOrder),
-                      items: ProtocolByteOrder.values
-                          .map(
-                            (ProtocolByteOrder item) => DropdownMenuItem<ProtocolByteOrder>(
-                              value: item,
-                              child: Text(_byteOrderLabel(item, l10n)),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (ProtocolByteOrder? value) {
-                        if (value != null) setDialogState(() => byteOrder = value);
-                      },
-                    ),
-                  ],
-                  if (type == ProtocolSegmentType.length || type == ProtocolSegmentType.checksum)
-                    DropdownButtonFormField<ProtocolCalculationRange>(
-                      initialValue: range,
-                      decoration: InputDecoration(labelText: l10n.calculationRange),
-                      items: ProtocolCalculationRange.values
-                          .map(
-                            (ProtocolCalculationRange item) => DropdownMenuItem<ProtocolCalculationRange>(
-                              value: item,
-                              child: Text(_calculationRangeLabel(item, l10n)),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (ProtocolCalculationRange? value) {
-                        if (value != null) setDialogState(() => range = value);
-                      },
-                    ),
-                  if (type == ProtocolSegmentType.checksum) ...<Widget>[
-                    DropdownButtonFormField<ProtocolChecksumAlgorithm>(
-                      initialValue: checksum,
-                      decoration: InputDecoration(labelText: l10n.checksumAlgorithm),
-                      items: ProtocolChecksumAlgorithm.values
-                          .map(
-                            (ProtocolChecksumAlgorithm item) => DropdownMenuItem<ProtocolChecksumAlgorithm>(
-                              value: item,
-                              child: Text(_checksumLabel(item, l10n)),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (ProtocolChecksumAlgorithm? value) {
-                        if (value != null) setDialogState(() => checksum = value);
-                      },
-                    ),
-                    DropdownButtonFormField<ProtocolByteOrder>(
-                      initialValue: byteOrder,
-                      decoration: InputDecoration(labelText: l10n.byteOrder),
-                      items: ProtocolByteOrder.values
-                          .map(
-                            (ProtocolByteOrder item) => DropdownMenuItem<ProtocolByteOrder>(
-                              value: item,
-                              child: Text(_byteOrderLabel(item, l10n)),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (ProtocolByteOrder? value) {
-                        if (value != null) setDialogState(() => byteOrder = value);
-                      },
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () {
-                final String label = labelController.text.trim();
-                final int? byteLength = int.tryParse(byteLengthController.text.trim());
-                if (type == ProtocolSegmentType.fixedHex && _parseHex(fixedHexController.text.trim()) == null) {
-                  setDialogState(() => validationError = l10n.invalidProtocolSegment);
-                  return;
-                }
-                if ((type == ProtocolSegmentType.length || type == ProtocolSegmentType.sequence) &&
-                    (byteLength == null || byteLength <= 0)) {
-                  setDialogState(() => validationError = l10n.invalidProtocolSegment);
-                  return;
-                }
-                Navigator.of(context).pop(
-                  ProtocolSegment(
-                    id: existing?.id ?? 'segment-${DateTime.now().microsecondsSinceEpoch}',
-                    type: type,
-                    label: label,
-                    byteLength: (type == ProtocolSegmentType.length || type == ProtocolSegmentType.sequence)
-                        ? byteLength
-                        : null,
-                    byteOrder: (type == ProtocolSegmentType.length ||
-                            type == ProtocolSegmentType.sequence ||
-                            type == ProtocolSegmentType.checksum)
-                        ? byteOrder
-                        : null,
-                    fixedHex: type == ProtocolSegmentType.fixedHex
-                        ? fixedHexController.text.trim()
-                        : '',
-                    checksumAlgorithm: type == ProtocolSegmentType.checksum ? checksum : null,
-                    calculationRange: (type == ProtocolSegmentType.length ||
-                            type == ProtocolSegmentType.checksum)
-                        ? range
-                        : null,
-                  ),
-                );
-              },
-              child: Text(l10n.save),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    labelController.dispose();
-    fixedHexController.dispose();
-    byteLengthController.dispose();
-  });
-  return result;
 }
 
 class _CommandLibraryPanel extends StatelessWidget {
@@ -2271,6 +2547,505 @@ class _CommandLibraryTile extends StatelessWidget {
   }
 }
 
+class _DataMappingLibraryPanel extends StatelessWidget {
+  const _DataMappingLibraryPanel({
+    required this.mappings,
+    required this.onNew,
+    required this.onEdit,
+    required this.onDelete,
+    required this.l10n,
+  });
+
+  final List<ResponseMapping> mappings;
+  final VoidCallback onNew;
+  final ValueChanged<ResponseMapping> onEdit;
+  final ValueChanged<ResponseMapping> onDelete;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(18),
+    children: <Widget>[
+      Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              l10n.dataMappings,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          IconButton(
+            tooltip: l10n.addResponseMapping,
+            onPressed: onNew,
+            icon: const Icon(Icons.add, size: 19),
+          ),
+        ],
+      ),
+      Padding(
+        padding: EdgeInsets.only(top: 4, bottom: 12),
+        child: Text(l10n.dataMappingHint),
+      ),
+      if (mappings.isEmpty)
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 28),
+          child: Center(child: Text(l10n.noResponseMappings)),
+        )
+      else
+        ...mappings.map(
+          (ResponseMapping mapping) => Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+            decoration: BoxDecoration(
+              border: Border.all(color: Theme.of(context).dividerColor),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: InkWell(
+                    onTap: () => onEdit(mapping),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(mapping.name),
+                        const SizedBox(height: 3),
+                        Text(
+                          l10n.mappingFieldCount(
+                            mapping.commandHex,
+                            mapping.fields.length,
+                          ),
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: l10n.editResponseMapping,
+                  onPressed: () => onEdit(mapping),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                ),
+                IconButton(
+                  tooltip: l10n.deleteResponseMapping,
+                  onPressed: () => onDelete(mapping),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                ),
+              ],
+            ),
+          ),
+        ),
+    ],
+  );
+}
+
+class _CommandParameterEditor extends StatelessWidget {
+  const _CommandParameterEditor({
+    required this.parameter,
+    required this.onChanged,
+    required this.onDelete,
+  });
+  final CommandParameter parameter;
+  final ValueChanged<CommandParameter> onChanged;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+      border: Border.all(color: Theme.of(context).dividerColor),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Column(
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: TextFormField(
+                initialValue: parameter.key,
+                decoration: const InputDecoration(
+                  labelText: 'key',
+                  isDense: true,
+                ),
+                onChanged: (String value) =>
+                    onChanged(parameter.copyWith(key: value.trim())),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextFormField(
+                initialValue: parameter.label,
+                decoration: const InputDecoration(
+                  labelText: '名称',
+                  isDense: true,
+                ),
+                onChanged: (String value) =>
+                    onChanged(parameter.copyWith(label: value)),
+              ),
+            ),
+            IconButton(
+              tooltip: '删除参数',
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline, size: 18),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: DropdownButtonFormField<CommandParameterType>(
+                initialValue: parameter.type,
+                decoration: const InputDecoration(
+                  labelText: '类型',
+                  isDense: true,
+                ),
+                items: CommandParameterType.values
+                    .map(
+                      (CommandParameterType item) => DropdownMenuItem(
+                        value: item,
+                        child: Text(_commandParameterTypeLabel(item)),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: (CommandParameterType? value) {
+                  if (value != null) onChanged(parameter.copyWith(type: value));
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextFormField(
+                initialValue: parameter.defaultValue,
+                decoration: const InputDecoration(
+                  labelText: '默认值',
+                  isDense: true,
+                ),
+                onChanged: (String value) =>
+                    onChanged(parameter.copyWith(defaultValue: value)),
+              ),
+            ),
+          ],
+        ),
+        if (parameter.type == CommandParameterType.enumValue) ...<Widget>[
+          const SizedBox(height: 8),
+          TextFormField(
+            initialValue: parameter.options
+                .map(
+                  (CommandParameterOption option) =>
+                      '${option.label}=${option.value}',
+                )
+                .join(', '),
+            decoration: const InputDecoration(
+              labelText: '枚举选项',
+              helperText: '名称=数值，多个选项以逗号分隔',
+              isDense: true,
+            ),
+            onChanged: (String value) => onChanged(
+              parameter.copyWith(options: _parseParameterOptions(value)),
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+class _MappingFieldEditor extends StatelessWidget {
+  const _MappingFieldEditor({
+    required this.field,
+    required this.onChanged,
+    required this.onDelete,
+  });
+  final DataField field;
+  final ValueChanged<DataField> onChanged;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l10n = AppLocalizations.of(context)!;
+    final bool isNumeric = switch (field.type) {
+      DataFieldType.uint8 ||
+      DataFieldType.int8 ||
+      DataFieldType.uint16 ||
+      DataFieldType.int16 ||
+      DataFieldType.uint32 ||
+      DataFieldType.int32 => true,
+      _ => false,
+    };
+    final bool needsByteOrder = switch (field.type) {
+      DataFieldType.uint16 ||
+      DataFieldType.int16 ||
+      DataFieldType.uint32 ||
+      DataFieldType.int32 => true,
+      _ => false,
+    };
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).dividerColor),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: TextFormField(
+                  initialValue: field.key,
+                  decoration: const InputDecoration(
+                    labelText: 'key',
+                    isDense: true,
+                  ),
+                  onChanged: (String value) =>
+                      onChanged(field.copyWith(key: value.trim())),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  initialValue: field.label,
+                  decoration: InputDecoration(
+                    labelText: l10n.fieldLabel,
+                    isDense: true,
+                  ),
+                  onChanged: (String value) =>
+                      onChanged(field.copyWith(label: value)),
+                ),
+              ),
+              IconButton(
+                tooltip: l10n.deleteDataField,
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline, size: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: TextFormField(
+                  initialValue: field.offset.toString(),
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: l10n.dataOffset,
+                    isDense: true,
+                  ),
+                  onChanged: (String value) => onChanged(
+                    field.copyWith(offset: int.tryParse(value) ?? 0),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  initialValue: field.byteLength.toString(),
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: l10n.fieldByteLength,
+                    isDense: true,
+                  ),
+                  onChanged: (String value) => onChanged(
+                    field.copyWith(byteLength: int.tryParse(value) ?? 1),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<DataFieldType>(
+                  initialValue: field.type,
+                  decoration: InputDecoration(
+                    labelText: l10n.dataFieldType,
+                    isDense: true,
+                  ),
+                  items: DataFieldType.values
+                      .map(
+                        (DataFieldType item) => DropdownMenuItem(
+                          value: item,
+                          child: Text(item.name),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (DataFieldType? value) {
+                    if (value != null) onChanged(field.copyWith(type: value));
+                  },
+                ),
+              ),
+            ],
+          ),
+          if (isNumeric) ...<Widget>[
+            const SizedBox(height: 8),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: TextFormField(
+                    initialValue: field.scale.toString(),
+                    decoration: InputDecoration(
+                      labelText: l10n.numericScale,
+                      isDense: true,
+                    ),
+                    onChanged: (String value) => onChanged(
+                      field.copyWith(scale: double.tryParse(value) ?? 1),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: field.offsetValue.toString(),
+                    decoration: InputDecoration(
+                      labelText: l10n.numericOffset,
+                      isDense: true,
+                    ),
+                    onChanged: (String value) => onChanged(
+                      field.copyWith(offsetValue: double.tryParse(value) ?? 0),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: field.unit,
+                    decoration: InputDecoration(
+                      labelText: l10n.unit,
+                      isDense: true,
+                    ),
+                    onChanged: (String value) =>
+                        onChanged(field.copyWith(unit: value)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (needsByteOrder) ...<Widget>[
+            const SizedBox(height: 8),
+            DropdownButtonFormField<ProtocolByteOrder>(
+              initialValue: field.byteOrder,
+              decoration: InputDecoration(
+                labelText: l10n.byteOrder,
+                isDense: true,
+              ),
+              items: ProtocolByteOrder.values
+                  .map(
+                    (ProtocolByteOrder item) => DropdownMenuItem(
+                      value: item,
+                      child: Text(_byteOrderLabel(item, l10n)),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (ProtocolByteOrder? value) {
+                if (value != null) onChanged(field.copyWith(byteOrder: value));
+              },
+            ),
+          ],
+          if (field.type == DataFieldType.bit ||
+              field.type == DataFieldType.enumValue) ...<Widget>[
+            const SizedBox(height: 8),
+            TextFormField(
+              initialValue: field.type == DataFieldType.bit
+                  ? (field.bit ?? 0).toString()
+                  : field.enumValues.entries
+                        .map(
+                          (MapEntry<String, String> item) =>
+                              '${item.key}=${item.value}',
+                        )
+                        .join(', '),
+              decoration: InputDecoration(
+                labelText: field.type == DataFieldType.bit
+                    ? l10n.bitNumber
+                    : l10n.enumValues,
+                helperText: field.type == DataFieldType.bit
+                    ? l10n.bitNumberHint
+                    : l10n.enumValuesHint,
+                isDense: true,
+              ),
+              onChanged: (String value) => onChanged(
+                field.type == DataFieldType.bit
+                    ? field.copyWith(bit: int.tryParse(value) ?? 0)
+                    : field.copyWith(enumValues: _parseEnumValues(value)),
+              ),
+            ),
+          ],
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: Text(l10n.showInDataPanel),
+            value: field.visibleInDataPanel,
+            onChanged: (bool value) =>
+                onChanged(field.copyWith(visibleInDataPanel: value)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+List<CommandParameterOption> _parseParameterOptions(String value) => value
+    .split(',')
+    .map((String item) => item.trim().split('='))
+    .where((List<String> pair) => pair.length == 2 && pair[0].trim().isNotEmpty)
+    .map(
+      (List<String> pair) =>
+          CommandParameterOption(label: pair[0].trim(), value: pair[1].trim()),
+    )
+    .toList(growable: false);
+
+Map<String, String> _parseEnumValues(String value) => <String, String>{
+  for (final List<String> pair
+      in value.split(',').map((String item) => item.trim().split('=')))
+    if (pair.length == 2 && pair[0].trim().isNotEmpty)
+      pair[0].trim(): pair[1].trim(),
+};
+
+CommandParameter _newCommandParameter() => const CommandParameter(
+  key: 'value',
+  label: '参数',
+  type: CommandParameterType.uint8,
+  defaultValue: '0',
+  min: null,
+  max: null,
+  options: <CommandParameterOption>[],
+);
+
+DataField _newDataField(int index) => DataField(
+  key: 'field$index',
+  label: '字段 $index',
+  offset: index,
+  byteLength: 1,
+  type: DataFieldType.uint8,
+  byteOrder: ProtocolByteOrder.littleEndian,
+  scale: 1,
+  offsetValue: 0,
+  unit: '',
+  bit: null,
+  enumValues: const <String, String>{},
+);
+
+String _commandParameterTypeLabel(CommandParameterType type) => switch (type) {
+  CommandParameterType.uint8 => 'uint8',
+  CommandParameterType.int8 => 'int8',
+  CommandParameterType.uint16 => 'uint16',
+  CommandParameterType.int16 => 'int16',
+  CommandParameterType.uint32 => 'uint32',
+  CommandParameterType.int32 => 'int32',
+  CommandParameterType.hex => 'HEX',
+  CommandParameterType.ascii => 'ASCII',
+  CommandParameterType.utf8 => 'UTF-8',
+  CommandParameterType.boolean => 'Boolean',
+  CommandParameterType.enumValue => 'Enum',
+  CommandParameterType.currentYear => '当前年（2 位）',
+  CommandParameterType.currentMonth => '当前月',
+  CommandParameterType.currentDay => '当前日',
+  CommandParameterType.currentHour => '当前时',
+  CommandParameterType.currentMinute => '当前分',
+  CommandParameterType.currentSecond => '当前秒',
+};
+
 class _ConsoleArea extends StatelessWidget {
   const _ConsoleArea({
     required this.logs,
@@ -2438,9 +3213,10 @@ class _DeviceWorkbenchPanel extends StatelessWidget {
     required this.onSelectWrite,
     required this.onSubscriptionChanged,
     required this.onRead,
-    required this.onSend,
+    required this.onSendCommand,
     required this.commands,
-    required this.logs,
+    required this.responseMappings,
+    required this.monitoredValues,
     required this.l10n,
   });
 
@@ -2455,15 +3231,17 @@ class _DeviceWorkbenchPanel extends StatelessWidget {
   )
   onSubscriptionChanged;
   final Future<void> Function(BluetoothCharacteristicInfo) onRead;
-  final Future<void> Function(List<int>) onSend;
+  final Future<void> Function(CommandDefinition, Map<String, String>)
+  onSendCommand;
   final List<CommandDefinition> commands;
-  final List<_LogEntry> logs;
+  final List<ResponseMapping> responseMappings;
+  final Map<String, _MonitoredFieldValue> monitoredValues;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Column(
         children: <Widget>[
           Container(
@@ -2478,11 +3256,7 @@ class _DeviceWorkbenchPanel extends StatelessWidget {
                 ),
                 Tab(
                   icon: const Icon(Icons.bolt_outlined),
-                  text: l10n.quickCommands,
-                ),
-                Tab(
-                  icon: const Icon(Icons.insights_outlined),
-                  text: l10n.dataView,
+                  text: l10n.commandsAndData,
                 ),
               ],
             ),
@@ -2498,13 +3272,14 @@ class _DeviceWorkbenchPanel extends StatelessWidget {
                   onRead: onRead,
                   l10n: l10n,
                 ),
-                _QuickCommandsPanel(
+                _CommandsAndDataPanel(
                   canSend: canSend,
-                  onSend: onSend,
+                  onSend: onSendCommand,
                   commands: commands,
+                  responseMappings: responseMappings,
+                  monitoredValues: monitoredValues,
                   l10n: l10n,
                 ),
-                _DataSummaryPanel(logs: logs, l10n: l10n),
               ],
             ),
           ),
@@ -2625,7 +3400,7 @@ class _QuickCommandsPanel extends StatelessWidget {
   });
 
   final bool canSend;
-  final Future<void> Function(List<int>) onSend;
+  final Future<void> Function(CommandDefinition, Map<String, String>) onSend;
   final List<CommandDefinition> commands;
   final AppLocalizations l10n;
 
@@ -2690,7 +3465,7 @@ class _QuickCommandsPanel extends StatelessWidget {
   }
 }
 
-class _CommandTile extends StatelessWidget {
+class _CommandTile extends StatefulWidget {
   const _CommandTile({
     required this.command,
     required this.canSend,
@@ -2700,116 +3475,201 @@ class _CommandTile extends StatelessWidget {
 
   final CommandDefinition command;
   final bool canSend;
-  final Future<void> Function(List<int>) onSend;
+  final Future<void> Function(CommandDefinition, Map<String, String>) onSend;
   final AppLocalizations l10n;
 
   @override
+  State<_CommandTile> createState() => _CommandTileState();
+}
+
+class _CommandTileState extends State<_CommandTile> {
+  late final Map<String, TextEditingController> _controllers;
+  String? _validationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = <String, TextEditingController>{
+      for (final CommandParameter parameter in widget.command.parameters)
+        parameter.key: TextEditingController(text: parameter.defaultValue),
+    };
+  }
+
+  @override
+  void didUpdateWidget(covariant _CommandTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.command.id == widget.command.id &&
+        oldWidget.command.parameters == widget.command.parameters) {
+      return;
+    }
+    for (final TextEditingController controller in _controllers.values) {
+      controller.dispose();
+    }
+    _controllers
+      ..clear()
+      ..addEntries(
+        widget.command.parameters.map(
+          (CommandParameter parameter) =>
+              MapEntry<String, TextEditingController>(
+                parameter.key,
+                TextEditingController(text: parameter.defaultValue),
+              ),
+        ),
+      );
+    _validationError = null;
+  }
+
+  @override
+  void dispose() {
+    for (final TextEditingController controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final Map<String, String> values = <String, String>{
+      for (final MapEntry<String, TextEditingController> entry
+          in _controllers.entries)
+        entry.key: entry.value.text.trim(),
+    };
+    try {
+      CommandPayloadEncoder.encode(widget.command, values);
+      setState(() => _validationError = null);
+      await widget.onSend(widget.command, values);
+    } on FormatException catch (error) {
+      if (mounted) setState(() => _validationError = error.message);
+    } catch (error) {
+      if (mounted) setState(() => _validationError = error.toString());
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final List<int>? bytes = command.format == CommandPayloadFormat.hex
-        ? _parseHex(command.payload)
-        : utf8.encode(command.payload);
-    final bool sendEnabled = canSend && command.enabled && bytes != null;
+    final CommandDefinition command = widget.command;
+    final bool sendEnabled = widget.canSend && command.enabled;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
+      padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
       decoration: BoxDecoration(
         border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(5),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    command.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    command.payload,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
-                  ),
-                ],
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      command.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      command.payload,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton.filled(
+                tooltip: widget.l10n.sendCommand,
+                onPressed: sendEnabled ? _send : null,
+                icon: const Icon(Icons.send_outlined, size: 18),
+              ),
+            ],
+          ),
+          if (command.parameters.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: command.parameters
+                  .map(_buildParameterInput)
+                  .toList(growable: false),
+            ),
+          ],
+          if (_validationError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                _validationError!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
               ),
             ),
-          ),
-          IconButton.filled(
-            tooltip: l10n.sendCommand,
-            onPressed: sendEnabled ? () => onSend(bytes) : null,
-            icon: const Icon(Icons.send_outlined, size: 18),
-          ),
         ],
       ),
     );
   }
-}
 
-class _DataSummaryPanel extends StatelessWidget {
-  const _DataSummaryPanel({required this.logs, required this.l10n});
-  final List<_LogEntry> logs;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final int sent = logs.where((entry) => entry.kind == _LogKind.sent).length;
-    final int received = logs
-        .where((entry) => entry.kind == _LogKind.received)
-        .length;
-    return Padding(
-      padding: const EdgeInsets.all(14),
+  Widget _buildParameterInput(CommandParameter parameter) {
+    final String label = parameter.label.isEmpty
+        ? parameter.key
+        : parameter.label;
+    return SizedBox(
+      width: 108,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            l10n.dataView,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall,
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _PacketCount(
-                  label: l10n.sentPackets,
-                  count: sent,
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                ),
+          const SizedBox(height: 3),
+          if (parameter.type == CommandParameterType.enumValue &&
+              parameter.options.isNotEmpty)
+            DropdownButtonFormField<String>(
+              initialValue:
+                  parameter.options.any(
+                    (CommandParameterOption option) =>
+                        option.value == _controllers[parameter.key]!.text,
+                  )
+                  ? _controllers[parameter.key]!.text
+                  : null,
+              isDense: true,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _PacketCount(
-                  label: l10n.receivedPackets,
-                  count: received,
-                  color: Theme.of(context).colorScheme.secondaryContainer,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          if (sent + received == 0)
-            Expanded(child: Center(child: Text(l10n.noPacketData)))
+              items: parameter.options
+                  .map(
+                    (CommandParameterOption option) => DropdownMenuItem<String>(
+                      value: option.value,
+                      child: Text(
+                        option.label,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (String? value) {
+                if (value != null) _controllers[parameter.key]!.text = value;
+              },
+            )
           else
-            Expanded(
-              child: ListView(
-                children: logs
-                    .where(
-                      (entry) =>
-                          entry.kind == _LogKind.sent ||
-                          entry.kind == _LogKind.received,
-                    )
-                    .take(12)
-                    .map((entry) => _LogLine(entry: entry, l10n: l10n))
-                    .toList(growable: false),
+            TextField(
+              controller: _controllers[parameter.key],
+              keyboardType: _usesNumericKeyboard(parameter.type)
+                  ? TextInputType.number
+                  : TextInputType.text,
+              decoration: InputDecoration(
+                isDense: true,
+                border: const OutlineInputBorder(),
+                hintText: _commandParameterTypeLabel(parameter.type),
               ),
             ),
         ],
@@ -2818,30 +3678,195 @@ class _DataSummaryPanel extends StatelessWidget {
   }
 }
 
-class _PacketCount extends StatelessWidget {
-  const _PacketCount({
-    required this.label,
-    required this.count,
-    required this.color,
+bool _usesNumericKeyboard(CommandParameterType type) => switch (type) {
+  CommandParameterType.uint8 ||
+  CommandParameterType.int8 ||
+  CommandParameterType.uint16 ||
+  CommandParameterType.int16 ||
+  CommandParameterType.uint32 ||
+  CommandParameterType.int32 => true,
+  _ => false,
+};
+
+class _MonitoredFieldDefinition {
+  const _MonitoredFieldDefinition({required this.mapping, required this.field});
+  final ResponseMapping mapping;
+  final DataField field;
+}
+
+class _MonitoredFieldValue {
+  const _MonitoredFieldValue({
+    required this.responseName,
+    required this.commandHex,
+    required this.value,
+    required this.timestamp,
   });
-  final String label;
-  final int count;
-  final Color color;
+  final String responseName;
+  final String commandHex;
+  final ParsedDataValue value;
+  final DateTime timestamp;
+}
+
+String _monitorFieldId(ResponseMapping mapping, String fieldKey) =>
+    '${mapping.id}:$fieldKey';
+
+String _formatCommandSendLog(
+  CommandDefinition command,
+  Map<String, String> values,
+  AppLocalizations l10n,
+) {
+  final String parameters = command.parameters
+      .map((CommandParameter parameter) {
+        final String label = parameter.label.isEmpty
+            ? parameter.key
+            : parameter.label;
+        final String value = values[parameter.key] ?? parameter.defaultValue;
+        return '$label=$value';
+      })
+      .join(', ');
+  return l10n.commandLog(command.name, parameters.isEmpty ? '--' : parameters);
+}
+
+String _formatParsedResponseLog(
+  ParsedResponse response,
+  AppLocalizations l10n,
+) {
+  final String values = response.values
+      .map(
+        (ParsedDataValue value) =>
+            '${value.label}=${value.displayValue}${value.unit.isEmpty ? '' : value.unit}',
+      )
+      .join(', ');
+  return l10n.responseLog(
+    response.mapping.name,
+    response.commandHex,
+    values.isEmpty ? '--' : values,
+  );
+}
+
+class _CommandsAndDataPanel extends StatelessWidget {
+  const _CommandsAndDataPanel({
+    required this.canSend,
+    required this.onSend,
+    required this.commands,
+    required this.responseMappings,
+    required this.monitoredValues,
+    required this.l10n,
+  });
+  final bool canSend;
+  final Future<void> Function(CommandDefinition, Map<String, String>) onSend;
+  final List<CommandDefinition> commands;
+  final List<ResponseMapping> responseMappings;
+  final Map<String, _MonitoredFieldValue> monitoredValues;
+  final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Expanded(
+          flex: 5,
+          child: _QuickCommandsPanel(
+            canSend: canSend,
+            onSend: onSend,
+            commands: commands,
+            l10n: l10n,
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          flex: 4,
+          child: _MappedDataPanel(
+            mappings: responseMappings,
+            monitoredValues: monitoredValues,
+            l10n: l10n,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MappedDataPanel extends StatelessWidget {
+  const _MappedDataPanel({
+    required this.mappings,
+    required this.monitoredValues,
+    required this.l10n,
+  });
+  final List<ResponseMapping> mappings;
+  final Map<String, _MonitoredFieldValue> monitoredValues;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<_MonitoredFieldDefinition> fields = <_MonitoredFieldDefinition>[
+      for (final ResponseMapping mapping in mappings)
+        for (final DataField field in mapping.fields)
+          if (field.visibleInDataPanel)
+            _MonitoredFieldDefinition(mapping: mapping, field: field),
+    ];
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(6),
-      ),
+      padding: const EdgeInsets.all(14),
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(label, style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(height: 4),
-          Text('$count', style: Theme.of(context).textTheme.headlineSmall),
+          Text(
+            l10n.mappedData,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          if (fields.isEmpty)
+            Expanded(child: Center(child: Text(l10n.noMappedFields)))
+          else
+            Expanded(
+              child: ListView.separated(
+                itemCount: fields.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (BuildContext context, int index) {
+                  final _MonitoredFieldDefinition definition = fields[index];
+                  final _MonitoredFieldValue? latest =
+                      monitoredValues[_monitorFieldId(
+                        definition.mapping,
+                        definition.field.key,
+                      )];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                definition.field.label.isEmpty
+                                    ? definition.field.key
+                                    : definition.field.label,
+                              ),
+                              Text(
+                                '${definition.mapping.name} | CMD ${definition.mapping.commandHex}',
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          latest == null
+                              ? '--'
+                              : '${latest.value.displayValue}${latest.value.unit.isEmpty ? '' : ' ${latest.value.unit}'}',
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
         ],
       ),
     );
