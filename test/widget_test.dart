@@ -25,42 +25,51 @@ void main() {
     expect(find.text('BLExpert'), findsWidgets);
     expect(find.text('默认工作区'), findsOneWidget);
     expect(find.text('控制台'), findsOneWidget);
-    expect(find.text('指令与数据'), findsOneWidget);
+    expect(find.text('当前上下文'), findsOneWidget);
+    expect(find.text('调试'), findsOneWidget);
+  });
+
+  testWidgets('Inspector 开关不遮挡控制台清空操作', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    final Rect clearButton = tester.getRect(find.byTooltip('清空'));
+    final Rect inspectorToggle = tester.getRect(find.byTooltip('收起上下文面板'));
+
+    expect(clearButton.overlaps(inspectorToggle), isFalse);
+    expect(clearButton.right, lessThanOrEqualTo(inspectorToggle.left - 4));
   });
 
   testWidgets('可从语言菜单切换至英文界面', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('语言'));
+    await tester.tap(find.byTooltip('更多操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('英文'));
     await tester.pumpAndSettle();
 
     expect(find.text('Console'), findsOneWidget);
-    expect(find.text('Commands & data'), findsOneWidget);
+    expect(find.text('Current context'), findsOneWidget);
   });
 
-  testWidgets('工作台可切换工作区与设备功能页', (WidgetTester tester) async {
+  testWidgets('工作台可在调试和配置工作区间切换', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    expect(find.text('通信'), findsOneWidget);
-    expect(find.text('工作区设置'), findsOneWidget);
-    expect(find.text('协议定义'), findsOneWidget);
-    await tester.tap(find.text('工作区设置'));
+    expect(find.text('控制台'), findsOneWidget);
+    expect(find.text('特征'), findsOneWidget);
+    await tester.tap(find.text('配置'));
     await tester.pumpAndSettle();
+
+    expect(find.text('工作区'), findsOneWidget);
     expect(find.text('设备型号'), findsOneWidget);
     expect(find.byTooltip('编辑工作区'), findsOneWidget);
-
-    await tester.tap(find.text('指令与数据'));
-    await tester.pumpAndSettle();
-    expect(find.text('尚未选择快捷指令。'), findsOneWidget);
-    expect(find.text('尚未选择要显示的映射字段。'), findsOneWidget);
   });
 
   testWidgets('工作区指令可选择显示在右侧快捷区', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.text('指令集'));
+    await tester.tap(find.text('配置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('新建指令'));
     await tester.pumpAndSettle();
@@ -77,7 +86,7 @@ void main() {
 
     await tester.tap(find.byTooltip('快捷入口'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('指令与数据'));
+    await tester.tap(find.text('调试'));
     await tester.pumpAndSettle();
     expect(find.text('查询状态'), findsWidgets);
   });
@@ -85,7 +94,9 @@ void main() {
   testWidgets('可在左侧新增协议定义', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.text('协议定义'));
+    await tester.tap(find.text('配置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('协议'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), '主协议');
     await tester.enterText(find.byType(TextField).at(1), '测试设备主链路');

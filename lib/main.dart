@@ -18,6 +18,8 @@ import 'services/workspace_manager.dart';
 import 'utils/ascii_utils.dart';
 import 'utils/web_service_uuid_parser.dart';
 
+part 'widgets/app_workspace_shell.dart';
+
 void main() => runApp(const BlexpertApp());
 
 class BlexpertApp extends StatefulWidget {
@@ -64,30 +66,83 @@ class _BlexpertAppState extends State<BlexpertApp> {
 }
 
 ThemeData _buildTheme(Brightness brightness) {
-  final ColorScheme scheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF4297F5),
-    brightness: brightness,
-  );
+  final bool dark = brightness == Brightness.dark;
+  final ColorScheme scheme =
+      ColorScheme.fromSeed(
+        seedColor: const Color(0xFF2563EB),
+        brightness: brightness,
+      ).copyWith(
+        primary: dark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+        secondary: dark ? const Color(0xFF38BDF8) : const Color(0xFF0369A1),
+        tertiary: dark ? const Color(0xFF34D399) : const Color(0xFF047857),
+        error: dark ? const Color(0xFFF87171) : const Color(0xFFB91C1C),
+        surface: dark ? const Color(0xFF131A26) : const Color(0xFFFBFCFE),
+        surfaceContainerLow: dark
+            ? const Color(0xFF182131)
+            : const Color(0xFFF2F5F8),
+        surfaceContainerHighest: dark
+            ? const Color(0xFF253247)
+            : const Color(0xFFE6ECF2),
+      );
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: brightness == Brightness.dark
-        ? const Color(0xFF111315)
-        : const Color(0xFFF4F6F8),
+    scaffoldBackgroundColor: dark
+        ? const Color(0xFF0D131E)
+        : const Color(0xFFF6F8FB),
+    textTheme: Typography.material2021().black.apply(
+      bodyColor: scheme.onSurface,
+      displayColor: scheme.onSurface,
+      fontFamily: 'sans-serif',
+    ),
     appBarTheme: AppBarTheme(
-      backgroundColor: brightness == Brightness.dark
-          ? const Color(0xFF1B1D1F)
-          : scheme.surface,
-      foregroundColor: brightness == Brightness.dark
-          ? Colors.white
-          : scheme.onSurface,
+      backgroundColor: dark ? const Color(0xFF131A26) : scheme.surface,
+      foregroundColor: scheme.onSurface,
       elevation: 0,
+      surfaceTintColor: Colors.transparent,
     ),
     cardTheme: const CardThemeData(
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(6)),
+      ),
+    ),
+    dividerTheme: DividerThemeData(
+      color: dark ? const Color(0xFF2A3A50) : const Color(0xFFD7E0E9),
+      space: 1,
+      thickness: 1,
+    ),
+    inputDecorationTheme: const InputDecorationTheme(
+      isDense: true,
+      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(4)),
+      ),
+    ),
+    iconButtonTheme: const IconButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: WidgetStatePropertyAll(Size(32, 32)),
+        padding: WidgetStatePropertyAll(EdgeInsets.all(6)),
+      ),
+    ),
+    navigationRailTheme: NavigationRailThemeData(
+      backgroundColor: dark ? const Color(0xFF101824) : const Color(0xFFF9FBFD),
+      indicatorColor: dark ? const Color(0xFF1E3A5F) : const Color(0xFFDCEBFF),
+      selectedIconTheme: IconThemeData(color: scheme.primary),
+      selectedLabelTextStyle: TextStyle(
+        color: scheme.primary,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xFFE7EDF5) : const Color(0xFF172033),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      textStyle: TextStyle(
+        color: dark ? const Color(0xFF172033) : Colors.white,
       ),
     ),
   );
@@ -134,6 +189,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _connecting = false;
   bool _hexMode = true;
   bool _autoScroll = true;
+  _AppMode _mode = _AppMode.debug;
+  bool _inspectorOpen = true;
   List<String> _webOptionalServices = <String>[];
   Future<void> _saveWorkspaceChain = Future<void>.value();
 
@@ -1185,15 +1242,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final workspace = _workspaceManager.activeWorkspace;
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 58,
-        titleSpacing: 16,
-        title: Text(
-          'BLExpert',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
+        toolbarHeight: 52,
+        titleSpacing: 12,
+        title: _AppIdentity(workspace: workspace),
         actions: <Widget>[
           _WorkspaceSelector(
             workspace: workspace,
@@ -1216,87 +1267,78 @@ class _HomeScreenState extends State<HomeScreen> {
             onToggleConnection: _toggleConnection,
             l10n: l10n,
           ),
-          if (kIsWeb)
-            IconButton(
-              tooltip: l10n.webServiceUuids,
-              onPressed: _configureWebServices,
-              icon: const Icon(Icons.tune),
-            ),
           IconButton(
             tooltip: _scanning ? l10n.stopScan : l10n.startScan,
             onPressed: _toggleScan,
-            icon: Icon(_scanning ? Icons.pause_circle_outline : Icons.radar),
+            icon: Icon(_scanning ? Icons.stop_circle_outlined : Icons.radar),
           ),
-          IconButton(
-            tooltip: l10n.exportWorkspacePreview,
-            onPressed: _previewExport,
-            icon: const Icon(Icons.upload_file_outlined),
+          _AppOverflowMenu(
+            themeMode: widget.themeMode,
+            locale: widget.locale,
+            onThemeModeChanged: widget.onThemeModeChanged,
+            onLocaleChanged: widget.onLocaleChanged,
+            onConfigureWebServices: kIsWeb ? _configureWebServices : null,
+            onPreviewExport: _previewExport,
+            l10n: l10n,
           ),
-          _ThemeModeMenu(
-            value: widget.themeMode,
-            onChanged: widget.onThemeModeChanged,
-          ),
-          _LocaleMenu(value: widget.locale, onChanged: widget.onLocaleChanged),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final wide = constraints.maxWidth >= 900;
-          final workbench = _WorkbenchPanel(
-            logs: _logs,
-            autoScroll: _autoScroll,
-            onClear: () => setState(_logs.clear),
-            onAutoScrollChanged: (value) => setState(() => _autoScroll = value),
-            inputController: _inputController,
-            hexMode: _hexMode,
-            onModeChanged: (value) => setState(() => _hexMode = value),
-            onSend: _sendInput,
-            canSend: _selectedDevice?.connected == true && _hasWriteTarget,
-            workspace: workspace,
-            onEditWorkspace: _editActiveWorkspace,
-            onProtocolChanged: _updateProtocol,
-            onScriptConfigChanged: _updateScriptConfig,
-            onNewCommand: () => _editCommand(),
-            onEditCommand: _editCommand,
-            onDeleteCommand: _deleteCommand,
-            onCommandEnabledChanged: _setCommandEnabled,
-            onCommandQuickAccessChanged: _setCommandQuickAccess,
-            responseMappings: workspace.responseMappings,
-            onNewResponseMapping: () => _editResponseMapping(),
-            onEditResponseMapping: _editResponseMapping,
-            onDeleteResponseMapping: _deleteResponseMapping,
-            l10n: l10n,
-          );
-          final sidePanel = _DeviceWorkbenchPanel(
-            characteristics: _characteristics,
-            connected: _selectedDevice?.connected == true,
-            canSend: _hasWriteTarget,
-            onSelectWrite: _setWriteCharacteristic,
-            onSubscriptionChanged: _setSubscription,
-            onRead: _readCharacteristic,
-            onSendCommand: _sendCommandDefinition,
-            commands: workspace.commands,
-            responseMappings: workspace.responseMappings,
-            monitoredValues: _monitoredValues,
-            l10n: l10n,
-          );
-          if (wide) {
-            return Row(
-              children: <Widget>[
-                Expanded(flex: 7, child: workbench),
-                const VerticalDivider(width: 1),
-                SizedBox(width: 390, child: sidePanel),
-              ],
-            );
-          }
-          return ListView(
-            children: <Widget>[
-              SizedBox(height: 620, child: workbench),
-              SizedBox(height: 560, child: sidePanel),
-            ],
-          );
-        },
+      body: _AppWorkspaceShell(
+        mode: _mode,
+        onModeChanged: (mode) => setState(() => _mode = mode),
+        inspectorOpen: _inspectorOpen,
+        onInspectorVisibilityChanged: (value) =>
+            setState(() => _inspectorOpen = value),
+        debugPane: _ConsoleArea(
+          logs: _logs,
+          autoScroll: _autoScroll,
+          onClear: () => setState(_logs.clear),
+          onAutoScrollChanged: (value) => setState(() => _autoScroll = value),
+          inputController: _inputController,
+          hexMode: _hexMode,
+          onModeChanged: (value) => setState(() => _hexMode = value),
+          onSend: _sendInput,
+          canSend: _selectedDevice?.connected == true && _hasWriteTarget,
+          writeTarget: _characteristics
+              .where((item) => item.isWriteTarget)
+              .map((item) => item.characteristicId)
+              .firstOrNull,
+          l10n: l10n,
+        ),
+        devicePane: _DeviceToolsPanel(
+          characteristics: _characteristics,
+          connected: _selectedDevice?.connected == true,
+          onSelectWrite: _setWriteCharacteristic,
+          onSubscriptionChanged: _setSubscription,
+          onRead: _readCharacteristic,
+          l10n: l10n,
+        ),
+        inspectorPane: _InspectorPanel(
+          characteristics: _characteristics,
+          canSend: _hasWriteTarget,
+          onSendCommand: _sendCommandDefinition,
+          commands: workspace.commands,
+          responseMappings: workspace.responseMappings,
+          monitoredValues: _monitoredValues,
+          l10n: l10n,
+        ),
+        configurationPane: _ConfigurationWorkspace(
+          workspace: workspace,
+          onEditWorkspace: _editActiveWorkspace,
+          onProtocolChanged: _updateProtocol,
+          onScriptConfigChanged: _updateScriptConfig,
+          onNewCommand: () => _editCommand(),
+          onEditCommand: _editCommand,
+          onDeleteCommand: _deleteCommand,
+          onCommandEnabledChanged: _setCommandEnabled,
+          onCommandQuickAccessChanged: _setCommandQuickAccess,
+          onNewResponseMapping: () => _editResponseMapping(),
+          onEditResponseMapping: _editResponseMapping,
+          onDeleteResponseMapping: _deleteResponseMapping,
+          l10n: l10n,
+        ),
+        recordPane: _RecordWorkspace(logs: _logs, l10n: l10n),
       ),
     );
   }
@@ -1367,6 +1409,11 @@ class _ConnectionSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final device = devices.where((item) => item.id == selectedId).firstOrNull;
+    final _ConnectionStatus status = connecting
+        ? _ConnectionStatus.connecting
+        : connected
+        ? _ConnectionStatus.connected
+        : _ConnectionStatus.disconnected;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -1389,6 +1436,8 @@ class _ConnectionSelector extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
+        _ConnectionStatusBadge(status: status, l10n: l10n),
+        const SizedBox(width: 4),
         IconButton.filled(
           tooltip: connecting
               ? l10n.connecting
@@ -1409,138 +1458,56 @@ class _ConnectionSelector extends StatelessWidget {
   }
 }
 
-class _WorkbenchPanel extends StatelessWidget {
-  const _WorkbenchPanel({
-    required this.logs,
-    required this.autoScroll,
-    required this.onClear,
-    required this.onAutoScrollChanged,
-    required this.inputController,
-    required this.hexMode,
-    required this.onModeChanged,
-    required this.onSend,
-    required this.canSend,
-    required this.workspace,
-    required this.onEditWorkspace,
-    required this.onProtocolChanged,
-    required this.onScriptConfigChanged,
-    required this.onNewCommand,
-    required this.onEditCommand,
-    required this.onDeleteCommand,
-    required this.onCommandEnabledChanged,
-    required this.onCommandQuickAccessChanged,
-    required this.responseMappings,
-    required this.onNewResponseMapping,
-    required this.onEditResponseMapping,
-    required this.onDeleteResponseMapping,
-    required this.l10n,
-  });
+enum _ConnectionStatus { disconnected, connecting, connected }
 
-  final List<_LogEntry> logs;
-  final bool autoScroll;
-  final VoidCallback onClear;
-  final ValueChanged<bool> onAutoScrollChanged;
-  final TextEditingController inputController;
-  final bool hexMode;
-  final ValueChanged<bool> onModeChanged;
-  final VoidCallback onSend;
-  final bool canSend;
-  final Workspace workspace;
-  final VoidCallback onEditWorkspace;
-  final ValueChanged<ProtocolDefinition> onProtocolChanged;
-  final ValueChanged<ScriptConfig> onScriptConfigChanged;
-  final VoidCallback onNewCommand;
-  final ValueChanged<CommandDefinition> onEditCommand;
-  final ValueChanged<CommandDefinition> onDeleteCommand;
-  final void Function(CommandDefinition, bool) onCommandEnabledChanged;
-  final void Function(CommandDefinition, bool) onCommandQuickAccessChanged;
-  final List<ResponseMapping> responseMappings;
-  final VoidCallback onNewResponseMapping;
-  final ValueChanged<ResponseMapping> onEditResponseMapping;
-  final ValueChanged<ResponseMapping> onDeleteResponseMapping;
+class _ConnectionStatusBadge extends StatelessWidget {
+  const _ConnectionStatusBadge({required this.status, required this.l10n});
+
+  final _ConnectionStatus status;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 5,
-      child: Column(
-        children: <Widget>[
-          Container(
-            color: Theme.of(context).colorScheme.surfaceContainerLow,
-            child: TabBar(
-              tabs: <Tab>[
-                Tab(
-                  icon: const Icon(Icons.terminal_outlined),
-                  text: l10n.communication,
-                ),
-                Tab(
-                  icon: const Icon(Icons.settings_outlined),
-                  text: l10n.workspaceSettings,
-                ),
-                Tab(
-                  icon: const Icon(Icons.account_tree_outlined),
-                  text: l10n.protocolProfiles,
-                ),
-                Tab(
-                  icon: const Icon(Icons.list_alt_outlined),
-                  text: l10n.commandLibrary,
-                ),
-                Tab(
-                  icon: const Icon(Icons.data_object_outlined),
-                  text: l10n.dataMappings,
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              children: <Widget>[
-                _ConsoleArea(
-                  logs: logs,
-                  autoScroll: autoScroll,
-                  onClear: onClear,
-                  onAutoScrollChanged: onAutoScrollChanged,
-                  inputController: inputController,
-                  hexMode: hexMode,
-                  onModeChanged: onModeChanged,
-                  onSend: onSend,
-                  canSend: canSend,
-                  l10n: l10n,
-                ),
-                _WorkspaceOverview(
-                  workspace: workspace,
-                  onEdit: onEditWorkspace,
-                  l10n: l10n,
-                ),
-                _ProtocolConfigurationPanel(
-                  protocol: workspace.protocol,
-                  scriptConfig: workspace.scriptConfig,
-                  onProtocolChanged: onProtocolChanged,
-                  onScriptConfigChanged: onScriptConfigChanged,
-                  runtimeAvailable: !kIsWeb,
-                  l10n: l10n,
-                ),
-                _CommandLibraryPanel(
-                  commands: workspace.commands,
-                  onNewCommand: onNewCommand,
-                  onEditCommand: onEditCommand,
-                  onDeleteCommand: onDeleteCommand,
-                  onEnabledChanged: onCommandEnabledChanged,
-                  onQuickAccessChanged: onCommandQuickAccessChanged,
-                  l10n: l10n,
-                ),
-                _DataMappingLibraryPanel(
-                  mappings: responseMappings,
-                  onNew: onNewResponseMapping,
-                  onEdit: onEditResponseMapping,
-                  onDelete: onDeleteResponseMapping,
-                  l10n: l10n,
-                ),
-              ],
-            ),
-          ),
-        ],
+    final Color color = switch (status) {
+      _ConnectionStatus.connected => Theme.of(context).colorScheme.tertiary,
+      _ConnectionStatus.connecting => const Color(0xFFD97706),
+      _ConnectionStatus.disconnected => Theme.of(context).colorScheme.outline,
+    };
+    final String label = switch (status) {
+      _ConnectionStatus.connected => l10n.connected,
+      _ConnectionStatus.connecting => l10n.connecting,
+      _ConnectionStatus.disconnected => l10n.disconnected,
+    };
+    return Semantics(
+      label: '蓝牙连接状态：$label',
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 28),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withValues(alpha: 0.6)),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (status == _ConnectionStatus.connecting)
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(color: color, strokeWidth: 2),
+              )
+            else
+              Icon(
+                status == _ConnectionStatus.connected
+                    ? Icons.check_circle_outline
+                    : Icons.circle_outlined,
+                size: 14,
+                color: color,
+              ),
+            const SizedBox(width: 5),
+            Text(label, style: TextStyle(fontSize: 12, color: color)),
+          ],
+        ),
       ),
     );
   }
@@ -3057,6 +3024,7 @@ class _ConsoleArea extends StatelessWidget {
     required this.onModeChanged,
     required this.onSend,
     required this.canSend,
+    required this.writeTarget,
     required this.l10n,
   });
   final List<_LogEntry> logs;
@@ -3068,18 +3036,21 @@ class _ConsoleArea extends StatelessWidget {
   final ValueChanged<bool> onModeChanged;
   final VoidCallback onSend;
   final bool canSend;
+  final String? writeTarget;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: <Widget>[
         Container(
           height: 42,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          // Reserve space for the floating Inspector control at the top-right.
+          padding: const EdgeInsets.fromLTRB(12, 0, 60, 0),
           decoration: BoxDecoration(
-            color: dark ? const Color(0xFF191B1D) : null,
+            color: dark ? const Color(0xFF131A26) : colors.surface,
             border: Border(
               bottom: BorderSide(color: Theme.of(context).dividerColor),
             ),
@@ -3090,28 +3061,42 @@ class _ConsoleArea extends StatelessWidget {
                 l10n.console,
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
-              const Spacer(),
-              IconButton(
-                tooltip: l10n.clear,
-                onPressed: onClear,
-                icon: const Icon(Icons.delete_sweep_outlined, size: 19),
+              const SizedBox(width: 12),
+              Text(
+                writeTarget == null
+                    ? '未选择写入特征'
+                    : '写入  ${_shortUuid(writeTarget!)}',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontFamily: 'monospace',
+                  color: writeTarget == null
+                      ? Theme.of(context).colorScheme.error
+                      : null,
+                ),
               ),
-              Switch.adaptive(
-                value: autoScroll,
-                onChanged: onAutoScrollChanged,
+              const Spacer(),
+              Tooltip(
+                message: l10n.autoScroll,
+                child: Switch.adaptive(
+                  value: autoScroll,
+                  onChanged: onAutoScrollChanged,
+                ),
               ),
               Text(
                 l10n.autoScroll,
                 style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: l10n.clear,
+                onPressed: onClear,
+                icon: const Icon(Icons.delete_sweep_outlined, size: 19),
               ),
             ],
           ),
         ),
         Expanded(
           child: Container(
-            color: dark
-                ? const Color(0xFF101112)
-                : Theme.of(context).colorScheme.surface,
+            color: dark ? const Color(0xFF0D131E) : colors.surface,
             child: ListView.builder(
               reverse: false,
               padding: const EdgeInsets.all(14),
@@ -3126,41 +3111,60 @@ class _ConsoleArea extends StatelessWidget {
         Container(
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
           decoration: BoxDecoration(
-            color: dark ? const Color(0xFF191B1D) : null,
+            color: dark ? const Color(0xFF131A26) : colors.surface,
             border: Border(
               top: BorderSide(color: Theme.of(context).dividerColor),
             ),
           ),
           child: Column(
             children: <Widget>[
-              TextField(
-                controller: inputController,
-                minLines: 2,
-                maxLines: 4,
-                onSubmitted: (_) => onSend(),
-                decoration: InputDecoration(
-                  hintText: l10n.inputPlaceholder,
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(
+                      controller: inputController,
+                      minLines: 1,
+                      maxLines: 4,
+                      onSubmitted: (_) => onSend(),
+                      style: const TextStyle(fontFamily: 'monospace'),
+                      decoration: InputDecoration(
+                        hintText: l10n.inputPlaceholder,
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 40,
+                    child: FilledButton.icon(
+                      onPressed: canSend ? onSend : null,
+                      icon: const Icon(Icons.send_outlined, size: 18),
+                      label: Text(l10n.sendData),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: <Widget>[
-                  ChoiceChip(
-                    label: Text(l10n.textMode),
-                    selected: !hexMode,
-                    onSelected: (_) => onModeChanged(false),
-                  ),
-                  const SizedBox(width: 6),
-                  ChoiceChip(
-                    label: Text(l10n.hexMode),
-                    selected: hexMode,
-                    onSelected: (_) => onModeChanged(true),
+                  SegmentedButton<bool>(
+                    showSelectedIcon: false,
+                    segments: <ButtonSegment<bool>>[
+                      ButtonSegment(value: true, label: Text(l10n.hexMode)),
+                      ButtonSegment(value: false, label: Text(l10n.textMode)),
+                    ],
+                    selected: <bool>{hexMode},
+                    onSelectionChanged: (Set<bool> value) =>
+                        onModeChanged(value.first),
                   ),
                   const SizedBox(width: 12),
-                  Text(l10n.lineEnding),
-                  const SizedBox(width: 6),
+                  Text(
+                    l10n.lineEnding,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(width: 4),
                   DropdownButton<String>(
                     value: 'none',
                     underline: const SizedBox(),
@@ -3170,12 +3174,6 @@ class _ConsoleArea extends StatelessWidget {
                       DropdownMenuItem(value: 'crlf', child: Text(l10n.crlf)),
                     ],
                     onChanged: (_) {},
-                  ),
-                  const Spacer(),
-                  FilledButton.icon(
-                    onPressed: canSend ? onSend : null,
-                    icon: const Icon(Icons.send_outlined),
-                    label: Text(l10n.sendData),
                   ),
                 ],
               ),
@@ -3203,90 +3201,6 @@ String? _characteristicTitle(String characteristicId, AppLocalizations l10n) {
     '00002a05-0000-1000-8000-00805f9b34fb' => l10n.serviceChanged,
     _ => null,
   };
-}
-
-class _DeviceWorkbenchPanel extends StatelessWidget {
-  const _DeviceWorkbenchPanel({
-    required this.characteristics,
-    required this.connected,
-    required this.canSend,
-    required this.onSelectWrite,
-    required this.onSubscriptionChanged,
-    required this.onRead,
-    required this.onSendCommand,
-    required this.commands,
-    required this.responseMappings,
-    required this.monitoredValues,
-    required this.l10n,
-  });
-
-  final List<BluetoothCharacteristicInfo> characteristics;
-  final bool connected;
-  final bool canSend;
-  final Future<void> Function(BluetoothCharacteristicInfo) onSelectWrite;
-  final Future<void> Function(
-    BluetoothCharacteristicInfo,
-    BluetoothSubscriptionMode,
-    bool,
-  )
-  onSubscriptionChanged;
-  final Future<void> Function(BluetoothCharacteristicInfo) onRead;
-  final Future<void> Function(CommandDefinition, Map<String, String>)
-  onSendCommand;
-  final List<CommandDefinition> commands;
-  final List<ResponseMapping> responseMappings;
-  final Map<String, _MonitoredFieldValue> monitoredValues;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        children: <Widget>[
-          Container(
-            color: Theme.of(context).colorScheme.surfaceContainerLow,
-            child: TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: <Tab>[
-                Tab(
-                  icon: const Icon(Icons.bluetooth_searching),
-                  text: l10n.characteristics,
-                ),
-                Tab(
-                  icon: const Icon(Icons.bolt_outlined),
-                  text: l10n.commandsAndData,
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              children: <Widget>[
-                _DeviceToolsPanel(
-                  characteristics: characteristics,
-                  connected: connected,
-                  onSelectWrite: onSelectWrite,
-                  onSubscriptionChanged: onSubscriptionChanged,
-                  onRead: onRead,
-                  l10n: l10n,
-                ),
-                _CommandsAndDataPanel(
-                  canSend: canSend,
-                  onSend: onSendCommand,
-                  commands: commands,
-                  responseMappings: responseMappings,
-                  monitoredValues: monitoredValues,
-                  l10n: l10n,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _DeviceToolsPanel extends StatelessWidget {
@@ -3324,27 +3238,29 @@ class _DeviceToolsPanel extends StatelessWidget {
           .add(characteristic);
     }
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
       color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: ListView(
         children: <Widget>[
           Row(
             children: <Widget>[
-              Text(
-                l10n.characteristics,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  connected ? l10n.connected : l10n.disconnected,
+                  l10n.characteristics,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: Theme.of(context).textTheme.labelSmall,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                connected ? l10n.connected : l10n.disconnected,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: Theme.of(context).textTheme.labelSmall,
               ),
             ],
           ),
@@ -3363,16 +3279,10 @@ class _DeviceToolsPanel extends StatelessWidget {
             ...byService.entries.expand(
               (MapEntry<String, List<BluetoothCharacteristicInfo>> entry) =>
                   <Widget>[
-                    const Divider(height: 20),
-                    Text(
-                      _serviceTitle(entry.key, l10n),
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    _ServiceTreeHeader(
+                      serviceId: entry.key,
+                      title: _serviceTitle(entry.key, l10n),
                     ),
-                    const SizedBox(height: 4),
                     ...entry.value.map(
                       (BluetoothCharacteristicInfo characteristic) =>
                           _CharacteristicTile(
@@ -3385,6 +3295,48 @@ class _DeviceToolsPanel extends StatelessWidget {
                     ),
                   ],
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceTreeHeader extends StatelessWidget {
+  const _ServiceTreeHeader({required this.serviceId, required this.title});
+
+  final String serviceId;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 6),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            Icons.account_tree_outlined,
+            size: 16,
+            color: Theme.of(context).colorScheme.secondary,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -3895,102 +3847,117 @@ class _CharacteristicTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).dividerColor),
-          borderRadius: BorderRadius.circular(4),
+    return Container(
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.fromLTRB(8, 9, 4, 9),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            if (_characteristicTitle(characteristic.characteristicId, l10n)
-                case final String title?)
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                characteristic.isSubscribed
+                    ? Icons.sensors_outlined
+                    : Icons.memory_outlined,
+                size: 16,
+                color: characteristic.isSubscribed
+                    ? Theme.of(context).colorScheme.tertiary
+                    : Theme.of(context).colorScheme.outline,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _characteristicTitle(characteristic.characteristicId, l10n) ??
+                      _shortUuid(characteristic.characteristicId),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
                 ),
               ),
-            Text(
-              characteristic.characteristicId,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: <Widget>[
-                if (characteristic.canWrite)
-                  _CapabilityChip(label: l10n.writeWithResponse),
-                if (characteristic.canWriteWithoutResponse)
-                  _CapabilityChip(label: l10n.writeWithoutResponse),
-                if (characteristic.canRead) _CapabilityChip(label: l10n.read),
-                if (characteristic.canNotify)
-                  _CapabilityChip(label: l10n.notify),
-                if (characteristic.canIndicate)
-                  _CapabilityChip(label: l10n.indicate),
-              ],
-            ),
-            if (characteristic.canRead ||
-                characteristic.canWrite ||
-                characteristic.canWriteWithoutResponse ||
-                characteristic.canSubscribe)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: <Widget>[
-                    if (characteristic.canRead)
-                      OutlinedButton.icon(
-                        onPressed: () => onRead(characteristic),
-                        icon: const Icon(Icons.download_outlined, size: 16),
-                        label: Text(l10n.readValue),
+            ],
+          ),
+          Text(
+            characteristic.characteristicId,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+          ),
+          const SizedBox(height: 5),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: <Widget>[
+              if (characteristic.canWrite)
+                _CapabilityChip(label: l10n.writeWithResponse),
+              if (characteristic.canWriteWithoutResponse)
+                _CapabilityChip(label: l10n.writeWithoutResponse),
+              if (characteristic.canRead) _CapabilityChip(label: l10n.read),
+              if (characteristic.canNotify) _CapabilityChip(label: l10n.notify),
+              if (characteristic.canIndicate)
+                _CapabilityChip(label: l10n.indicate),
+            ],
+          ),
+          if (characteristic.canRead ||
+              characteristic.canWrite ||
+              characteristic.canWriteWithoutResponse ||
+              characteristic.canSubscribe)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: <Widget>[
+                  if (characteristic.canRead)
+                    IconButton(
+                      tooltip: l10n.readValue,
+                      onPressed: () => onRead(characteristic),
+                      icon: const Icon(Icons.download_outlined, size: 18),
+                    ),
+                  if (characteristic.canWrite ||
+                      characteristic.canWriteWithoutResponse)
+                    ChoiceChip(
+                      label: Text(l10n.writeTarget),
+                      selected: characteristic.isWriteTarget,
+                      onSelected: (_) => onSelectWrite(characteristic),
+                    ),
+                  if (characteristic.canNotify)
+                    FilterChip(
+                      label: Text(l10n.notify),
+                      selected:
+                          characteristic.isSubscribed &&
+                          characteristic.subscriptionMode ==
+                              BluetoothSubscriptionMode.notify,
+                      onSelected: (bool selected) => onSubscriptionChanged(
+                        characteristic,
+                        BluetoothSubscriptionMode.notify,
+                        selected,
                       ),
-                    if (characteristic.canWrite ||
-                        characteristic.canWriteWithoutResponse)
-                      ChoiceChip(
-                        label: Text(l10n.writeTarget),
-                        selected: characteristic.isWriteTarget,
-                        onSelected: (_) => onSelectWrite(characteristic),
+                    ),
+                  if (characteristic.canIndicate)
+                    FilterChip(
+                      label: Text(l10n.indicate),
+                      selected:
+                          characteristic.isSubscribed &&
+                          characteristic.subscriptionMode ==
+                              BluetoothSubscriptionMode.indicate,
+                      onSelected: (bool selected) => onSubscriptionChanged(
+                        characteristic,
+                        BluetoothSubscriptionMode.indicate,
+                        selected,
                       ),
-                    if (characteristic.canNotify)
-                      FilterChip(
-                        label: Text(l10n.notify),
-                        selected:
-                            characteristic.isSubscribed &&
-                            characteristic.subscriptionMode ==
-                                BluetoothSubscriptionMode.notify,
-                        onSelected: (bool selected) => onSubscriptionChanged(
-                          characteristic,
-                          BluetoothSubscriptionMode.notify,
-                          selected,
-                        ),
-                      ),
-                    if (characteristic.canIndicate)
-                      FilterChip(
-                        label: Text(l10n.indicate),
-                        selected:
-                            characteristic.isSubscribed &&
-                            characteristic.subscriptionMode ==
-                                BluetoothSubscriptionMode.indicate,
-                        onSelected: (bool selected) => onSubscriptionChanged(
-                          characteristic,
-                          BluetoothSubscriptionMode.indicate,
-                          selected,
-                        ),
-                      ),
-                  ],
-                ),
+                    ),
+                ],
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -4020,36 +3987,112 @@ class _LogLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
     final Color color = switch (entry.kind) {
-      _LogKind.received => Colors.lightBlueAccent,
-      _LogKind.sent => Colors.lightGreenAccent,
+      _LogKind.received => colors.tertiary,
+      _LogKind.sent => colors.primary,
       _LogKind.system => Theme.of(context).colorScheme.secondary,
       _LogKind.error => Theme.of(context).colorScheme.error,
     };
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: SelectableText.rich(
-        TextSpan(
-          children: <InlineSpan>[
-            TextSpan(
-              text: '${entry.timestamp.toIso8601String()}  ',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.outline,
-                fontSize: 11,
+    final String payload = entry.message ?? _toHex(entry.data);
+    final String timestamp = entry.timestamp.toIso8601String().split('T').last;
+    return Semantics(
+      label: '${entry.directionLabel(l10n)} $timestamp，$payload',
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: color, width: 2)),
+        ),
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final bool compact = constraints.maxWidth < 520;
+            final Widget direction = Container(
+              width: 34,
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.13),
+                borderRadius: BorderRadius.circular(3),
               ),
-            ),
-            TextSpan(
-              text: '${entry.directionLabel(l10n)}  ',
-              style: TextStyle(color: color, fontWeight: FontWeight.bold),
-            ),
-            TextSpan(
-              text: entry.message ?? _toHex(entry.data),
+              child: Text(
+                entry.shortDirection,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            );
+            final Widget content = SelectableText(
+              payload,
               style: TextStyle(
                 fontFamily: 'monospace',
+                fontSize: 12,
+                height: 1.45,
                 color: entry.kind == _LogKind.error ? color : null,
               ),
-            ),
-          ],
+            );
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Text(
+                        timestamp,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                          color: colors.outline,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      direction,
+                      if (entry.data.isNotEmpty) ...<Widget>[
+                        const SizedBox(width: 8),
+                        Text(
+                          '${entry.data.length} B',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  content,
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                SizedBox(
+                  width: 90,
+                  child: Text(
+                    timestamp,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: colors.outline,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                direction,
+                if (entry.data.isNotEmpty) ...<Widget>[
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 32,
+                    child: Text(
+                      '${entry.data.length} B',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 10),
+                Expanded(child: content),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -4078,6 +4121,13 @@ class _LogEntry {
     _LogKind.system => l10n.system,
     _LogKind.error => l10n.error,
   };
+
+  String get shortDirection => switch (kind) {
+    _LogKind.received => 'RX',
+    _LogKind.sent => 'TX',
+    _LogKind.system => 'SYS',
+    _LogKind.error => 'ERR',
+  };
 }
 
 List<int>? _parseHex(String value) {
@@ -4088,64 +4138,6 @@ List<int>? _parseHex(String value) {
       int.parse(compact.substring(i, i + 2), radix: 16),
   ];
 }
-
-class _ThemeModeMenu extends StatelessWidget {
-  const _ThemeModeMenu({required this.value, required this.onChanged});
-  final ThemeMode value;
-  final ValueChanged<ThemeMode> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return PopupMenuButton<ThemeMode>(
-      tooltip: l10n.themeMode,
-      initialValue: value,
-      onSelected: onChanged,
-      icon: Icon(_themeModeIcon(value)),
-      itemBuilder: (_) => <PopupMenuEntry<ThemeMode>>[
-        PopupMenuItem(value: ThemeMode.system, child: Text(l10n.followSystem)),
-        PopupMenuItem(value: ThemeMode.light, child: Text(l10n.lightMode)),
-        PopupMenuItem(value: ThemeMode.dark, child: Text(l10n.darkMode)),
-      ],
-    );
-  }
-}
-
-class _LocaleMenu extends StatelessWidget {
-  const _LocaleMenu({required this.value, required this.onChanged});
-  final Locale? value;
-  final ValueChanged<Locale?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return PopupMenuButton<_LocaleSelection>(
-      tooltip: l10n.language,
-      onSelected: (selection) => onChanged(switch (selection) {
-        _LocaleSelection.system => null,
-        _LocaleSelection.chinese => const Locale('zh'),
-        _LocaleSelection.english => const Locale('en'),
-      }),
-      icon: const Icon(Icons.language_outlined),
-      itemBuilder: (_) => <PopupMenuEntry<_LocaleSelection>>[
-        PopupMenuItem(
-          value: _LocaleSelection.system,
-          child: Text(l10n.followSystem),
-        ),
-        PopupMenuItem(
-          value: _LocaleSelection.chinese,
-          child: Text(l10n.chinese),
-        ),
-        PopupMenuItem(
-          value: _LocaleSelection.english,
-          child: Text(l10n.english),
-        ),
-      ],
-    );
-  }
-}
-
-enum _LocaleSelection { system, chinese, english }
 
 IconData _themeModeIcon(ThemeMode mode) => switch (mode) {
   ThemeMode.system => Icons.brightness_auto_outlined,
