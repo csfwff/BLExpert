@@ -417,6 +417,55 @@ void main() {
     expect(manager.activeWorkspace.scriptConfig.source, 'imported JSON');
   });
 
+  test('import preview reports conflicts and scripts without mutating state', () {
+    final Workspace current = Workspace.empty().copyWith(name: '当前工作区');
+    final Workspace imported = Workspace.empty().copyWith(
+      id: current.id,
+      name: '待导入工作区',
+      scriptConfig: const ScriptConfig(
+        enabled: true,
+        beforeSendScript: 'function beforeSend() { return {}; }',
+        afterReceiveScript: '',
+        language: 'javascript',
+      ),
+    );
+    final WorkspaceManager manager = WorkspaceManager();
+    manager.upsertWorkspace(current);
+    manager.setActiveWorkspace(current.id);
+
+    final WorkspaceImportPreview preview = manager.previewImport(
+      '{"version":1,"activeWorkspaceId":"${imported.id}","workspaces":[${imported.toPrettyJson()}]}',
+    );
+
+    expect(preview.version, WorkspaceManager.currentFormatVersion);
+    expect(preview.workspaces.single.name, '待导入工作区');
+    expect(preview.activeWorkspaceId, imported.id);
+    expect(preview.conflictingWorkspaceIds, <String>[current.id]);
+    expect(preview.scriptedWorkspaceCount, 1);
+    expect(manager.activeWorkspace.name, '当前工作区');
+    expect(
+      manager.activeWorkspace.scriptConfig.trustState,
+      ScriptTrustState.local,
+    );
+  });
+
+  test('import preview rejects unsupported versions and duplicate IDs', () {
+    final WorkspaceManager manager = WorkspaceManager();
+
+    expect(
+      () => manager.previewImport(
+        '{"version":2,"workspaces":[${Workspace.empty().toPrettyJson()}]}',
+      ),
+      throwsA(isA<FormatException>()),
+    );
+    expect(
+      () => manager.previewImport(
+        '{"version":1,"workspaces":[${Workspace.empty().toPrettyJson()},${Workspace.empty().toPrettyJson()}]}',
+      ),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
   test('device connection defaults round-trip through workspace JSON', () {
     final Workspace workspace = Workspace.empty().copyWith(
       devices: <DeviceProfile>[

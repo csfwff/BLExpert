@@ -56,7 +56,8 @@ class _AppOverflowMenu extends StatelessWidget {
     required this.onThemeModeChanged,
     required this.onLocaleChanged,
     required this.onConfigureWebServices,
-    required this.onPreviewExport,
+    required this.onExportWorkspaces,
+    required this.onImportWorkspaces,
     required this.l10n,
   });
 
@@ -65,7 +66,8 @@ class _AppOverflowMenu extends StatelessWidget {
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final ValueChanged<Locale?> onLocaleChanged;
   final VoidCallback? onConfigureWebServices;
-  final VoidCallback onPreviewExport;
+  final VoidCallback onExportWorkspaces;
+  final VoidCallback onImportWorkspaces;
   final AppLocalizations l10n;
 
   @override
@@ -75,8 +77,10 @@ class _AppOverflowMenu extends StatelessWidget {
       icon: const Icon(Icons.more_vert),
       onSelected: (_ToolbarAction action) {
         switch (action) {
-          case _ToolbarAction.exportPreview:
-            onPreviewExport();
+          case _ToolbarAction.exportWorkspaces:
+            onExportWorkspaces();
+          case _ToolbarAction.importWorkspaces:
+            onImportWorkspaces();
           case _ToolbarAction.webServices:
             onConfigureWebServices?.call();
           case _ToolbarAction.light:
@@ -95,10 +99,17 @@ class _AppOverflowMenu extends StatelessWidget {
       },
       itemBuilder: (BuildContext context) => <PopupMenuEntry<_ToolbarAction>>[
         PopupMenuItem(
-          value: _ToolbarAction.exportPreview,
+          value: _ToolbarAction.exportWorkspaces,
           child: ListTile(
             leading: const Icon(Icons.upload_file_outlined),
-            title: Text(l10n.exportWorkspacePreview),
+            title: const Text('导出工作区'),
+          ),
+        ),
+        PopupMenuItem(
+          value: _ToolbarAction.importWorkspaces,
+          child: const ListTile(
+            leading: Icon(Icons.download_outlined),
+            title: Text('导入工作区'),
           ),
         ),
         if (onConfigureWebServices != null)
@@ -144,7 +155,8 @@ class _AppOverflowMenu extends StatelessWidget {
 }
 
 enum _ToolbarAction {
-  exportPreview,
+  exportWorkspaces,
+  importWorkspaces,
   webServices,
   light,
   dark,

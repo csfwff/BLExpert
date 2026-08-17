@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'l10n/app_localizations.dart';
 import 'models/workspace.dart';
@@ -1888,20 +1889,184 @@ class _HomeScreenState extends State<HomeScreen> {
     unawaited(_send(bytes));
   }
 
-  void _previewExport() {
+  void _exportWorkspaces() {
     final jsonText = _workspaceManager.exportWorkspaces();
-    final length = jsonText.length < 32 ? jsonText.length : 32;
-    setState(() {
-      _logs.insert(
-        0,
-        SessionLogRecord(
-          kind: SessionLogKind.system,
-          timestamp: DateTime.now(),
-          data: utf8.encode(jsonText.substring(0, length)),
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) => _ToolAlertDialog(
+        icon: Icons.upload_file_outlined,
+        title: '导出工作区',
+        content: SizedBox(
+          width: 640,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 480),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                jsonText,
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
+            ),
+          ),
         ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: jsonText));
+              if (context.mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('工作区 JSON 已复制。')));
+              }
+            },
+            icon: const Icon(Icons.copy_outlined),
+            label: const Text('复制 JSON'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _importWorkspaces() async {
+    final TextEditingController controller = TextEditingController();
+    WorkspaceImportPreview? preview;
+    String? validationError;
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setDialogState) => _ToolAlertDialog(
+          icon: Icons.download_outlined,
+          title: '导入工作区',
+          content: SizedBox(
+            width: 640,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 500),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    TextField(
+                      controller: controller,
+                      minLines: 8,
+                      maxLines: 16,
+                      onChanged: (_) => setDialogState(() {
+                        preview = null;
+                        validationError = null;
+                      }),
+                      decoration: const InputDecoration(
+                        labelText: '工作区 JSON',
+                        alignLabelWithHint: true,
+                        border: OutlineInputBorder(),
+                      ),
+                      style: const TextStyle(fontFamily: 'monospace'),
+                    ),
+                    if (validationError != null) ...<Widget>[
+                      const SizedBox(height: 12),
+                      Text(
+                        validationError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                    if (preview != null) ...<Widget>[
+                      const SizedBox(height: 16),
+                      Text(
+                        '将替换当前 ${_workspaceManager.workspaces.length} 个工作区，导入 ${preview!.workspaces.length} 个工作区。',
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '版本 ${preview!.version} | 脚本工作区 ${preview!.scriptedWorkspaceCount} 个（导入后保持禁用）。',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      if (preview!
+                          .conflictingWorkspaceIds
+                          .isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 8),
+                        Text(
+                          'ID 冲突：${preview!.conflictingWorkspaceIds.join('、')}',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      Text(
+                        preview!.workspaces
+                            .map((Workspace workspace) => workspace.name)
+                            .join('、'),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            OutlinedButton(
+              onPressed: controller.text.trim().isEmpty
+                  ? null
+                  : () {
+                      try {
+                        final WorkspaceImportPreview nextPreview =
+                            _workspaceManager.previewImport(controller.text);
+                        setDialogState(() {
+                          preview = nextPreview;
+                          validationError = null;
+                        });
+                      } on FormatException catch (error) {
+                        setDialogState(() {
+                          preview = null;
+                          validationError = error.message;
+                        });
+                      }
+                    },
+              child: const Text('检查导入'),
+            ),
+            FilledButton(
+              onPressed: preview == null
+                  ? null
+                  : () => Navigator.pop(context, true),
+              child: const Text('确认替换'),
+            ),
+          ],
+        ),
+      ),
+    );
+    final String importText = controller.text;
+    // showDialog completes before its exit animation disposes TextField.
+    unawaited(
+      Future<void>.delayed(
+        const Duration(milliseconds: 300),
+        controller.dispose,
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      _workspaceManager.importWorkspaces(importText);
+      setState(() {
+        _packetDecoder.reset();
+        _scriptSendRateLimiter.reset();
+        _pendingReceiveEvents.clear();
+      });
+      _persistWorkspaces();
+      _addSystemLog(
+        '已导入 ${_workspaceManager.workspaces.length} 个工作区；脚本保持未信任且禁用。',
       );
-      _trimLogs();
-    });
+    } on FormatException catch (error) {
+      _showBluetoothError(error);
+    }
   }
 
   void _exportSessionLogs(List<SessionLogRecord> records) {
@@ -1989,7 +2154,8 @@ class _HomeScreenState extends State<HomeScreen> {
             onThemeModeChanged: widget.onThemeModeChanged,
             onLocaleChanged: widget.onLocaleChanged,
             onConfigureWebServices: kIsWeb ? _configureWebServices : null,
-            onPreviewExport: _previewExport,
+            onExportWorkspaces: _exportWorkspaces,
+            onImportWorkspaces: _importWorkspaces,
             l10n: l10n,
           ),
           const SizedBox(width: 4),

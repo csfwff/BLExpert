@@ -51,6 +51,50 @@ void main() {
     expect(find.text('Current context'), findsOneWidget);
   });
 
+  testWidgets('工作区可导出、预览并确认替换导入', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(find.byTooltip('更多操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导出工作区'));
+    await tester.pumpAndSettle();
+    expect(find.text('导出工作区'), findsOneWidget);
+    expect(find.textContaining('"workspaces"'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '关闭'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('更多操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导入工作区'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '确认替换'))
+          .onPressed,
+      isNull,
+    );
+
+    await tester.enterText(
+      find.byType(TextField).last,
+      '{"version":1,"activeWorkspaceId":"imported","workspaces":[{"id":"imported","name":"导入测试工作区","scriptConfig":{"enabled":true,"beforeSendScript":"function beforeSend() { return {}; }","afterReceiveScript":"","language":"javascript"}}]}',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '检查导入'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('脚本工作区 1 个'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '确认替换'))
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '确认替换'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('导入测试工作区'), findsWidgets);
+  });
+
   testWidgets('工作台可在调试和配置工作区间切换', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
