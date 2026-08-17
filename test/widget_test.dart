@@ -219,4 +219,36 @@ void main() {
     expect(find.text('设备已离开蓝牙范围或停止广播，请重新扫描后再连接。'), findsWidgets);
     expect(find.textContaining('Bad state:'), findsOneWidget);
   });
+
+  testWidgets('会话记录可筛选并导出当前结果', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      BlexpertApp(
+        locale: const Locale('zh'),
+        bluetoothService: MockBluetoothService(
+          connectError: StateError('session-record-filter-test'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('连接设备'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('记录'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField),
+      'session-record-filter-test',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('1/'), findsOneWidget);
+    await tester.tap(find.byTooltip('导出会话记录'));
+    await tester.pumpAndSettle();
+    expect(find.text('导出会话记录'), findsOneWidget);
+    expect(find.textContaining('"kind": "error"'), findsOneWidget);
+  });
 }

@@ -530,37 +530,131 @@ class _ConfigurationNavigation extends StatelessWidget {
   }
 }
 
-class _RecordWorkspace extends StatelessWidget {
-  const _RecordWorkspace({required this.logs, required this.l10n});
+class _RecordWorkspace extends StatefulWidget {
+  const _RecordWorkspace({
+    required this.logs,
+    required this.l10n,
+    required this.onExport,
+  });
 
   final List<SessionLogRecord> logs;
   final AppLocalizations l10n;
+  final ValueChanged<List<SessionLogRecord>> onExport;
+
+  @override
+  State<_RecordWorkspace> createState() => _RecordWorkspaceState();
+}
+
+class _RecordWorkspaceState extends State<_RecordWorkspace> {
+  final TextEditingController _filterController = TextEditingController();
+  SessionLogKind? _kindFilter;
+
+  @override
+  void dispose() {
+    _filterController.dispose();
+    super.dispose();
+  }
+
+  List<SessionLogRecord> _filteredLogs() {
+    final String query = _filterController.text.trim().toLowerCase();
+    return widget.logs
+        .where((SessionLogRecord log) {
+          if (_kindFilter != null && log.kind != _kindFilter) return false;
+          if (query.isEmpty) return true;
+          final String payload = log.message ?? _toHex(log.data);
+          return payload.toLowerCase().contains(query) ||
+              log.kind.name.toLowerCase().contains(query);
+        })
+        .toList(growable: false);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final List<SessionLogRecord> filteredLogs = _filteredLogs();
     return Column(
       children: <Widget>[
         _PanelHeading(
           title: '会话记录',
-          trailing: Text(
-            '${logs.length} 条',
-            style: Theme.of(context).textTheme.labelSmall,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                '${filteredLogs.length}/${widget.logs.length} 条',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: '导出会话记录',
+                onPressed: filteredLogs.isEmpty
+                    ? null
+                    : () => widget.onExport(filteredLogs),
+                icon: const Icon(Icons.download_outlined, size: 18),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: TextField(
+            controller: _filterController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              isDense: true,
+              prefixIcon: const Icon(Icons.search, size: 18),
+              hintText: '搜索文本或 HEX',
+              suffixIcon: _filterController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: '清除筛选',
+                      onPressed: () {
+                        _filterController.clear();
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.clear, size: 18),
+                    ),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 42,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            children: <Widget>[
+              _filterChip('全部', null),
+              _filterChip('TX', SessionLogKind.sent),
+              _filterChip('RX', SessionLogKind.received),
+              _filterChip('SYS', SessionLogKind.system),
+              _filterChip('ERR', SessionLogKind.error),
+            ],
           ),
         ),
         Expanded(
-          child: logs.isEmpty
-              ? Center(child: Text(l10n.noData))
+          child: filteredLogs.isEmpty
+              ? Center(child: Text(widget.l10n.noData))
               : ListView.separated(
                   padding: const EdgeInsets.all(12),
-                  itemCount: logs.length,
+                  itemCount: filteredLogs.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (_, int index) =>
-                      _LogLine(entry: logs[index], l10n: l10n),
+                      _LogLine(entry: filteredLogs[index], l10n: widget.l10n),
                 ),
         ),
       ],
     );
   }
+
+  Widget _filterChip(String label, SessionLogKind? kind) => Padding(
+    padding: const EdgeInsets.only(right: 6),
+    child: FilterChip(
+      label: Text(label),
+      selected: _kindFilter == kind,
+      onSelected: (_) => setState(() => _kindFilter = kind),
+      visualDensity: VisualDensity.compact,
+    ),
+  );
 }
 
 class _PanelHeading extends StatelessWidget {

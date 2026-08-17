@@ -382,9 +382,12 @@ class _HomeScreenState extends State<HomeScreen> {
       final List<SessionLogRecord> records = await _sessionLogStore.load();
       if (!mounted) return;
       setState(() {
-        _logs
-          ..clear()
-          ..addAll(records);
+        // Events can arrive while local records are loading. Keep those newer
+        // in-memory entries before appending the previous session.
+        _logs.addAll(records);
+        if (_logs.length > _maxConsoleLogs) {
+          _logs.removeRange(_maxConsoleLogs, _logs.length);
+        }
       });
     } catch (error) {
       debugPrint('会话记录加载失败：$error');
@@ -1793,6 +1796,42 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _exportSessionLogs(List<SessionLogRecord> records) {
+    final String jsonText = const JsonEncoder.withIndent('  ')
+        .convert(<String, dynamic>{
+          'version': 1,
+          'records': records
+              .take(SessionLogStore.maxRecords)
+              .map((SessionLogRecord record) => record.toJson())
+              .toList(growable: false),
+        });
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) => _ToolAlertDialog(
+        icon: Icons.download_outlined,
+        title: '导出会话记录',
+        content: SizedBox(
+          width: 640,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 480),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                jsonText,
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
+            ),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -1902,7 +1941,11 @@ class _HomeScreenState extends State<HomeScreen> {
           onDeleteResponseMapping: _deleteResponseMapping,
           l10n: l10n,
         ),
-        recordPane: _RecordWorkspace(logs: _logs, l10n: l10n),
+        recordPane: _RecordWorkspace(
+          logs: _logs,
+          l10n: l10n,
+          onExport: _exportSessionLogs,
+        ),
       ),
     );
   }
