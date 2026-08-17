@@ -126,6 +126,7 @@ class CommandDefinition {
     required this.notes,
     required this.enabled,
     required this.isQuickAccess,
+    this.requiresConfirmation = false,
     this.parameters = const <CommandParameter>[],
   });
 
@@ -137,6 +138,7 @@ class CommandDefinition {
   final String notes;
   final bool enabled;
   final bool isQuickAccess;
+  final bool requiresConfirmation;
   final List<CommandParameter> parameters;
 
   factory CommandDefinition.fromJson(Map<String, dynamic> json) {
@@ -151,6 +153,7 @@ class CommandDefinition {
       notes: json['notes'] as String? ?? '',
       enabled: json['enabled'] as bool? ?? true,
       isQuickAccess: json['isQuickAccess'] as bool? ?? false,
+      requiresConfirmation: json['requiresConfirmation'] as bool? ?? false,
       parameters: (json['parameters'] as List<dynamic>? ?? const <dynamic>[])
           .whereType<Map>()
           .map(
@@ -170,6 +173,7 @@ class CommandDefinition {
     'notes': notes,
     'enabled': enabled,
     'isQuickAccess': isQuickAccess,
+    'requiresConfirmation': requiresConfirmation,
     if (parameters.isNotEmpty)
       'parameters': parameters
           .map((CommandParameter item) => item.toJson())
@@ -185,6 +189,7 @@ class CommandDefinition {
     String? notes,
     bool? enabled,
     bool? isQuickAccess,
+    bool? requiresConfirmation,
     List<CommandParameter>? parameters,
   }) {
     return CommandDefinition(
@@ -196,6 +201,7 @@ class CommandDefinition {
       notes: notes ?? this.notes,
       enabled: enabled ?? this.enabled,
       isQuickAccess: isQuickAccess ?? this.isQuickAccess,
+      requiresConfirmation: requiresConfirmation ?? this.requiresConfirmation,
       parameters: parameters ?? this.parameters,
     );
   }

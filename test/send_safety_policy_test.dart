@@ -41,6 +41,21 @@ void main() {
     expect(decision.requiresConfirmation, isFalse);
   });
 
+  test('requires confirmation for an explicitly protected command', () {
+    final SendSafetyDecision decision = SendSafetyPolicy.evaluate(
+      businessPayload: <int>[0x01],
+      finalFrame: <int>[0x01],
+      scriptEnabled: false,
+      commandName: '设备控制',
+      commandRequiresConfirmation: true,
+    );
+
+    expect(decision.requiresConfirmation, isTrue);
+    expect(decision.reasons, <SendSafetyReason>[
+      SendSafetyReason.explicitCommandPolicy,
+    ]);
+  });
+
   test('rate limiter rejects sends inside the configured interval', () {
     final ScriptSendRateLimiter limiter = ScriptSendRateLimiter();
     final DateTime start = DateTime(2026, 8, 17, 12);

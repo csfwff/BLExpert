@@ -23,6 +23,8 @@ class ScriptEngineService {
 
   bool get isRuntimeAvailable => false;
 
+  bool get hasHardExecutionLimit => false;
+
   Future<ScriptEngineResult> beforeSend(
     ScriptConfig config,
     List<int> bytes,

@@ -75,6 +75,7 @@ void main() {
           notes: 'Read device status.',
           enabled: true,
           isQuickAccess: true,
+          requiresConfirmation: true,
         ),
       ],
     );
@@ -86,6 +87,7 @@ void main() {
     expect(restored.commands.single.group, 'Query');
     expect(restored.commands.single.format, CommandPayloadFormat.hex);
     expect(restored.commands.single.isQuickAccess, isTrue);
+    expect(restored.commands.single.requiresConfirmation, isTrue);
     expect(restored.protocol.sendSegments.first.fixedHex, 'AA 55');
   });
 

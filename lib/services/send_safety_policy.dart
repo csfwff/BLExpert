@@ -1,4 +1,8 @@
-enum SendSafetyReason { scriptTransformed, potentiallyDangerousCommand }
+enum SendSafetyReason {
+  scriptTransformed,
+  potentiallyDangerousCommand,
+  explicitCommandPolicy,
+}
 
 class SendSafetyDecision {
   const SendSafetyDecision(this.reasons);
@@ -20,6 +24,7 @@ class SendSafetyPolicy {
     required List<int> finalFrame,
     required bool scriptEnabled,
     String? commandName,
+    bool commandRequiresConfirmation = false,
   }) {
     final List<SendSafetyReason> reasons = <SendSafetyReason>[
       if (scriptEnabled && !_sameBytes(businessPayload, finalFrame))
@@ -27,6 +32,7 @@ class SendSafetyPolicy {
       if (commandName != null &&
           _dangerousCommandPattern.hasMatch(commandName.trim()))
         SendSafetyReason.potentiallyDangerousCommand,
+      if (commandRequiresConfirmation) SendSafetyReason.explicitCommandPolicy,
     ];
     return SendSafetyDecision(List<SendSafetyReason>.unmodifiable(reasons));
   }

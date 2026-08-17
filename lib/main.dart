@@ -894,7 +894,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _updateScriptConfig(ScriptConfig scriptConfig) async {
     final Workspace workspace = _workspaceManager.activeWorkspace;
     ScriptConfig accepted = scriptConfig;
-    if (scriptConfig.enabled &&
+    if (scriptConfig.enabled && !_scriptEngine.isRuntimeAvailable) {
+      accepted = scriptConfig.copyWith(enabled: false);
+      _addSystemLog('当前平台不支持可中断脚本执行，已保留脚本配置但保持禁用。');
+    }
+    if (accepted.enabled &&
         workspace.scriptConfig.trustState ==
             ScriptTrustState.importedUntrusted) {
       final bool confirmed =
@@ -925,9 +929,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) setState(() {});
         return;
       }
-      accepted = scriptConfig.copyWith(
-        trustState: ScriptTrustState.trustedByUser,
-      );
+      accepted = accepted.copyWith(trustState: ScriptTrustState.trustedByUser);
     }
     _packetDecoder.reset();
     _scriptSendRateLimiter.reset();
@@ -959,6 +961,7 @@ class _HomeScreenState extends State<HomeScreen> {
             existing?.format ?? CommandPayloadFormat.hex;
         bool enabled = existing?.enabled ?? true;
         bool isQuickAccess = existing?.isQuickAccess ?? false;
+        bool requiresConfirmation = existing?.requiresConfirmation ?? false;
         final List<CommandParameter> parameters = <CommandParameter>[
           ...?existing?.parameters,
         ];
@@ -1063,6 +1066,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             setDialogState(() => isQuickAccess = value);
                           },
                         ),
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('发送前始终确认'),
+                          value: requiresConfirmation,
+                          onChanged: (bool value) {
+                            setDialogState(() => requiresConfirmation = value);
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -1106,6 +1117,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           notes: notesController.text.trim(),
                           enabled: enabled,
                           isQuickAccess: isQuickAccess,
+                          requiresConfirmation: requiresConfirmation,
                           parameters: parameters,
                         ),
                       );
@@ -1198,7 +1210,11 @@ class _HomeScreenState extends State<HomeScreen> {
         characteristicId: _currentWriteTargetUuid,
         commandName: command.name,
       );
-      await _send(bytes, commandName: command.name);
+      await _send(
+        bytes,
+        commandName: command.name,
+        commandRequiresConfirmation: command.requiresConfirmation,
+      );
     } catch (error) {
       _showBluetoothError(error);
     }
@@ -1622,7 +1638,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _send(List<int> bytes, {String? commandName}) async {
+  Future<void> _send(
+    List<int> bytes, {
+    String? commandName,
+    bool commandRequiresConfirmation = false,
+  }) async {
     final device = _selectedDevice;
     if (device == null || !_hasWriteTarget) return;
     String? transactionId;
@@ -1662,6 +1682,7 @@ class _HomeScreenState extends State<HomeScreen> {
         finalFrame: result.bytes,
         scriptEnabled: workspace.scriptConfig.enabled,
         commandName: commandName,
+        commandRequiresConfirmation: commandRequiresConfirmation,
       );
       if (safetyDecision.requiresConfirmation &&
           !await _confirmProtectedSend(
@@ -1750,6 +1771,7 @@ class _HomeScreenState extends State<HomeScreen> {
             SendSafetyReason.scriptTransformed => '脚本已改写业务载荷。',
             SendSafetyReason.potentiallyDangerousCommand =>
               '指令名称可能涉及重置、擦除、升级或认证操作。',
+            SendSafetyReason.explicitCommandPolicy => '该工作区将此指令标记为每次发送都需要确认。',
           },
         )
         .toList(growable: false);
@@ -2596,9 +2618,6 @@ class _ProtocolConfigurationPanelState
   @override
   void didUpdateWidget(covariant _ProtocolConfigurationPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _mode = widget.scriptConfig.enabled
-        ? _ProtocolMode.script
-        : _ProtocolMode.standard;
     if (oldWidget.protocol != widget.protocol) {
       _protocolNameController.text = widget.protocol.name;
       _descriptionController.text = widget.protocol.description;
@@ -2685,7 +2704,9 @@ class _ProtocolConfigurationPanelState
           onSelectionChanged: (Set<_ProtocolMode> value) {
             final _ProtocolMode mode = value.first;
             setState(() => _mode = mode);
-            _updateScript(enabled: mode == _ProtocolMode.script);
+            _updateScript(
+              enabled: mode == _ProtocolMode.script && widget.runtimeAvailable,
+            );
           },
         ),
         const SizedBox(height: 12),

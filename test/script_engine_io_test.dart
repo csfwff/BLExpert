@@ -13,6 +13,10 @@ void main() {
       ScriptEngineService().hasHardExecutionLimit,
       Platform.isAndroid || Platform.isLinux || Platform.isWindows,
     );
+    expect(
+      ScriptEngineService().isRuntimeAvailable,
+      ScriptEngineService().hasHardExecutionLimit,
+    );
   });
 
   const String nativeRuntimeTestSkip =

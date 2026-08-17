@@ -32,13 +32,14 @@ class ScriptEngineService {
   static const int maxExecutionMilliseconds = 50;
   static const int maxRuntimeMemoryBytes = 16 * 1024 * 1024;
 
-  bool get isRuntimeAvailable => true;
-
   /// QuickJS is the only flutter_js runtime in this package with a native
   /// interrupt budget. JavaScriptCore remains available on Apple platforms,
-  /// but does not expose an equivalent hard execution limit here.
+  /// but does not expose an equivalent hard execution limit here, so it is
+  /// intentionally not treated as executable.
   bool get hasHardExecutionLimit =>
       Platform.isAndroid || Platform.isLinux || Platform.isWindows;
+
+  bool get isRuntimeAvailable => hasHardExecutionLimit;
 
   Future<ScriptEngineResult> beforeSend(
     ScriptConfig config,
@@ -46,6 +47,11 @@ class ScriptEngineService {
   ) async {
     if (!config.enabled) {
       return ScriptEngineResult(bytes: bytes, logs: const <String>[]);
+    }
+    if (!isRuntimeAvailable) {
+      throw UnsupportedError(
+        'This platform does not provide a bounded JavaScript runtime.',
+      );
     }
     if (config.beforeSendScript.trim().isEmpty) {
       throw const FormatException(
@@ -68,6 +74,13 @@ class ScriptEngineService {
   ) async {
     if (!config.enabled || config.afterReceiveScript.trim().isEmpty) {
       return ScriptEngineResult(bytes: bytes, logs: const <String>[]);
+    }
+    if (!isRuntimeAvailable) {
+      return ScriptEngineResult(
+        bytes: bytes,
+        logs: const <String>['当前平台未执行 JavaScript 协议脚本，已保留原始接收数据。'],
+        valid: false,
+      );
     }
     _validateInput(config.afterReceiveScript, bytes);
     return _run(
