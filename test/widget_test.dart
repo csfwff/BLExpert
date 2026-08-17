@@ -244,6 +244,37 @@ void main() {
     expect(bluetoothService.sentPackets, hasLength(1));
   });
 
+  testWidgets('设备策略会阻止超过当前设备帧上限的手动发送', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final MockBluetoothService bluetoothService = MockBluetoothService();
+    await tester.pumpWidget(
+      BlexpertApp(
+        locale: const Locale('zh'),
+        bluetoothService: bluetoothService,
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('连接设备'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('写入目标'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('设备发送策略'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), '1');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'AA BB');
+    await tester.tap(find.widgetWithText(FilledButton, '发送数据'));
+    await tester.pumpAndSettle();
+
+    expect(bluetoothService.sentPackets, isEmpty);
+  });
+
   testWidgets('可在左侧新增协议定义', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 

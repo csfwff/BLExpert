@@ -1,4 +1,5 @@
 import 'script_config.dart';
+import 'device_safety_policy.dart';
 
 /// Describes a single Bluetooth device profile inside a workspace.
 class DeviceProfile {
@@ -13,6 +14,7 @@ class DeviceProfile {
     this.writeCharacteristicUuid,
     this.subscribeCharacteristicUuid,
     this.webServiceUuid,
+    this.safetyPolicy = const DeviceSafetyPolicy(),
   });
 
   final String id;
@@ -25,6 +27,7 @@ class DeviceProfile {
   final String? writeCharacteristicUuid;
   final String? subscribeCharacteristicUuid;
   final String? webServiceUuid;
+  final DeviceSafetyPolicy safetyPolicy;
 
   factory DeviceProfile.fromJson(Map<String, dynamic> json) {
     return DeviceProfile(
@@ -46,6 +49,11 @@ class DeviceProfile {
       subscribeCharacteristicUuid:
           json['subscribeCharacteristicUuid'] as String?,
       webServiceUuid: json['webServiceUuid'] as String?,
+      safetyPolicy: DeviceSafetyPolicy.fromJson(
+        Map<String, dynamic>.from(
+          json['safetyPolicy'] as Map? ?? const <String, dynamic>{},
+        ),
+      ),
     );
   }
 
@@ -67,6 +75,8 @@ class DeviceProfile {
         'subscribeCharacteristicUuid': subscribeCharacteristicUuid,
       if (webServiceUuid != null && webServiceUuid!.isNotEmpty)
         'webServiceUuid': webServiceUuid,
+      if (safetyPolicy.toJson().isNotEmpty)
+        'safetyPolicy': safetyPolicy.toJson(),
     };
   }
 
@@ -85,6 +95,7 @@ class DeviceProfile {
     bool clearSubscribeCharacteristicUuid = false,
     String? webServiceUuid,
     bool clearWebServiceUuid = false,
+    DeviceSafetyPolicy? safetyPolicy,
   }) {
     return DeviceProfile(
       id: id ?? this.id,
@@ -103,6 +114,7 @@ class DeviceProfile {
       webServiceUuid: clearWebServiceUuid
           ? null
           : (webServiceUuid ?? this.webServiceUuid),
+      safetyPolicy: safetyPolicy ?? this.safetyPolicy,
     );
   }
 }

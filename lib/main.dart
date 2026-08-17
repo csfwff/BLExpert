@@ -10,6 +10,7 @@ import 'models/workspace.dart';
 import 'models/command_definition.dart';
 import 'models/data_mapping.dart';
 import 'models/device_profile.dart';
+import 'models/device_safety_policy.dart';
 import 'models/protocol_profile.dart';
 import 'models/script_config.dart';
 import 'models/session_log_record.dart';
@@ -20,6 +21,7 @@ import 'services/command_payload_encoder.dart';
 import 'services/packet_encoder.dart';
 import 'services/packet_decoder.dart';
 import 'services/data_mapper.dart';
+import 'services/device_send_policy.dart';
 import 'services/workspace_manager.dart';
 import 'services/session_log_store.dart';
 import 'utils/ascii_utils.dart';
@@ -1671,6 +1673,185 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  DeviceProfile? get _selectedDeviceProfile {
+    final String? deviceId = _selectedDeviceId;
+    if (deviceId == null) return null;
+    return _workspaceManager.activeWorkspace.devices
+        .cast<DeviceProfile?>()
+        .firstWhere(
+          (DeviceProfile? profile) => profile!.id == deviceId,
+          orElse: () => null,
+        );
+  }
+
+  DeviceSafetyPolicy get _selectedDeviceSafetyPolicy =>
+      _selectedDeviceProfile?.safetyPolicy ?? const DeviceSafetyPolicy();
+
+  Future<void> _editSelectedDeviceSafetyPolicy() async {
+    final BluetoothDeviceInfo? device = _selectedDevice;
+    if (device == null) return;
+    final List<BluetoothCharacteristicInfo> writable = _characteristics
+        .where(
+          (BluetoothCharacteristicInfo characteristic) =>
+              characteristic.canWrite || characteristic.canWriteWithoutResponse,
+        )
+        .toList(growable: false);
+    if (writable.isEmpty) return;
+
+    final DeviceSafetyPolicy existing = _selectedDeviceSafetyPolicy;
+    final TextEditingController maxFrameController = TextEditingController(
+      text: existing.maxFinalFrameBytes?.toString() ?? '',
+    );
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final Set<String> allowedKeys = existing.allowedWriteTargetKeys
+        .where(
+          (String key) => writable.any(
+            (BluetoothCharacteristicInfo characteristic) =>
+                characteristic.key.toLowerCase() == key.toLowerCase(),
+          ),
+        )
+        .toSet();
+    bool requireWriteWithResponse = existing.requireWriteWithResponse;
+    final DeviceSafetyPolicy? updated = await showDialog<DeviceSafetyPolicy>(
+      context: context,
+      builder: (BuildContext context) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setDialogState) =>
+            _ToolAlertDialog(
+              icon: Icons.shield_outlined,
+              title: '设备发送策略',
+              content: SizedBox(
+                width: 520,
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text('设备：${device.name}'),
+                        const SizedBox(height: 12),
+                        const Text('选择允许作为写入目标的特征；不选择表示不限制。'),
+                        const SizedBox(height: 4),
+                        for (final BluetoothCharacteristicInfo characteristic
+                            in writable)
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              characteristic.characteristicId,
+                              softWrap: true,
+                            ),
+                            subtitle: Text(
+                              characteristic.serviceId,
+                              style: const TextStyle(fontFamily: 'monospace'),
+                            ),
+                            value: allowedKeys.contains(characteristic.key),
+                            onChanged: (bool? value) => setDialogState(() {
+                              if (value ?? false) {
+                                allowedKeys.add(characteristic.key);
+                              } else {
+                                allowedKeys.remove(characteristic.key);
+                              }
+                            }),
+                          ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: maxFrameController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: '最终帧最大字节数',
+                            hintText: '留空表示不限制（全局上限 4096）',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (String? value) {
+                            final String trimmed = value?.trim() ?? '';
+                            if (trimmed.isEmpty) return null;
+                            final int? parsed = int.tryParse(trimmed);
+                            if (parsed == null ||
+                                parsed < 1 ||
+                                parsed > ScriptEngineService.maxPacketBytes) {
+                              return '请输入 1 到 ${ScriptEngineService.maxPacketBytes} 的整数。';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('只允许带响应写入'),
+                          subtitle: const Text(
+                            '仅支持 Write without response 的特征将被拒绝。',
+                          ),
+                          value: requireWriteWithResponse,
+                          onChanged: (bool value) => setDialogState(
+                            () => requireWriteWithResponse = value,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (!formKey.currentState!.validate()) return;
+                    final String limitText = maxFrameController.text.trim();
+                    Navigator.pop(
+                      context,
+                      DeviceSafetyPolicy(
+                        allowedWriteTargetKeys: allowedKeys.toList(
+                          growable: false,
+                        ),
+                        maxFinalFrameBytes: limitText.isEmpty
+                            ? null
+                            : int.parse(limitText),
+                        requireWriteWithResponse: requireWriteWithResponse,
+                      ),
+                    );
+                  },
+                  child: const Text('保存'),
+                ),
+              ],
+            ),
+      ),
+    );
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => maxFrameController.dispose(),
+    );
+    if (updated == null || !mounted) return;
+
+    final Workspace workspace = _workspaceManager.activeWorkspace;
+    final DeviceProfile profile =
+        _selectedDeviceProfile ??
+        DeviceProfile(
+          id: device.id,
+          name: device.name,
+          protocol: device.protocol,
+          notes: '',
+          commands: const <String>[],
+          scriptConfig: ScriptConfig.empty(),
+        );
+    final DeviceProfile updatedProfile = profile.copyWith(
+      safetyPolicy: updated,
+    );
+    setState(
+      () => _upsertWorkspace(
+        workspace.copyWith(
+          devices: <DeviceProfile>[
+            for (final DeviceProfile item in workspace.devices)
+              if (item.id != updatedProfile.id) item,
+            updatedProfile,
+          ],
+          updatedAt: DateTime.now(),
+        ),
+      ),
+    );
+  }
+
   Future<void> _send(
     List<int> bytes, {
     String? commandName,
@@ -1709,6 +1890,29 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       if (result.bytes.length > ScriptEngineService.maxPacketBytes) {
         throw const FormatException('最终发送帧超过 4096 字节上限。');
+      }
+      final BluetoothCharacteristicInfo? writeTarget = _characteristics
+          .cast<BluetoothCharacteristicInfo?>()
+          .firstWhere(
+            (BluetoothCharacteristicInfo? item) => item!.isWriteTarget,
+            orElse: () => null,
+          );
+      if (writeTarget == null) return;
+      final DeviceSendPolicyDecision devicePolicyDecision =
+          DeviceSendPolicy.evaluate(
+            policy: _selectedDeviceSafetyPolicy,
+            writeTargetKey: writeTarget.key,
+            writeWithResponseAvailable: writeTarget.canWrite,
+            finalFrameLength: result.bytes.length,
+          );
+      if (!devicePolicyDecision.allowed) {
+        final String reason = _devicePolicyReason(devicePolicyDecision);
+        _addSystemLog(
+          '设备发送策略已拒绝：$reason',
+          characteristicId: writeTarget.characteristicId,
+          commandName: commandName,
+        );
+        throw StateError('设备发送策略已拒绝：$reason');
       }
       final SendSafetyDecision safetyDecision = SendSafetyPolicy.evaluate(
         businessPayload: businessPayload,
@@ -1791,6 +1995,17 @@ class _HomeScreenState extends State<HomeScreen> {
       _showBluetoothError(error);
     }
   }
+
+  String _devicePolicyReason(DeviceSendPolicyDecision decision) => decision
+      .reasons
+      .map(
+        (DeviceSendPolicyReason reason) => switch (reason) {
+          DeviceSendPolicyReason.writeTargetNotAllowed => '当前写入特征不在允许列表中',
+          DeviceSendPolicyReason.writeWithResponseRequired => '当前特征不支持带响应写入',
+          DeviceSendPolicyReason.finalFrameTooLarge => '最终帧超过设备配置的字节上限',
+        },
+      )
+      .join('；');
 
   Future<bool> _confirmProtectedSend({
     required SendSafetyDecision safetyDecision,
@@ -2326,9 +2541,11 @@ class _HomeScreenState extends State<HomeScreen> {
         devicePane: _DeviceToolsPanel(
           characteristics: _characteristics,
           connected: _selectedDevice?.connected == true,
+          safetyPolicy: _selectedDeviceSafetyPolicy,
           onSelectWrite: _setWriteCharacteristic,
           onSubscriptionChanged: _setSubscription,
           onRead: _readCharacteristic,
+          onEditSafetyPolicy: _editSelectedDeviceSafetyPolicy,
           l10n: l10n,
         ),
         inspectorPane: _InspectorPanel(
@@ -4339,14 +4556,17 @@ class _DeviceToolsPanel extends StatelessWidget {
   const _DeviceToolsPanel({
     required this.characteristics,
     required this.connected,
+    required this.safetyPolicy,
     required this.onSelectWrite,
     required this.onSubscriptionChanged,
     required this.onRead,
+    required this.onEditSafetyPolicy,
     required this.l10n,
   });
 
   final List<BluetoothCharacteristicInfo> characteristics;
   final bool connected;
+  final DeviceSafetyPolicy safetyPolicy;
   final Future<void> Function(BluetoothCharacteristicInfo) onSelectWrite;
   final Future<void> Function(
     BluetoothCharacteristicInfo,
@@ -4355,6 +4575,7 @@ class _DeviceToolsPanel extends StatelessWidget {
   )
   onSubscriptionChanged;
   final Future<void> Function(BluetoothCharacteristicInfo) onRead;
+  final VoidCallback onEditSafetyPolicy;
   final AppLocalizations l10n;
 
   @override
@@ -4393,6 +4614,20 @@ class _DeviceToolsPanel extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.end,
                 style: Theme.of(context).textTheme.labelSmall,
+              ),
+              IconButton(
+                tooltip: '设备发送策略',
+                onPressed: connected && characteristics.isNotEmpty
+                    ? onEditSafetyPolicy
+                    : null,
+                icon: Icon(
+                  safetyPolicy.allowedWriteTargetKeys.isNotEmpty ||
+                          safetyPolicy.maxFinalFrameBytes != null ||
+                          safetyPolicy.requireWriteWithResponse
+                      ? Icons.shield
+                      : Icons.shield_outlined,
+                  size: 19,
+                ),
               ),
             ],
           ),

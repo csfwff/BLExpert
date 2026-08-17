@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:blexpert/models/command_definition.dart';
 import 'package:blexpert/models/data_mapping.dart';
 import 'package:blexpert/models/device_profile.dart';
+import 'package:blexpert/models/device_safety_policy.dart';
 import 'package:blexpert/models/protocol_profile.dart';
 import 'package:blexpert/models/script_config.dart';
 import 'package:blexpert/models/workspace.dart';
@@ -562,6 +563,11 @@ void main() {
           writeCharacteristicUuid: '2A19',
           subscribeCharacteristicUuid: '2A1A',
           webServiceUuid: '180F',
+          safetyPolicy: const DeviceSafetyPolicy(
+            allowedWriteTargetKeys: <String>['180F/2A19'],
+            maxFinalFrameBytes: 128,
+            requireWriteWithResponse: true,
+          ),
         ),
       ],
     );
@@ -573,5 +579,8 @@ void main() {
     expect(restored.writeCharacteristicUuid, '2A19');
     expect(restored.subscribeCharacteristicUuid, '2A1A');
     expect(restored.webServiceUuid, '180F');
+    expect(restored.safetyPolicy.allowedWriteTargetKeys, <String>['180F/2A19']);
+    expect(restored.safetyPolicy.maxFinalFrameBytes, 128);
+    expect(restored.safetyPolicy.requireWriteWithResponse, isTrue);
   });
 }
