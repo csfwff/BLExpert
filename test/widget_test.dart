@@ -246,10 +246,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('1/'), findsOneWidget);
+    await tester.tap(find.byTooltip('添加书签'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilterChip, '书签'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('取消书签'), findsOneWidget);
     await tester.tap(find.byTooltip('导出会话记录'));
     await tester.pumpAndSettle();
     expect(find.text('导出会话记录'), findsOneWidget);
     expect(find.textContaining('"kind": "error"'), findsOneWidget);
+    expect(find.textContaining('"bookmarked": true'), findsOneWidget);
   });
 
   testWidgets('发送记录可按指令筛选并导出', (WidgetTester tester) async {

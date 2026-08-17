@@ -73,6 +73,7 @@ class SessionLogStore {
         message: _truncate(record.message, maxMessageLength),
         characteristicId: _truncate(record.characteristicId, maxMetadataLength),
         commandName: _truncate(record.commandName, maxMetadataLength),
+        bookmarked: record.bookmarked,
       );
 
   static String? _truncate(String? value, int maxLength) =>

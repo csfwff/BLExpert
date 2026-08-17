@@ -408,6 +408,15 @@ class _HomeScreenState extends State<HomeScreen> {
         .catchError((Object error) => debugPrint('会话记录清除失败：$error'));
   }
 
+  void _toggleSessionLogBookmark(SessionLogRecord record) {
+    final int index = _logs.indexOf(record);
+    if (index < 0) return;
+    setState(() {
+      _logs[index] = record.copyWith(bookmarked: !record.bookmarked);
+      _persistSessionLogs();
+    });
+  }
+
   void _persistWorkspaces() {
     _saveWorkspaceChain = _saveWorkspaceChain
         .then((_) => _workspaceManager.save())
@@ -1992,6 +2001,7 @@ class _HomeScreenState extends State<HomeScreen> {
           logs: _logs,
           l10n: l10n,
           onExport: _exportSessionLogs,
+          onToggleBookmark: _toggleSessionLogBookmark,
         ),
       ),
     );
@@ -4806,9 +4816,14 @@ class _CapabilityChip extends StatelessWidget {
 }
 
 class _LogLine extends StatelessWidget {
-  const _LogLine({required this.entry, required this.l10n});
+  const _LogLine({
+    required this.entry,
+    required this.l10n,
+    this.onToggleBookmark,
+  });
   final SessionLogRecord entry;
   final AppLocalizations l10n;
+  final ValueChanged<SessionLogRecord>? onToggleBookmark;
 
   @override
   Widget build(BuildContext context) {
@@ -4821,6 +4836,19 @@ class _LogLine extends StatelessWidget {
     };
     final String payload = entry.message ?? _toHex(entry.data);
     final String timestamp = entry.timestamp.toIso8601String().split('T').last;
+    final Widget? bookmarkButton = onToggleBookmark == null
+        ? null
+        : IconButton(
+            tooltip: entry.bookmarked ? '取消书签' : '添加书签',
+            onPressed: () => onToggleBookmark!(entry),
+            icon: Icon(
+              entry.bookmarked ? Icons.bookmark : Icons.bookmark_outline,
+              size: 19,
+            ),
+            color: entry.bookmarked ? colors.primary : null,
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            visualDensity: VisualDensity.compact,
+          );
     return Semantics(
       label: '${entry.directionLabel(l10n)} $timestamp，$payload',
       child: Container(
@@ -4880,6 +4908,10 @@ class _LogLine extends StatelessWidget {
                           style: Theme.of(context).textTheme.labelSmall,
                         ),
                       ],
+                      if (bookmarkButton != null) ...<Widget>[
+                        const Spacer(),
+                        bookmarkButton,
+                      ],
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -4915,6 +4947,7 @@ class _LogLine extends StatelessWidget {
                 ],
                 const SizedBox(width: 10),
                 Expanded(child: content),
+                ?bookmarkButton,
               ],
             );
           },

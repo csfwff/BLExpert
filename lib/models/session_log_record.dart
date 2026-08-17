@@ -9,6 +9,7 @@ class SessionLogRecord {
     this.message,
     this.characteristicId,
     this.commandName,
+    this.bookmarked = false,
   });
 
   const SessionLogRecord.system({
@@ -43,6 +44,17 @@ class SessionLogRecord {
   final String? message;
   final String? characteristicId;
   final String? commandName;
+  final bool bookmarked;
+
+  SessionLogRecord copyWith({bool? bookmarked}) => SessionLogRecord(
+    kind: kind,
+    timestamp: timestamp,
+    data: data,
+    message: message,
+    characteristicId: characteristicId,
+    commandName: commandName,
+    bookmarked: bookmarked ?? this.bookmarked,
+  );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'kind': kind.name,
@@ -53,6 +65,7 @@ class SessionLogRecord {
       'characteristicId': characteristicId,
     if (commandName != null && commandName!.isNotEmpty)
       'commandName': commandName,
+    if (bookmarked) 'bookmarked': true,
   };
 
   static SessionLogRecord? tryParse(Map<String, dynamic> json) {
@@ -83,6 +96,8 @@ class SessionLogRecord {
     }
     final Object? rawCommandName = json['commandName'];
     if (rawCommandName != null && rawCommandName is! String) return null;
+    final Object? rawBookmarked = json['bookmarked'];
+    if (rawBookmarked != null && rawBookmarked is! bool) return null;
     return SessionLogRecord(
       kind: kind,
       timestamp: timestamp.toLocal(),
@@ -90,6 +105,7 @@ class SessionLogRecord {
       message: rawMessage as String?,
       characteristicId: rawCharacteristicId as String?,
       commandName: rawCommandName as String?,
+      bookmarked: rawBookmarked as bool? ?? false,
     );
   }
 }

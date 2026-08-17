@@ -535,11 +535,13 @@ class _RecordWorkspace extends StatefulWidget {
     required this.logs,
     required this.l10n,
     required this.onExport,
+    required this.onToggleBookmark,
   });
 
   final List<SessionLogRecord> logs;
   final AppLocalizations l10n;
   final ValueChanged<List<SessionLogRecord>> onExport;
+  final ValueChanged<SessionLogRecord> onToggleBookmark;
 
   @override
   State<_RecordWorkspace> createState() => _RecordWorkspaceState();
@@ -550,6 +552,7 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
   SessionLogKind? _kindFilter;
   String? _characteristicFilter;
   String? _commandFilter;
+  bool _bookmarksOnly = false;
 
   @override
   void dispose() {
@@ -569,6 +572,7 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
           if (_commandFilter != null && log.commandName != _commandFilter) {
             return false;
           }
+          if (_bookmarksOnly && !log.bookmarked) return false;
           if (query.isEmpty) return true;
           final String payload = log.message ?? _toHex(log.data);
           return payload.toLowerCase().contains(query) ||
@@ -651,6 +655,7 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
               _filterChip('RX', SessionLogKind.received),
               _filterChip('SYS', SessionLogKind.system),
               _filterChip('ERR', SessionLogKind.error),
+              _bookmarkFilterChip(),
             ],
           ),
         ),
@@ -707,8 +712,11 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
                   padding: const EdgeInsets.all(12),
                   itemCount: filteredLogs.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, int index) =>
-                      _LogLine(entry: filteredLogs[index], l10n: widget.l10n),
+                  itemBuilder: (_, int index) => _LogLine(
+                    entry: filteredLogs[index],
+                    l10n: widget.l10n,
+                    onToggleBookmark: widget.onToggleBookmark,
+                  ),
                 ),
         ),
       ],
@@ -721,6 +729,17 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
       label: Text(label),
       selected: _kindFilter == kind,
       onSelected: (_) => setState(() => _kindFilter = kind),
+      visualDensity: VisualDensity.compact,
+    ),
+  );
+
+  Widget _bookmarkFilterChip() => Padding(
+    padding: const EdgeInsets.only(right: 6),
+    child: FilterChip(
+      label: const Text('书签'),
+      selected: _bookmarksOnly,
+      onSelected: (bool selected) => setState(() => _bookmarksOnly = selected),
+      avatar: const Icon(Icons.bookmark_outline, size: 16),
       visualDensity: VisualDensity.compact,
     ),
   );
