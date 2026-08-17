@@ -3743,11 +3743,13 @@ class _CommandTile extends StatefulWidget {
 
 class _CommandTileState extends State<_CommandTile> {
   late final Map<String, TextEditingController> _controllers;
+  late final ScrollController _frameScrollController;
   String? _validationError;
 
   @override
   void initState() {
     super.initState();
+    _frameScrollController = ScrollController();
     _controllers = <String, TextEditingController>{
       for (final CommandParameter parameter in widget.command.parameters)
         parameter.key: TextEditingController(text: parameter.defaultValue),
@@ -3780,6 +3782,7 @@ class _CommandTileState extends State<_CommandTile> {
 
   @override
   void dispose() {
+    _frameScrollController.dispose();
     for (final TextEditingController controller in _controllers.values) {
       controller.dispose();
     }
@@ -3807,132 +3810,297 @@ class _CommandTileState extends State<_CommandTile> {
   Widget build(BuildContext context) {
     final CommandDefinition command = widget.command;
     final bool sendEnabled = widget.canSend && command.enabled;
+    final bool hasParameters = command.parameters.isNotEmpty;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+      padding: const EdgeInsets.fromLTRB(8, 6, 6, 6),
       decoration: BoxDecoration(
         border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(5),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      command.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+      child: Semantics(
+        label: '${command.name}：${command.payload}',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: <Widget>[
+                Expanded(
+                  child: Scrollbar(
+                    controller: _frameScrollController,
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _frameScrollController,
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _buildFrameCells(
+                          command,
+                          showParameterLabels: hasParameters,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      command.payload,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
-                    ),
-                  ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                IconButton.filled(
+                  tooltip: '${widget.l10n.sendCommand} ${command.name}',
+                  onPressed: sendEnabled ? _send : null,
+                  icon: const Icon(Icons.send_outlined, size: 18),
+                ),
+              ],
+            ),
+            if (_validationError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  _validationError!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 12,
+                  ),
                 ),
               ),
-              IconButton.filled(
-                tooltip: widget.l10n.sendCommand,
-                onPressed: sendEnabled ? _send : null,
-                icon: const Icon(Icons.send_outlined, size: 18),
-              ),
-            ],
-          ),
-          if (command.parameters.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: command.parameters
-                  .map(_buildParameterInput)
-                  .toList(growable: false),
-            ),
           ],
-          if (_validationError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                _validationError!,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
     );
+  }
+
+  List<Widget> _buildFrameCells(
+    CommandDefinition command, {
+    required bool showParameterLabels,
+  }) {
+    if (command.format == CommandPayloadFormat.text) {
+      return <Widget>[
+        _RawFrameCell(
+          value: command.payload,
+          showParameterLabelSpace: showParameterLabels,
+        ),
+      ];
+    }
+    final Map<String, CommandParameter> parameters = <String, CommandParameter>{
+      for (final CommandParameter parameter in command.parameters)
+        parameter.key: parameter,
+    };
+    final RegExp placeholder = RegExp(
+      r'\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}',
+    );
+    final List<Widget> cells = <Widget>[];
+    int position = 0;
+    for (final RegExpMatch match in placeholder.allMatches(command.payload)) {
+      cells.addAll(
+        _fixedHexCells(
+          command.payload.substring(position, match.start),
+          showParameterLabelSpace: showParameterLabels,
+        ),
+      );
+      final CommandParameter? parameter = parameters[match.group(1)!];
+      if (parameter != null) cells.add(_buildParameterInput(parameter));
+      position = match.end;
+    }
+    cells.addAll(
+      _fixedHexCells(
+        command.payload.substring(position),
+        showParameterLabelSpace: showParameterLabels,
+      ),
+    );
+    return cells.isEmpty
+        ? <Widget>[
+            _RawFrameCell(
+              value: command.payload,
+              showParameterLabelSpace: showParameterLabels,
+            ),
+          ]
+        : cells;
+  }
+
+  List<Widget> _fixedHexCells(
+    String source, {
+    required bool showParameterLabelSpace,
+  }) {
+    final String compact = source.replaceAll(RegExp(r'[^0-9a-fA-F]'), '');
+    return <Widget>[
+      for (int index = 0; index + 1 < compact.length; index += 2)
+        _FixedFrameCell(
+          value: compact.substring(index, index + 2).toUpperCase(),
+          showParameterLabelSpace: showParameterLabelSpace,
+        ),
+    ];
   }
 
   Widget _buildParameterInput(CommandParameter parameter) {
     final String label = parameter.label.isEmpty
         ? parameter.key
         : parameter.label;
-    return SizedBox(
-      width: 108,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall,
-          ),
-          const SizedBox(height: 3),
-          if (parameter.type == CommandParameterType.enumValue &&
-              parameter.options.isNotEmpty)
-            DropdownButtonFormField<String>(
-              initialValue:
-                  parameter.options.any(
-                    (CommandParameterOption option) =>
-                        option.value == _controllers[parameter.key]!.text,
-                  )
-                  ? _controllers[parameter.key]!.text
-                  : null,
-              isDense: true,
-              decoration: const InputDecoration(
-                isDense: true,
-                border: OutlineInputBorder(),
-              ),
-              items: parameter.options
-                  .map(
-                    (CommandParameterOption option) => DropdownMenuItem<String>(
-                      value: option.value,
-                      child: Text(
-                        option.label,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                  .toList(growable: false),
-              onChanged: (String? value) {
-                if (value != null) _controllers[parameter.key]!.text = value;
-              },
-            )
-          else
-            TextField(
-              controller: _controllers[parameter.key],
-              keyboardType: _usesNumericKeyboard(parameter.type)
-                  ? TextInputType.number
-                  : TextInputType.text,
-              decoration: InputDecoration(
-                isDense: true,
-                border: const OutlineInputBorder(),
-                hintText: _commandParameterTypeLabel(parameter.type),
+    final bool isChoice =
+        parameter.type == CommandParameterType.enumValue &&
+        parameter.options.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: SizedBox(
+        width: isChoice ? 76 : _parameterInputWidth(parameter),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Tooltip(
+              message: label,
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall,
               ),
             ),
-        ],
+            const SizedBox(height: 2),
+            if (isChoice)
+              DropdownButtonFormField<String>(
+                initialValue:
+                    parameter.options.any(
+                      (CommandParameterOption option) =>
+                          option.value == _controllers[parameter.key]!.text,
+                    )
+                    ? _controllers[parameter.key]!.text
+                    : null,
+                isDense: true,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 8,
+                  ),
+                ),
+                items: parameter.options
+                    .map(
+                      (CommandParameterOption option) =>
+                          DropdownMenuItem<String>(
+                            value: option.value,
+                            child: Text(
+                              option.label,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                    )
+                    .toList(growable: false),
+                onChanged: (String? value) {
+                  if (value != null) _controllers[parameter.key]!.text = value;
+                },
+              )
+            else
+              Semantics(
+                label: label,
+                textField: true,
+                child: TextField(
+                  controller: _controllers[parameter.key],
+                  keyboardType: _usesNumericKeyboard(parameter.type)
+                      ? TextInputType.number
+                      : TextInputType.text,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 9,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
+    );
+  }
+
+  double _parameterInputWidth(CommandParameter parameter) =>
+      switch (parameter.type) {
+        CommandParameterType.uint32 || CommandParameterType.int32 => 62,
+        CommandParameterType.uint16 || CommandParameterType.int16 => 52,
+        CommandParameterType.ascii || CommandParameterType.utf8 => 88,
+        CommandParameterType.hex => 52,
+        _ => 38,
+      };
+}
+
+class _FixedFrameCell extends StatelessWidget {
+  const _FixedFrameCell({
+    required this.value,
+    required this.showParameterLabelSpace,
+  });
+
+  final String value;
+  final bool showParameterLabelSpace;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: SizedBox(
+        width: 32,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            if (showParameterLabelSpace) ...<Widget>[
+              const SizedBox(height: 16),
+              const SizedBox(height: 2),
+            ],
+            SizedBox(
+              height: 38,
+              child: Align(
+                alignment: Alignment.center,
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RawFrameCell extends StatelessWidget {
+  const _RawFrameCell({
+    required this.value,
+    required this.showParameterLabelSpace,
+  });
+
+  final String value;
+  final bool showParameterLabelSpace;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (showParameterLabelSpace) ...<Widget>[
+          const SizedBox(height: 16),
+          const SizedBox(height: 2),
+        ],
+        SizedBox(
+          height: 38,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

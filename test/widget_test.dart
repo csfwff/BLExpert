@@ -88,7 +88,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('调试'));
     await tester.pumpAndSettle();
-    expect(find.text('查询状态'), findsWidgets);
+    expect(find.bySemanticsLabel('查询状态：AA 55 01'), findsOneWidget);
+    expect(find.text('AA'), findsOneWidget);
+    expect(find.text('55'), findsOneWidget);
+    expect(find.text('01'), findsOneWidget);
   });
 
   testWidgets('可在左侧新增协议定义', (WidgetTester tester) async {
