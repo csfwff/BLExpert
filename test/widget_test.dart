@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'package:blexpert/main.dart';
 import 'package:blexpert/services/bluetooth_service.dart';
@@ -371,6 +372,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('确认受保护发送'), findsOneWidget);
+    expect(find.byType(shad.AlertDialog), findsOneWidget);
     expect(find.textContaining('恢复出厂设置'), findsWidgets);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();

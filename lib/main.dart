@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'app/design/tool_alert_dialog.dart';
 import 'l10n/app_localizations.dart';
 import 'models/workspace.dart';
 import 'models/command_definition.dart';
@@ -201,60 +202,6 @@ ThemeData _buildTheme(Brightness brightness) {
       ),
     ),
   );
-}
-
-class _ToolAlertDialog extends StatelessWidget {
-  const _ToolAlertDialog({
-    required this.icon,
-    required this.title,
-    required this.content,
-    required this.actions,
-  });
-
-  final IconData icon;
-  final String title;
-  final Widget content;
-  final List<Widget> actions;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
-    return AlertDialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-      titlePadding: EdgeInsets.zero,
-      contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      actionsPadding: const EdgeInsets.fromLTRB(12, 8, 16, 14),
-      title: Container(
-        height: 52,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Theme.of(context).dividerColor),
-          ),
-        ),
-        child: Row(
-          children: <Widget>[
-            ExcludeSemantics(
-              child: Icon(icon, size: 19, color: colors.secondary),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-          ],
-        ),
-      ),
-      content: content,
-      actions: actions,
-    );
-  }
 }
 
 class _WorkspaceImportDecision {
@@ -747,7 +694,7 @@ class _HomeScreenState extends State<HomeScreen> {
         String? validationError;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) =>
-              _ToolAlertDialog(
+              ToolAlertDialog(
                 icon: Icons.bluetooth_searching_outlined,
                 title: l10n.webServiceUuids,
                 content: SizedBox(
@@ -812,7 +759,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final AppLocalizations l10n = AppLocalizations.of(context)!;
     final Workspace? updated = await showDialog<Workspace>(
       context: context,
-      builder: (BuildContext context) => _ToolAlertDialog(
+      builder: (BuildContext context) => ToolAlertDialog(
         icon: Icons.folder_outlined,
         title: l10n.editWorkspace,
         content: SizedBox(
@@ -906,7 +853,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final bool confirmed =
           await showDialog<bool>(
             context: context,
-            builder: (BuildContext context) => _ToolAlertDialog(
+            builder: (BuildContext context) => ToolAlertDialog(
               icon: Icons.warning_amber_outlined,
               title: '启用未信任脚本？',
               content: Text(
@@ -970,7 +917,7 @@ class _HomeScreenState extends State<HomeScreen> {
         String? validationError;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) =>
-              _ToolAlertDialog(
+              ToolAlertDialog(
                 icon: Icons.terminal_outlined,
                 title: existing == null ? l10n.newCommand : l10n.editCommand,
                 content: SizedBox(
@@ -1270,7 +1217,7 @@ class _HomeScreenState extends State<HomeScreen> {
         String? validationError;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) =>
-              _ToolAlertDialog(
+              ToolAlertDialog(
                 icon: Icons.data_object_outlined,
                 title: existing == null
                     ? AppLocalizations.of(context)!.newResponseMapping
@@ -1716,7 +1663,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (BuildContext context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) =>
-            _ToolAlertDialog(
+            ToolAlertDialog(
               icon: Icons.shield_outlined,
               title: '设备发送策略',
               content: SizedBox(
@@ -2026,7 +1973,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final String? target = _currentWriteTargetUuid;
     return await showDialog<bool>(
           context: context,
-          builder: (BuildContext context) => _ToolAlertDialog(
+          builder: (BuildContext context) => ToolAlertDialog(
             icon: Icons.warning_amber_outlined,
             title: '确认受保护发送',
             content: SizedBox(
@@ -2175,7 +2122,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final jsonText = _workspaceManager.exportWorkspaces();
     showDialog<void>(
       context: context,
-      builder: (BuildContext context) => _ToolAlertDialog(
+      builder: (BuildContext context) => ToolAlertDialog(
         icon: Icons.upload_file_outlined,
         title: '导出工作区',
         content: SizedBox(
@@ -2223,7 +2170,7 @@ class _HomeScreenState extends State<HomeScreen> {
     decision = await showDialog<_WorkspaceImportDecision>(
       context: context,
       builder: (BuildContext context) => StatefulBuilder(
-        builder: (BuildContext context, StateSetter setDialogState) => _ToolAlertDialog(
+        builder: (BuildContext context, StateSetter setDialogState) => ToolAlertDialog(
           icon: Icons.download_outlined,
           title: '导入工作区',
           content: SizedBox(
@@ -2435,7 +2382,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
     showDialog<void>(
       context: context,
-      builder: (BuildContext context) => _ToolAlertDialog(
+      builder: (BuildContext context) => ToolAlertDialog(
         icon: Icons.download_outlined,
         title: '导出会话记录',
         content: SizedBox(
@@ -3704,7 +3651,7 @@ class _CommandLibraryPanel extends StatelessWidget {
       context: context,
       builder: (BuildContext context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) =>
-            _ToolAlertDialog(
+            ToolAlertDialog(
               icon: Icons.verified_user_outlined,
               title: '选择允许发送的指令',
               content: SizedBox(
