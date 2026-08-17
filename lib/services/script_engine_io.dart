@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_js/flutter_js.dart';
 
@@ -28,8 +29,16 @@ class ScriptEngineService {
   static const int maxPacketBytes = 4 * 1024;
   static const int maxLogEntries = 20;
   static const int maxLogCodeUnits = 512;
+  static const int maxExecutionMilliseconds = 50;
+  static const int maxRuntimeMemoryBytes = 16 * 1024 * 1024;
 
   bool get isRuntimeAvailable => true;
+
+  /// QuickJS is the only flutter_js runtime in this package with a native
+  /// interrupt budget. JavaScriptCore remains available on Apple platforms,
+  /// but does not expose an equivalent hard execution limit here.
+  bool get hasHardExecutionLimit =>
+      Platform.isAndroid || Platform.isLinux || Platform.isWindows;
 
   Future<ScriptEngineResult> beforeSend(
     ScriptConfig config,
@@ -77,7 +86,7 @@ class ScriptEngineService {
     required List<int> fallbackBytes,
     required bool requireFrame,
   }) {
-    final JavascriptRuntime runtime = getJavascriptRuntime(xhr: false);
+    final JavascriptRuntime runtime = _createRuntime();
     final String contextJson = jsonEncode(context);
     final String harness =
         '''
@@ -99,6 +108,9 @@ $script
 ''';
     try {
       final JsEvalResult value = runtime.evaluate(harness);
+      if (value.isError) {
+        throw StateError(_runtimeError(value.stringResult));
+      }
       final Map<String, dynamic> payload =
           jsonDecode(value.stringResult) as Map<String, dynamic>;
       if (payload['ok'] != true) {
@@ -143,6 +155,27 @@ $script
     } finally {
       runtime.dispose();
     }
+  }
+
+  JavascriptRuntime _createRuntime() {
+    if (hasHardExecutionLimit) {
+      return QuickJsRuntime2(
+        timeout: maxExecutionMilliseconds,
+        memoryLimit: maxRuntimeMemoryBytes,
+      );
+    }
+    return getJavascriptRuntime(xhr: false);
+  }
+
+  String _runtimeError(String message) {
+    final String normalized = message.trim();
+    final String lower = normalized.toLowerCase();
+    if (lower.contains('interrupt') || lower.contains('timeout')) {
+      return 'Script execution exceeded the '
+          '$maxExecutionMilliseconds ms limit.';
+    }
+    if (normalized.isEmpty) return 'Script execution failed.';
+    return normalized.substring(0, normalized.length.clamp(0, 256));
   }
 
   void _validateInput(String script, List<int> bytes) {
