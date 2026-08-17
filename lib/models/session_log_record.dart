@@ -7,32 +7,52 @@ class SessionLogRecord {
     required this.timestamp,
     this.data = const <int>[],
     this.message,
+    this.characteristicId,
+    this.commandName,
   });
 
   const SessionLogRecord.system({
     required DateTime timestamp,
     required String message,
+    String? characteristicId,
+    String? commandName,
   }) : this(
          kind: SessionLogKind.system,
          timestamp: timestamp,
          message: message,
+         characteristicId: characteristicId,
+         commandName: commandName,
        );
 
   const SessionLogRecord.error({
     required DateTime timestamp,
     required String message,
-  }) : this(kind: SessionLogKind.error, timestamp: timestamp, message: message);
+    String? characteristicId,
+    String? commandName,
+  }) : this(
+         kind: SessionLogKind.error,
+         timestamp: timestamp,
+         message: message,
+         characteristicId: characteristicId,
+         commandName: commandName,
+       );
 
   final SessionLogKind kind;
   final DateTime timestamp;
   final List<int> data;
   final String? message;
+  final String? characteristicId;
+  final String? commandName;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'kind': kind.name,
     'timestamp': timestamp.toUtc().toIso8601String(),
     if (data.isNotEmpty) 'data': data,
     if (message != null && message!.isNotEmpty) 'message': message,
+    if (characteristicId != null && characteristicId!.isNotEmpty)
+      'characteristicId': characteristicId,
+    if (commandName != null && commandName!.isNotEmpty)
+      'commandName': commandName,
   };
 
   static SessionLogRecord? tryParse(Map<String, dynamic> json) {
@@ -57,11 +77,19 @@ class SessionLogRecord {
     if (rawData is List && data.length != rawData.length) return null;
     final Object? rawMessage = json['message'];
     if (rawMessage != null && rawMessage is! String) return null;
+    final Object? rawCharacteristicId = json['characteristicId'];
+    if (rawCharacteristicId != null && rawCharacteristicId is! String) {
+      return null;
+    }
+    final Object? rawCommandName = json['commandName'];
+    if (rawCommandName != null && rawCommandName is! String) return null;
     return SessionLogRecord(
       kind: kind,
       timestamp: timestamp.toLocal(),
       data: data,
       message: rawMessage as String?,
+      characteristicId: rawCharacteristicId as String?,
+      commandName: rawCommandName as String?,
     );
   }
 }

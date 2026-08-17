@@ -448,6 +448,7 @@ class _HomeScreenState extends State<HomeScreen> {
             kind: SessionLogKind.received,
             timestamp: DateTime.now(),
             data: event.bytes,
+            characteristicId: event.sourceKey,
           ),
         );
         _logs.insert(
@@ -455,6 +456,7 @@ class _HomeScreenState extends State<HomeScreen> {
           SessionLogRecord.system(
             timestamp: DateTime.now(),
             message: 'RX 处理队列已满，已保留原始数据并跳过协议/脚本处理。',
+            characteristicId: event.sourceKey,
           ),
         );
         _trimLogs();
@@ -505,7 +507,10 @@ class _HomeScreenState extends State<HomeScreen> {
               event.status == PacketDecodeStatus.invalid ||
               event.status == PacketDecodeStatus.configurationError,
         )) {
-          _addSystemLog('RX 解码失败：${event.message}');
+          _addSystemLog(
+            'RX 解码失败：${event.message}',
+            characteristicId: sourceKey,
+          );
         }
         if (mounted) {
           setState(() {
@@ -515,6 +520,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 kind: SessionLogKind.received,
                 timestamp: DateTime.now(),
                 data: payload,
+                characteristicId: sourceKey,
               ),
             );
             _trimLogs();
@@ -565,6 +571,7 @@ class _HomeScreenState extends State<HomeScreen> {
             kind: SessionLogKind.received,
             timestamp: DateTime.now(),
             data: payload,
+            characteristicId: sourceKey,
           ),
         );
         for (final ScriptEngineResult result in results) {
@@ -574,13 +581,18 @@ class _HomeScreenState extends State<HomeScreen> {
               SessionLogRecord.system(
                 timestamp: DateTime.now(),
                 message: '脚本解码：${_toHex(result.bytes)}',
+                characteristicId: sourceKey,
               ),
             );
           }
           for (final String log in result.logs.reversed) {
             _logs.insert(
               0,
-              SessionLogRecord.system(timestamp: DateTime.now(), message: log),
+              SessionLogRecord.system(
+                timestamp: DateTime.now(),
+                message: log,
+                characteristicId: sourceKey,
+              ),
             );
           }
         }
@@ -604,6 +616,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 parsed,
                 AppLocalizations.of(context)!,
               ),
+              characteristicId: sourceKey,
             ),
           );
           if (parsed.mapping.asciiLogEnabled) {
@@ -618,6 +631,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   message: AppLocalizations.of(
                     context,
                   )!.asciiDecodedLog(parsed.mapping.name, ascii),
+                  characteristicId: sourceKey,
                 ),
               );
             }
@@ -1121,6 +1135,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final List<int> bytes = CommandPayloadEncoder.encode(command, values);
       _addSystemLog(
         _formatCommandSendLog(command, values, AppLocalizations.of(context)!),
+        characteristicId: _currentWriteTargetUuid,
+        commandName: command.name,
       );
       await _send(bytes, commandName: command.name);
     } catch (error) {
@@ -1593,19 +1609,29 @@ class _HomeScreenState extends State<HomeScreen> {
             finalFrame: result.bytes,
             commandName: commandName,
           )) {
-        _addSystemLog('已取消受保护发送。');
+        _addSystemLog(
+          '已取消受保护发送。',
+          characteristicId: _currentWriteTargetUuid,
+          commandName: commandName,
+        );
         return;
       }
       if (workspace.scriptConfig.enabled &&
           !_scriptSendRateLimiter.tryAcquire(DateTime.now())) {
         final Duration remaining =
             _scriptSendRateLimiter.remaining(DateTime.now()) ?? Duration.zero;
-        _addSystemLog('脚本发送速率限制：请在 ${remaining.inMilliseconds}ms 后重试。');
+        _addSystemLog(
+          '脚本发送速率限制：请在 ${remaining.inMilliseconds}ms 后重试。',
+          characteristicId: _currentWriteTargetUuid,
+          commandName: commandName,
+        );
         return;
       }
       _addSystemLog(
         'TX payload: ${result.payloadHex ?? _formatHexForLog(businessPayload)} | '
         'frame: ${_formatHexForLog(result.bytes)}',
+        characteristicId: _currentWriteTargetUuid,
+        commandName: commandName,
       );
       await _bluetoothService.sendData(device.id, result.bytes);
       if (!mounted) return;
@@ -1616,18 +1642,27 @@ class _HomeScreenState extends State<HomeScreen> {
             kind: SessionLogKind.sent,
             timestamp: DateTime.now(),
             data: result.bytes,
+            characteristicId: _currentWriteTargetUuid,
+            commandName: commandName,
           ),
         );
         for (final String log in result.logs.reversed) {
           _logs.insert(
             0,
-            SessionLogRecord.system(timestamp: DateTime.now(), message: log),
+            SessionLogRecord.system(
+              timestamp: DateTime.now(),
+              message: log,
+              characteristicId: _currentWriteTargetUuid,
+              commandName: commandName,
+            ),
           );
         }
         _trimLogs();
       });
       _addSystemLog(
         AppLocalizations.of(context)!.dataSent(result.bytes.length),
+        characteristicId: _currentWriteTargetUuid,
+        commandName: commandName,
       );
     } catch (error) {
       _showBluetoothError(error);
@@ -1713,7 +1748,10 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       await _handleIncomingData(value, sourceKey: characteristic.key);
       if (!mounted) return;
-      _addSystemLog(AppLocalizations.of(context)!.dataRead(value.length));
+      _addSystemLog(
+        AppLocalizations.of(context)!.dataRead(value.length),
+        characteristicId: characteristic.key,
+      );
     } catch (error) {
       _showBluetoothError(error);
     }
@@ -1739,14 +1777,23 @@ class _HomeScreenState extends State<HomeScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _addSystemLog(String message) {
+  void _addSystemLog(
+    String message, {
+    String? characteristicId,
+    String? commandName,
+  }) {
     if (!mounted) {
       return;
     }
     setState(() {
       _logs.insert(
         0,
-        SessionLogRecord.system(timestamp: DateTime.now(), message: message),
+        SessionLogRecord.system(
+          timestamp: DateTime.now(),
+          message: message,
+          characteristicId: characteristicId,
+          commandName: commandName,
+        ),
       );
       _trimLogs();
     });

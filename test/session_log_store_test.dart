@@ -41,6 +41,25 @@ void main() {
     expect(await store.load(), isEmpty);
   });
 
+  test('round-trips characteristic and command metadata', () async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    final SessionLogStore store = SessionLogStore(preferences);
+    await store.save(<SessionLogRecord>[
+      SessionLogRecord(
+        kind: SessionLogKind.sent,
+        timestamp: DateTime.utc(2026, 8, 17, 12),
+        data: const <int>[0xAA, 0x55],
+        characteristicId: '0000fff1',
+        commandName: '查询状态',
+      ),
+    ]);
+
+    final SessionLogRecord restored = (await store.load()).single;
+
+    expect(restored.characteristicId, '0000fff1');
+    expect(restored.commandName, '查询状态');
+  });
+
   test('ignores malformed persisted data', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'blexpert.session-log-store.v1': '{"records":[{"kind":"sent"}]}',

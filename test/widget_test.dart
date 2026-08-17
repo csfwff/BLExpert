@@ -251,4 +251,46 @@ void main() {
     expect(find.text('导出会话记录'), findsOneWidget);
     expect(find.textContaining('"kind": "error"'), findsOneWidget);
   });
+
+  testWidgets('发送记录可按指令筛选并导出', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(find.byTooltip('连接设备'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('写入目标'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('配置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('指令'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('新建指令'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '诊断命令');
+    await tester.enterText(find.byType(TextField).at(1), '诊断');
+    await tester.enterText(find.byType(TextField).at(2), 'AA 55');
+    await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('快捷入口'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('调试'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('发送 诊断命令'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('记录'));
+    await tester.pumpAndSettle();
+
+    final Finder commandFilter = find.byWidgetPredicate(
+      (Widget widget) => widget is DropdownButtonFormField<String?>,
+    );
+    expect(commandFilter, findsNWidgets(2));
+    await tester.tap(commandFilter.last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('诊断命令').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('导出会话记录'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('"commandName": "诊断命令"'), findsOneWidget);
+  });
 }

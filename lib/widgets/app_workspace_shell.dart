@@ -548,6 +548,8 @@ class _RecordWorkspace extends StatefulWidget {
 class _RecordWorkspaceState extends State<_RecordWorkspace> {
   final TextEditingController _filterController = TextEditingController();
   SessionLogKind? _kindFilter;
+  String? _characteristicFilter;
+  String? _commandFilter;
 
   @override
   void dispose() {
@@ -560,12 +562,33 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
     return widget.logs
         .where((SessionLogRecord log) {
           if (_kindFilter != null && log.kind != _kindFilter) return false;
+          if (_characteristicFilter != null &&
+              log.characteristicId != _characteristicFilter) {
+            return false;
+          }
+          if (_commandFilter != null && log.commandName != _commandFilter) {
+            return false;
+          }
           if (query.isEmpty) return true;
           final String payload = log.message ?? _toHex(log.data);
           return payload.toLowerCase().contains(query) ||
-              log.kind.name.toLowerCase().contains(query);
+              log.kind.name.toLowerCase().contains(query) ||
+              (log.characteristicId?.toLowerCase().contains(query) ?? false) ||
+              (log.commandName?.toLowerCase().contains(query) ?? false);
         })
         .toList(growable: false);
+  }
+
+  List<String> _metadataValues(String? Function(SessionLogRecord log) valueOf) {
+    final List<String> values =
+        widget.logs
+            .map(valueOf)
+            .whereType<String>()
+            .where((String value) => value.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    return values;
   }
 
   @override
@@ -631,6 +654,52 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
             ],
           ),
         ),
+        if (_metadataValues(
+              (SessionLogRecord log) => log.characteristicId,
+            ).isNotEmpty ||
+            _metadataValues(
+              (SessionLogRecord log) => log.commandName,
+            ).isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) =>
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      if (_metadataValues(
+                        (SessionLogRecord log) => log.characteristicId,
+                      ).isNotEmpty)
+                        _metadataFilter(
+                          label: '特征',
+                          allLabel: '全部特征',
+                          value: _characteristicFilter,
+                          values: _metadataValues(
+                            (SessionLogRecord log) => log.characteristicId,
+                          ),
+                          maxWidth: constraints.maxWidth,
+                          onChanged: (String? value) =>
+                              setState(() => _characteristicFilter = value),
+                        ),
+                      if (_metadataValues(
+                        (SessionLogRecord log) => log.commandName,
+                      ).isNotEmpty)
+                        _metadataFilter(
+                          label: '指令',
+                          allLabel: '全部指令',
+                          value: _commandFilter,
+                          values: _metadataValues(
+                            (SessionLogRecord log) => log.commandName,
+                          ),
+                          maxWidth: constraints.maxWidth,
+                          onChanged: (String? value) =>
+                              setState(() => _commandFilter = value),
+                        ),
+                    ],
+                  ),
+            ),
+          ),
         Expanded(
           child: filteredLogs.isEmpty
               ? Center(child: Text(widget.l10n.noData))
@@ -653,6 +722,35 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
       selected: _kindFilter == kind,
       onSelected: (_) => setState(() => _kindFilter = kind),
       visualDensity: VisualDensity.compact,
+    ),
+  );
+
+  Widget _metadataFilter({
+    required String label,
+    required String allLabel,
+    required String? value,
+    required List<String> values,
+    required double maxWidth,
+    required ValueChanged<String?> onChanged,
+  }) => SizedBox(
+    width: maxWidth < 520 ? maxWidth : 260,
+    child: DropdownButtonFormField<String?>(
+      initialValue: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        border: const OutlineInputBorder(),
+      ),
+      items: <DropdownMenuItem<String?>>[
+        DropdownMenuItem<String?>(value: null, child: Text(allLabel)),
+        for (final String item in values)
+          DropdownMenuItem<String?>(
+            value: item,
+            child: Text(item, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+      onChanged: onChanged,
     ),
   );
 }

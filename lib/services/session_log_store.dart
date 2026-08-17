@@ -11,6 +11,7 @@ class SessionLogStore {
   static const int maxRecords = 300;
   static const int maxDataBytes = 512;
   static const int maxMessageLength = 1024;
+  static const int maxMetadataLength = 128;
   static const String _storageKey = 'blexpert.session-log-store.v1';
 
   SharedPreferences? _preferences;
@@ -70,6 +71,8 @@ class SessionLogStore {
         timestamp: record.timestamp,
         data: record.data.take(maxDataBytes).toList(growable: false),
         message: _truncate(record.message, maxMessageLength),
+        characteristicId: _truncate(record.characteristicId, maxMetadataLength),
+        commandName: _truncate(record.commandName, maxMetadataLength),
       );
 
   static String? _truncate(String? value, int maxLength) =>
