@@ -309,6 +309,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<BluetoothIncomingData> _pendingReceiveEvents =
       <BluetoothIncomingData>[];
   bool _processingReceiveEvents = false;
+  String? _pendingTransactionId;
+  DateTime? _pendingTransactionStartedAt;
 
   @override
   void initState() {
@@ -417,6 +419,31 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  String _beginSessionTransaction() {
+    final DateTime now = DateTime.now();
+    final String transactionId =
+        'tx-${now.microsecondsSinceEpoch.toRadixString(16)}';
+    _pendingTransactionId = transactionId;
+    _pendingTransactionStartedAt = now;
+    return transactionId;
+  }
+
+  String? _consumePendingTransaction() {
+    final String? transactionId = _pendingTransactionId;
+    final DateTime? startedAt = _pendingTransactionStartedAt;
+    _pendingTransactionId = null;
+    _pendingTransactionStartedAt = null;
+    if (transactionId == null || startedAt == null) return null;
+    return DateTime.now().difference(startedAt) <= const Duration(seconds: 5)
+        ? transactionId
+        : null;
+  }
+
+  void _discardPendingTransaction() {
+    _pendingTransactionId = null;
+    _pendingTransactionStartedAt = null;
+  }
+
   void _persistWorkspaces() {
     _saveWorkspaceChain = _saveWorkspaceChain
         .then((_) => _workspaceManager.save())
@@ -450,6 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _enqueueIncomingData(BluetoothIncomingData event) {
     if (_pendingReceiveEvents.length >= _maxPendingReceiveEvents) {
+      final String? transactionId = _consumePendingTransaction();
       setState(() {
         _logs.insert(
           0,
@@ -458,6 +486,7 @@ class _HomeScreenState extends State<HomeScreen> {
             timestamp: DateTime.now(),
             data: event.bytes,
             characteristicId: event.sourceKey,
+            transactionId: transactionId,
           ),
         );
         _logs.insert(
@@ -466,6 +495,7 @@ class _HomeScreenState extends State<HomeScreen> {
             timestamp: DateTime.now(),
             message: 'RX 处理队列已满，已保留原始数据并跳过协议/脚本处理。',
             characteristicId: event.sourceKey,
+            transactionId: transactionId,
           ),
         );
         _trimLogs();
@@ -492,6 +522,7 @@ class _HomeScreenState extends State<HomeScreen> {
     List<int> payload, {
     String sourceKey = 'read',
   }) async {
+    final String? transactionId = _consumePendingTransaction();
     final Workspace workspace = _workspaceManager.activeWorkspace;
     try {
       final bool hasStandardProtocol =
@@ -519,6 +550,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _addSystemLog(
             'RX 解码失败：${event.message}',
             characteristicId: sourceKey,
+            transactionId: transactionId,
           );
         }
         if (mounted) {
@@ -530,6 +562,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 timestamp: DateTime.now(),
                 data: payload,
                 characteristicId: sourceKey,
+                transactionId: transactionId,
               ),
             );
             _trimLogs();
@@ -581,6 +614,7 @@ class _HomeScreenState extends State<HomeScreen> {
             timestamp: DateTime.now(),
             data: payload,
             characteristicId: sourceKey,
+            transactionId: transactionId,
           ),
         );
         for (final ScriptEngineResult result in results) {
@@ -591,6 +625,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 timestamp: DateTime.now(),
                 message: '脚本解码：${_toHex(result.bytes)}',
                 characteristicId: sourceKey,
+                transactionId: transactionId,
               ),
             );
           }
@@ -601,6 +636,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 timestamp: DateTime.now(),
                 message: log,
                 characteristicId: sourceKey,
+                transactionId: transactionId,
               ),
             );
           }
@@ -626,6 +662,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 AppLocalizations.of(context)!,
               ),
               characteristicId: sourceKey,
+              transactionId: transactionId,
             ),
           );
           if (parsed.mapping.asciiLogEnabled) {
@@ -641,6 +678,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                   )!.asciiDecodedLog(parsed.mapping.name, ascii),
                   characteristicId: sourceKey,
+                  transactionId: transactionId,
                 ),
               );
             }
@@ -1574,6 +1612,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _send(List<int> bytes, {String? commandName}) async {
     final device = _selectedDevice;
     if (device == null || !_hasWriteTarget) return;
+    String? transactionId;
     try {
       final Workspace workspace = _workspaceManager.activeWorkspace;
       final bool hasStandardProtocol =
@@ -1636,11 +1675,13 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         return;
       }
+      transactionId = _beginSessionTransaction();
       _addSystemLog(
         'TX payload: ${result.payloadHex ?? _formatHexForLog(businessPayload)} | '
         'frame: ${_formatHexForLog(result.bytes)}',
         characteristicId: _currentWriteTargetUuid,
         commandName: commandName,
+        transactionId: transactionId,
       );
       await _bluetoothService.sendData(device.id, result.bytes);
       if (!mounted) return;
@@ -1653,6 +1694,7 @@ class _HomeScreenState extends State<HomeScreen> {
             data: result.bytes,
             characteristicId: _currentWriteTargetUuid,
             commandName: commandName,
+            transactionId: transactionId,
           ),
         );
         for (final String log in result.logs.reversed) {
@@ -1663,6 +1705,7 @@ class _HomeScreenState extends State<HomeScreen> {
               message: log,
               characteristicId: _currentWriteTargetUuid,
               commandName: commandName,
+              transactionId: transactionId,
             ),
           );
         }
@@ -1672,8 +1715,12 @@ class _HomeScreenState extends State<HomeScreen> {
         AppLocalizations.of(context)!.dataSent(result.bytes.length),
         characteristicId: _currentWriteTargetUuid,
         commandName: commandName,
+        transactionId: transactionId,
       );
     } catch (error) {
+      if (_pendingTransactionId == transactionId) {
+        _discardPendingTransaction();
+      }
       _showBluetoothError(error);
     }
   }
@@ -1750,6 +1797,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ) async {
     final String? deviceId = _selectedDeviceId;
     if (deviceId == null) return;
+    final String transactionId = _beginSessionTransaction();
     try {
       final List<int> value = await _bluetoothService.readData(
         deviceId,
@@ -1760,8 +1808,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _addSystemLog(
         AppLocalizations.of(context)!.dataRead(value.length),
         characteristicId: characteristic.key,
+        transactionId: transactionId,
       );
     } catch (error) {
+      _discardPendingTransaction();
       _showBluetoothError(error);
     }
   }
@@ -1790,6 +1840,7 @@ class _HomeScreenState extends State<HomeScreen> {
     String message, {
     String? characteristicId,
     String? commandName,
+    String? transactionId,
   }) {
     if (!mounted) {
       return;
@@ -1802,6 +1853,7 @@ class _HomeScreenState extends State<HomeScreen> {
           message: message,
           characteristicId: characteristicId,
           commandName: commandName,
+          transactionId: transactionId,
         ),
       );
       _trimLogs();

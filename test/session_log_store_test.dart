@@ -51,6 +51,7 @@ void main() {
         data: const <int>[0xAA, 0x55],
         characteristicId: '0000fff1',
         commandName: '查询状态',
+        transactionId: 'tx-1234',
         bookmarked: true,
       ),
     ]);
@@ -59,6 +60,7 @@ void main() {
 
     expect(restored.characteristicId, '0000fff1');
     expect(restored.commandName, '查询状态');
+    expect(restored.transactionId, 'tx-1234');
     expect(restored.bookmarked, isTrue);
   });
 

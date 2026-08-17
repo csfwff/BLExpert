@@ -552,6 +552,7 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
   SessionLogKind? _kindFilter;
   String? _characteristicFilter;
   String? _commandFilter;
+  String? _transactionFilter;
   bool _bookmarksOnly = false;
 
   @override
@@ -572,13 +573,18 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
           if (_commandFilter != null && log.commandName != _commandFilter) {
             return false;
           }
+          if (_transactionFilter != null &&
+              log.transactionId != _transactionFilter) {
+            return false;
+          }
           if (_bookmarksOnly && !log.bookmarked) return false;
           if (query.isEmpty) return true;
           final String payload = log.message ?? _toHex(log.data);
           return payload.toLowerCase().contains(query) ||
               log.kind.name.toLowerCase().contains(query) ||
               (log.characteristicId?.toLowerCase().contains(query) ?? false) ||
-              (log.commandName?.toLowerCase().contains(query) ?? false);
+              (log.commandName?.toLowerCase().contains(query) ?? false) ||
+              (log.transactionId?.toLowerCase().contains(query) ?? false);
         })
         .toList(growable: false);
   }
@@ -664,6 +670,9 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
             ).isNotEmpty ||
             _metadataValues(
               (SessionLogRecord log) => log.commandName,
+            ).isNotEmpty ||
+            _metadataValues(
+              (SessionLogRecord log) => log.transactionId,
             ).isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
@@ -700,6 +709,20 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
                           maxWidth: constraints.maxWidth,
                           onChanged: (String? value) =>
                               setState(() => _commandFilter = value),
+                        ),
+                      if (_metadataValues(
+                        (SessionLogRecord log) => log.transactionId,
+                      ).isNotEmpty)
+                        _metadataFilter(
+                          label: '事务',
+                          allLabel: '全部事务',
+                          value: _transactionFilter,
+                          values: _metadataValues(
+                            (SessionLogRecord log) => log.transactionId,
+                          ),
+                          maxWidth: constraints.maxWidth,
+                          onChanged: (String? value) =>
+                              setState(() => _transactionFilter = value),
                         ),
                     ],
                   ),

@@ -9,6 +9,7 @@ class SessionLogRecord {
     this.message,
     this.characteristicId,
     this.commandName,
+    this.transactionId,
     this.bookmarked = false,
   });
 
@@ -17,12 +18,14 @@ class SessionLogRecord {
     required String message,
     String? characteristicId,
     String? commandName,
+    String? transactionId,
   }) : this(
          kind: SessionLogKind.system,
          timestamp: timestamp,
          message: message,
          characteristicId: characteristicId,
          commandName: commandName,
+         transactionId: transactionId,
        );
 
   const SessionLogRecord.error({
@@ -30,12 +33,14 @@ class SessionLogRecord {
     required String message,
     String? characteristicId,
     String? commandName,
+    String? transactionId,
   }) : this(
          kind: SessionLogKind.error,
          timestamp: timestamp,
          message: message,
          characteristicId: characteristicId,
          commandName: commandName,
+         transactionId: transactionId,
        );
 
   final SessionLogKind kind;
@@ -44,6 +49,7 @@ class SessionLogRecord {
   final String? message;
   final String? characteristicId;
   final String? commandName;
+  final String? transactionId;
   final bool bookmarked;
 
   SessionLogRecord copyWith({bool? bookmarked}) => SessionLogRecord(
@@ -53,6 +59,7 @@ class SessionLogRecord {
     message: message,
     characteristicId: characteristicId,
     commandName: commandName,
+    transactionId: transactionId,
     bookmarked: bookmarked ?? this.bookmarked,
   );
 
@@ -65,6 +72,8 @@ class SessionLogRecord {
       'characteristicId': characteristicId,
     if (commandName != null && commandName!.isNotEmpty)
       'commandName': commandName,
+    if (transactionId != null && transactionId!.isNotEmpty)
+      'transactionId': transactionId,
     if (bookmarked) 'bookmarked': true,
   };
 
@@ -98,6 +107,8 @@ class SessionLogRecord {
     if (rawCommandName != null && rawCommandName is! String) return null;
     final Object? rawBookmarked = json['bookmarked'];
     if (rawBookmarked != null && rawBookmarked is! bool) return null;
+    final Object? rawTransactionId = json['transactionId'];
+    if (rawTransactionId != null && rawTransactionId is! String) return null;
     return SessionLogRecord(
       kind: kind,
       timestamp: timestamp.toLocal(),
@@ -105,6 +116,7 @@ class SessionLogRecord {
       message: rawMessage as String?,
       characteristicId: rawCharacteristicId as String?,
       commandName: rawCommandName as String?,
+      transactionId: rawTransactionId as String?,
       bookmarked: rawBookmarked as bool? ?? false,
     );
   }

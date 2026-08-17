@@ -289,8 +289,8 @@ void main() {
     final Finder commandFilter = find.byWidgetPredicate(
       (Widget widget) => widget is DropdownButtonFormField<String?>,
     );
-    expect(commandFilter, findsNWidgets(2));
-    await tester.tap(commandFilter.last);
+    expect(commandFilter, findsNWidgets(3));
+    await tester.tap(commandFilter.at(1));
     await tester.pumpAndSettle();
     await tester.tap(find.text('诊断命令').last);
     await tester.pumpAndSettle();
@@ -298,5 +298,6 @@ void main() {
     await tester.tap(find.byTooltip('导出会话记录'));
     await tester.pumpAndSettle();
     expect(find.textContaining('"commandName": "诊断命令"'), findsOneWidget);
+    expect(find.textContaining('"transactionId": "tx-'), findsOneWidget);
   });
 }
