@@ -2559,6 +2559,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         configurationPane: _ConfigurationWorkspace(
           workspace: workspace,
+          runtimeAvailable: _scriptEngine.isRuntimeAvailable,
           onEditWorkspace: _editActiveWorkspace,
           onProtocolChanged: _updateProtocol,
           onScriptConfigChanged: _updateScriptConfig,

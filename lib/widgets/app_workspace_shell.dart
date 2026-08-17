@@ -408,6 +408,7 @@ class _InspectorPanel extends StatelessWidget {
 class _ConfigurationWorkspace extends StatefulWidget {
   const _ConfigurationWorkspace({
     required this.workspace,
+    required this.runtimeAvailable,
     required this.onEditWorkspace,
     required this.onProtocolChanged,
     required this.onScriptConfigChanged,
@@ -424,6 +425,7 @@ class _ConfigurationWorkspace extends StatefulWidget {
   });
 
   final Workspace workspace;
+  final bool runtimeAvailable;
   final VoidCallback onEditWorkspace;
   final ValueChanged<ProtocolDefinition> onProtocolChanged;
   final ValueChanged<ScriptConfig> onScriptConfigChanged;
@@ -459,7 +461,7 @@ class _ConfigurationWorkspaceState extends State<_ConfigurationWorkspace> {
         scriptConfig: widget.workspace.scriptConfig,
         onProtocolChanged: widget.onProtocolChanged,
         onScriptConfigChanged: widget.onScriptConfigChanged,
-        runtimeAvailable: !kIsWeb,
+        runtimeAvailable: widget.runtimeAvailable,
         l10n: widget.l10n,
       ),
       _CommandLibraryPanel(
