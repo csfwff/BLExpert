@@ -5,8 +5,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/workspace.dart';
 import '../models/script_config.dart';
 
+enum WorkspaceImportMode { replace, merge }
+
+enum WorkspaceConflictPolicy { replaceExisting, keepExisting }
+
 class WorkspaceImportPreview {
   const WorkspaceImportPreview({
+    required this.sourceVersion,
     required this.version,
     required this.workspaces,
     required this.activeWorkspaceId,
@@ -14,11 +19,24 @@ class WorkspaceImportPreview {
     required this.scriptedWorkspaceCount,
   });
 
+  final int sourceVersion;
   final int version;
   final List<Workspace> workspaces;
   final String activeWorkspaceId;
   final List<String> conflictingWorkspaceIds;
   final int scriptedWorkspaceCount;
+
+  bool get migrationApplied => sourceVersion != version;
+}
+
+class _WorkspacePayload {
+  const _WorkspacePayload({required this.payload, required this.sourceVersion});
+
+  final Map<String, dynamic> payload;
+  final int sourceVersion;
+
+  bool get migrationApplied =>
+      sourceVersion != WorkspaceManager.currentFormatVersion;
 }
 
 /// Keeps the current list of workspaces in memory and prepares them for local
@@ -31,7 +49,7 @@ class WorkspaceManager {
   }
 
   static const String _storageKey = 'blexpert.workspace-store.v1';
-  static const int currentFormatVersion = 1;
+  static const int currentFormatVersion = 2;
 
   late List<Workspace> _workspaces;
   late String _activeWorkspaceId;
@@ -85,7 +103,11 @@ class WorkspaceManager {
     if (jsonText == null || jsonText.trim().isEmpty) {
       return;
     }
-    _restoreWorkspaces(jsonText, imported: false);
+    final _WorkspacePayload parsed = _parsePayload(jsonText);
+    _restoreWorkspaces(parsed.payload);
+    if (parsed.migrationApplied) {
+      await _preferences!.setString(_storageKey, exportWorkspaces());
+    }
   }
 
   /// Persists protocols, script configuration, commands and workspace metadata.
@@ -111,9 +133,14 @@ class WorkspaceManager {
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
 
-  void importWorkspaces(String jsonText) {
+  void importWorkspaces(
+    String jsonText, {
+    WorkspaceImportMode mode = WorkspaceImportMode.replace,
+    WorkspaceConflictPolicy conflictPolicy =
+        WorkspaceConflictPolicy.replaceExisting,
+  }) {
     final WorkspaceImportPreview preview = previewImport(jsonText);
-    _workspaces = preview.workspaces
+    final List<Workspace> importedWorkspaces = preview.workspaces
         .map(
           (Workspace workspace) => workspace.copyWith(
             scriptConfig: workspace.scriptConfig.copyWith(
@@ -124,29 +151,35 @@ class WorkspaceManager {
           ),
         )
         .toList(growable: false);
-    _activeWorkspaceId = preview.activeWorkspaceId;
+    if (mode == WorkspaceImportMode.replace) {
+      _workspaces = importedWorkspaces;
+      _activeWorkspaceId = preview.activeWorkspaceId;
+      return;
+    }
+
+    final List<Workspace> merged = List<Workspace>.from(_workspaces);
+    for (final Workspace workspace in importedWorkspaces) {
+      final int index = merged.indexWhere(
+        (Workspace current) => current.id == workspace.id,
+      );
+      if (index < 0) {
+        merged.add(workspace);
+      } else if (conflictPolicy == WorkspaceConflictPolicy.replaceExisting) {
+        merged[index] = workspace;
+      }
+    }
+    _workspaces = merged;
+    if (merged.any(
+      (Workspace workspace) => workspace.id == preview.activeWorkspaceId,
+    )) {
+      _activeWorkspaceId = preview.activeWorkspaceId;
+    }
   }
 
   /// Validates an external export without mutating the current configuration.
   WorkspaceImportPreview previewImport(String jsonText) {
-    final Object? decoded;
-    try {
-      decoded = json.decode(jsonText);
-    } on FormatException {
-      throw const FormatException('导入内容不是有效 JSON。');
-    }
-    if (decoded is! Map) {
-      throw const FormatException('导入内容必须是工作区对象。');
-    }
-    final Map<String, dynamic> payload = Map<String, dynamic>.from(decoded);
-    final Object? rawVersion = payload['version'];
-    if (rawVersion != null && rawVersion is! int) {
-      throw const FormatException('工作区版本必须是整数。');
-    }
-    final int version = rawVersion as int? ?? currentFormatVersion;
-    if (version != currentFormatVersion) {
-      throw FormatException('不支持的工作区版本：$version。');
-    }
+    final _WorkspacePayload parsed = _parsePayload(jsonText);
+    final Map<String, dynamic> payload = parsed.payload;
     final Object? rawWorkspaces = payload['workspaces'];
     if (rawWorkspaces is! List || rawWorkspaces.isEmpty) {
       throw const FormatException('导入内容至少需要一个工作区。');
@@ -176,7 +209,8 @@ class WorkspaceManager {
         .map((Workspace workspace) => workspace.id)
         .toSet();
     return WorkspaceImportPreview(
-      version: version,
+      sourceVersion: parsed.sourceVersion,
+      version: currentFormatVersion,
       workspaces: List<Workspace>.unmodifiable(workspaces),
       activeWorkspaceId: activeWorkspaceId,
       conflictingWorkspaceIds: workspaces
@@ -193,9 +227,52 @@ class WorkspaceManager {
     );
   }
 
-  void _restoreWorkspaces(String jsonText, {required bool imported}) {
-    final Map<String, dynamic> payload =
-        json.decode(jsonText) as Map<String, dynamic>;
+  _WorkspacePayload _parsePayload(String jsonText) {
+    final Object? decoded;
+    try {
+      decoded = json.decode(jsonText);
+    } on FormatException {
+      throw const FormatException('导入内容不是有效 JSON。');
+    }
+    if (decoded is! Map) {
+      throw const FormatException('导入内容必须是工作区对象。');
+    }
+    Map<String, dynamic> payload = Map<String, dynamic>.from(decoded);
+    final Object? rawVersion = payload['version'];
+    if (rawVersion != null && rawVersion is! int) {
+      throw const FormatException('工作区版本必须是整数。');
+    }
+    final int sourceVersion = rawVersion as int? ?? 1;
+    if (sourceVersion < 1 || sourceVersion > currentFormatVersion) {
+      throw FormatException('不支持的工作区版本：$sourceVersion。');
+    }
+    if (sourceVersion == 1) {
+      final Object? rawWorkspaces = payload['workspaces'];
+      if (rawWorkspaces is List) {
+        payload = <String, dynamic>{
+          ...payload,
+          'version': currentFormatVersion,
+          'workspaces': rawWorkspaces
+              .map(
+                (Object? item) => item is Map
+                    ? Workspace.fromJson(
+                        Map<String, dynamic>.from(item),
+                      ).toJson()
+                    : item,
+              )
+              .toList(growable: false),
+        };
+      } else {
+        payload = <String, dynamic>{
+          ...payload,
+          'version': currentFormatVersion,
+        };
+      }
+    }
+    return _WorkspacePayload(payload: payload, sourceVersion: sourceVersion);
+  }
+
+  void _restoreWorkspaces(Map<String, dynamic> payload) {
     final List<dynamic> rawWorkspaces =
         payload['workspaces'] as List<dynamic>? ?? const <dynamic>[];
 
@@ -203,17 +280,6 @@ class WorkspaceManager {
         .map(
           (dynamic item) =>
               Workspace.fromJson(Map<String, dynamic>.from(item as Map)),
-        )
-        .map(
-          (Workspace workspace) => imported
-              ? workspace.copyWith(
-                  scriptConfig: workspace.scriptConfig.copyWith(
-                    enabled: false,
-                    trustState: ScriptTrustState.importedUntrusted,
-                    source: 'imported JSON',
-                  ),
-                )
-              : workspace,
         )
         .toList(growable: false);
 

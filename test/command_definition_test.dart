@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -454,7 +456,7 @@ void main() {
 
     expect(
       () => manager.previewImport(
-        '{"version":2,"workspaces":[${Workspace.empty().toPrettyJson()}]}',
+        '{"version":3,"workspaces":[${Workspace.empty().toPrettyJson()}]}',
       ),
       throwsA(isA<FormatException>()),
     );
@@ -463,6 +465,77 @@ void main() {
         '{"version":1,"workspaces":[${Workspace.empty().toPrettyJson()},${Workspace.empty().toPrettyJson()}]}',
       ),
       throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('v1 workspace payload previews as migrated v2 and exports v2', () {
+    final Workspace workspace = Workspace.empty().copyWith(id: 'legacy');
+    final WorkspaceManager manager = WorkspaceManager();
+    final WorkspaceImportPreview preview = manager.previewImport(
+      '{"version":1,"activeWorkspaceId":"legacy","workspaces":[${workspace.toPrettyJson()}]}',
+    );
+
+    expect(preview.sourceVersion, 1);
+    expect(preview.version, WorkspaceManager.currentFormatVersion);
+    expect(preview.migrationApplied, isTrue);
+    manager.importWorkspaces(
+      '{"version":1,"activeWorkspaceId":"legacy","workspaces":[${workspace.toPrettyJson()}]}',
+    );
+    expect(jsonDecode(manager.exportWorkspaces())['version'], 2);
+  });
+
+  test('merge import supports keeping or replacing conflicting workspaces', () {
+    final Workspace current = Workspace.empty().copyWith(
+      id: 'current',
+      name: '当前版本',
+    );
+    final Workspace incomingConflict = Workspace.empty().copyWith(
+      id: 'current',
+      name: '导入版本',
+      scriptConfig: const ScriptConfig(
+        enabled: true,
+        beforeSendScript: 'function beforeSend() { return {}; }',
+        afterReceiveScript: '',
+        language: 'javascript',
+      ),
+    );
+    final Workspace incomingNew = Workspace.empty().copyWith(
+      id: 'new',
+      name: '新增工作区',
+    );
+    final String payload =
+        '{"version":2,"activeWorkspaceId":"new","workspaces":[${incomingConflict.toPrettyJson()},${incomingNew.toPrettyJson()}]}';
+
+    final WorkspaceManager keepManager = WorkspaceManager();
+    keepManager.upsertWorkspace(current);
+    keepManager.importWorkspaces(
+      payload,
+      mode: WorkspaceImportMode.merge,
+      conflictPolicy: WorkspaceConflictPolicy.keepExisting,
+    );
+    expect(
+      keepManager.workspaces.map((Workspace item) => item.name),
+      containsAll(<String>['当前版本', '新增工作区']),
+    );
+    expect(keepManager.workspaces, hasLength(3));
+
+    final WorkspaceManager replaceManager = WorkspaceManager();
+    replaceManager.upsertWorkspace(current);
+    replaceManager.importWorkspaces(
+      payload,
+      mode: WorkspaceImportMode.merge,
+      conflictPolicy: WorkspaceConflictPolicy.replaceExisting,
+    );
+    expect(
+      replaceManager.workspaces.map((Workspace item) => item.name),
+      contains('导入版本'),
+    );
+    expect(
+      replaceManager.workspaces
+          .firstWhere((Workspace item) => item.id == 'current')
+          .scriptConfig
+          .trustState,
+      ScriptTrustState.importedUntrusted,
     );
   });
 

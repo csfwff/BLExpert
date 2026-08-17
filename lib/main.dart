@@ -255,6 +255,18 @@ class _ToolAlertDialog extends StatelessWidget {
   }
 }
 
+class _WorkspaceImportDecision {
+  const _WorkspaceImportDecision({
+    required this.jsonText,
+    required this.mode,
+    required this.conflictPolicy,
+  });
+
+  final String jsonText;
+  final WorkspaceImportMode mode;
+  final WorkspaceConflictPolicy conflictPolicy;
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
@@ -1934,7 +1946,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final TextEditingController controller = TextEditingController();
     WorkspaceImportPreview? preview;
     String? validationError;
-    final bool? confirmed = await showDialog<bool>(
+    WorkspaceImportMode mode = WorkspaceImportMode.replace;
+    WorkspaceConflictPolicy conflictPolicy =
+        WorkspaceConflictPolicy.replaceExisting;
+    final _WorkspaceImportDecision?
+    decision = await showDialog<_WorkspaceImportDecision>(
       context: context,
       builder: (BuildContext context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) => _ToolAlertDialog(
@@ -1964,6 +1980,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       style: const TextStyle(fontFamily: 'monospace'),
                     ),
+                    const SizedBox(height: 14),
+                    Text('导入方式', style: Theme.of(context).textTheme.labelLarge),
+                    const SizedBox(height: 6),
+                    SegmentedButton<WorkspaceImportMode>(
+                      segments: const <ButtonSegment<WorkspaceImportMode>>[
+                        ButtonSegment<WorkspaceImportMode>(
+                          value: WorkspaceImportMode.replace,
+                          icon: Icon(Icons.sync_disabled_outlined),
+                          label: Text('完整替换'),
+                        ),
+                        ButtonSegment<WorkspaceImportMode>(
+                          value: WorkspaceImportMode.merge,
+                          icon: Icon(Icons.merge_type_outlined),
+                          label: Text('合并导入'),
+                        ),
+                      ],
+                      selected: <WorkspaceImportMode>{mode},
+                      onSelectionChanged: (Set<WorkspaceImportMode> value) {
+                        setDialogState(() => mode = value.first);
+                      },
+                    ),
                     if (validationError != null) ...<Widget>[
                       const SizedBox(height: 12),
                       Text(
@@ -1976,11 +2013,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (preview != null) ...<Widget>[
                       const SizedBox(height: 16),
                       Text(
-                        '将替换当前 ${_workspaceManager.workspaces.length} 个工作区，导入 ${preview!.workspaces.length} 个工作区。',
+                        mode == WorkspaceImportMode.replace
+                            ? '将替换当前 ${_workspaceManager.workspaces.length} 个工作区，导入 ${preview!.workspaces.length} 个工作区。'
+                            : '将合并当前 ${_workspaceManager.workspaces.length} 个工作区，导入 ${preview!.workspaces.length} 个工作区。',
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '版本 ${preview!.version} | 脚本工作区 ${preview!.scriptedWorkspaceCount} 个（导入后保持禁用）。',
+                        '版本 ${preview!.sourceVersion}${preview!.migrationApplied ? ' -> ${preview!.version}（已迁移）' : ''} | 脚本工作区 ${preview!.scriptedWorkspaceCount} 个（导入后保持禁用）。',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       if (preview!
@@ -1992,6 +2031,40 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.error,
                           ),
+                        ),
+                      ],
+                      if (mode == WorkspaceImportMode.merge &&
+                          preview!
+                              .conflictingWorkspaceIds
+                              .isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 12),
+                        Text(
+                          '冲突处理',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                        const SizedBox(height: 6),
+                        SegmentedButton<WorkspaceConflictPolicy>(
+                          segments:
+                              const <ButtonSegment<WorkspaceConflictPolicy>>[
+                                ButtonSegment<WorkspaceConflictPolicy>(
+                                  value:
+                                      WorkspaceConflictPolicy.replaceExisting,
+                                  icon: Icon(Icons.sync_outlined),
+                                  label: Text('覆盖当前'),
+                                ),
+                                ButtonSegment<WorkspaceConflictPolicy>(
+                                  value: WorkspaceConflictPolicy.keepExisting,
+                                  icon: Icon(Icons.shield_outlined),
+                                  label: Text('保留当前'),
+                                ),
+                              ],
+                          selected: <WorkspaceConflictPolicy>{conflictPolicy},
+                          onSelectionChanged:
+                              (Set<WorkspaceConflictPolicy> value) {
+                                setDialogState(
+                                  () => conflictPolicy = value.first,
+                                );
+                              },
                         ),
                       ],
                       const SizedBox(height: 8),
@@ -2011,7 +2084,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           actions: <Widget>[
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(context),
               child: const Text('取消'),
             ),
             OutlinedButton(
@@ -2037,14 +2110,22 @@ class _HomeScreenState extends State<HomeScreen> {
             FilledButton(
               onPressed: preview == null
                   ? null
-                  : () => Navigator.pop(context, true),
-              child: const Text('确认替换'),
+                  : () => Navigator.pop(
+                      context,
+                      _WorkspaceImportDecision(
+                        jsonText: controller.text,
+                        mode: mode,
+                        conflictPolicy: conflictPolicy,
+                      ),
+                    ),
+              child: Text(
+                mode == WorkspaceImportMode.replace ? '确认替换' : '确认导入',
+              ),
             ),
           ],
         ),
       ),
     );
-    final String importText = controller.text;
     // showDialog completes before its exit animation disposes TextField.
     unawaited(
       Future<void>.delayed(
@@ -2052,9 +2133,13 @@ class _HomeScreenState extends State<HomeScreen> {
         controller.dispose,
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (decision == null || !mounted) return;
     try {
-      _workspaceManager.importWorkspaces(importText);
+      _workspaceManager.importWorkspaces(
+        decision.jsonText,
+        mode: decision.mode,
+        conflictPolicy: decision.conflictPolicy,
+      );
       setState(() {
         _packetDecoder.reset();
         _scriptSendRateLimiter.reset();
@@ -2062,7 +2147,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       _persistWorkspaces();
       _addSystemLog(
-        '已导入 ${_workspaceManager.workspaces.length} 个工作区；脚本保持未信任且禁用。',
+        '${decision.mode == WorkspaceImportMode.replace ? '已替换' : '已合并'} ${_workspaceManager.workspaces.length} 个工作区；脚本保持未信任且禁用。',
       );
     } on FormatException catch (error) {
       _showBluetoothError(error);

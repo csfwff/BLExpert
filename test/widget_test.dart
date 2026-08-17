@@ -95,6 +95,55 @@ void main() {
     expect(find.text('导入测试工作区'), findsWidgets);
   });
 
+  testWidgets('可合并导入并选择保留冲突工作区', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    Future<void> importAndConfirm(String jsonText) async {
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('导入工作区'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, jsonText);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, '检查导入'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '确认替换'));
+      await tester.pumpAndSettle();
+    }
+
+    await importAndConfirm(
+      '{"version":2,"activeWorkspaceId":"conflict","workspaces":[{"id":"conflict","name":"原始工作区"}]}',
+    );
+    expect(find.text('原始工作区'), findsWidgets);
+
+    await tester.tap(find.byTooltip('更多操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导入工作区'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField).last,
+      '{"version":2,"activeWorkspaceId":"new","workspaces":[{"id":"conflict","name":"覆盖版本"},{"id":"new","name":"新增工作区"}]}',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '检查导入'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('合并导入'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('冲突处理'), findsOneWidget);
+    expect(find.text('保留当前'), findsOneWidget);
+    await tester.tap(find.text('保留当前'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确认导入'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('选择工作区'));
+    await tester.pumpAndSettle();
+    expect(find.text('原始工作区'), findsWidgets);
+    expect(find.text('新增工作区'), findsWidgets);
+    expect(find.text('覆盖版本'), findsNothing);
+  });
+
   testWidgets('工作台可在调试和配置工作区间切换', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
