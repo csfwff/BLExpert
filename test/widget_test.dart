@@ -162,6 +162,40 @@ void main() {
     );
   });
 
+  testWidgets('高风险命令在发送前要求确认', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(find.byTooltip('连接设备'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('写入目标'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('配置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('指令'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('新建指令'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '恢复出厂设置');
+    await tester.enterText(find.byType(TextField).at(1), '维护');
+    await tester.enterText(find.byType(TextField).at(2), 'AA 55');
+    await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('快捷入口'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('调试'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('发送 恢复出厂设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('确认受保护发送'), findsOneWidget);
+    expect(find.textContaining('恢复出厂设置'), findsWidgets);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('确认受保护发送'), findsNothing);
+  });
+
   testWidgets('连接失败会写入控制台错误日志', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1;

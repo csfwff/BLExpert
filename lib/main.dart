@@ -13,6 +13,7 @@ import 'models/protocol_profile.dart';
 import 'models/script_config.dart';
 import 'services/bluetooth_service.dart';
 import 'services/script_engine.dart';
+import 'services/send_safety_policy.dart';
 import 'services/command_payload_encoder.dart';
 import 'services/packet_encoder.dart';
 import 'services/packet_decoder.dart';
@@ -279,6 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final ScriptEngineService _scriptEngine;
   final PacketEncoder _packetEncoder = PacketEncoder();
   final PacketDecoder _packetDecoder = PacketDecoder();
+  final ScriptSendRateLimiter _scriptSendRateLimiter = ScriptSendRateLimiter();
   late final StreamSubscription<List<BluetoothDeviceInfo>> _scanSubscription;
   late final StreamSubscription<BluetoothServiceEvent>
   _serviceEventSubscription;
@@ -802,6 +804,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
     _packetDecoder.reset();
+    _scriptSendRateLimiter.reset();
     setState(
       () => _upsertWorkspace(
         workspace.copyWith(scriptConfig: accepted, updatedAt: DateTime.now()),
@@ -1067,7 +1070,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _addSystemLog(
         _formatCommandSendLog(command, values, AppLocalizations.of(context)!),
       );
-      await _send(bytes);
+      await _send(bytes, commandName: command.name);
     } catch (error) {
       _showBluetoothError(error);
     }
@@ -1491,7 +1494,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _send(List<int> bytes) async {
+  Future<void> _send(List<int> bytes, {String? commandName}) async {
     final device = _selectedDevice;
     if (device == null || !_hasWriteTarget) return;
     try {
@@ -1525,6 +1528,29 @@ class _HomeScreenState extends State<HomeScreen> {
       if (result.bytes.length > ScriptEngineService.maxPacketBytes) {
         throw const FormatException('最终发送帧超过 4096 字节上限。');
       }
+      final SendSafetyDecision safetyDecision = SendSafetyPolicy.evaluate(
+        businessPayload: businessPayload,
+        finalFrame: result.bytes,
+        scriptEnabled: workspace.scriptConfig.enabled,
+        commandName: commandName,
+      );
+      if (safetyDecision.requiresConfirmation &&
+          !await _confirmProtectedSend(
+            safetyDecision: safetyDecision,
+            businessPayload: businessPayload,
+            finalFrame: result.bytes,
+            commandName: commandName,
+          )) {
+        _addSystemLog('已取消受保护发送。');
+        return;
+      }
+      if (workspace.scriptConfig.enabled &&
+          !_scriptSendRateLimiter.tryAcquire(DateTime.now())) {
+        final Duration remaining =
+            _scriptSendRateLimiter.remaining(DateTime.now()) ?? Duration.zero;
+        _addSystemLog('脚本发送速率限制：请在 ${remaining.inMilliseconds}ms 后重试。');
+        return;
+      }
       _addSystemLog(
         'TX payload: ${result.payloadHex ?? _formatHexForLog(businessPayload)} | '
         'frame: ${_formatHexForLog(result.bytes)}',
@@ -1547,6 +1573,69 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (error) {
       _showBluetoothError(error);
     }
+  }
+
+  Future<bool> _confirmProtectedSend({
+    required SendSafetyDecision safetyDecision,
+    required List<int> businessPayload,
+    required List<int> finalFrame,
+    String? commandName,
+  }) async {
+    final List<String> reasons = safetyDecision.reasons
+        .map(
+          (SendSafetyReason reason) => switch (reason) {
+            SendSafetyReason.scriptTransformed => '脚本已改写业务载荷。',
+            SendSafetyReason.potentiallyDangerousCommand =>
+              '指令名称可能涉及重置、擦除、升级或认证操作。',
+          },
+        )
+        .toList(growable: false);
+    final String? target = _currentWriteTargetUuid;
+    return await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) => _ToolAlertDialog(
+            icon: Icons.warning_amber_outlined,
+            title: '确认受保护发送',
+            content: SizedBox(
+              width: 560,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 360),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    <String>[
+                      if (commandName != null && commandName.isNotEmpty)
+                        '指令：$commandName',
+                      '写入特征：${target ?? '未知'}',
+                      '原因：${reasons.join('\n')}',
+                      '',
+                      '业务载荷：${_formatHexForLog(businessPayload)}',
+                      '最终帧：${_formatHexForLog(finalFrame)}',
+                    ].join('\n'),
+                    style: const TextStyle(fontFamily: 'monospace'),
+                  ),
+                ),
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('确认发送'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  String? get _currentWriteTargetUuid {
+    for (final BluetoothCharacteristicInfo characteristic in _characteristics) {
+      if (characteristic.isWriteTarget) return characteristic.characteristicId;
+    }
+    return null;
   }
 
   String _formatHexForLog(List<int> bytes) => bytes
@@ -1666,6 +1755,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onSelected: (String workspaceId) {
               setState(() {
                 _packetDecoder.reset();
+                _scriptSendRateLimiter.reset();
                 _pendingReceiveEvents.clear();
                 _workspaceManager.setActiveWorkspace(workspaceId);
                 _persistWorkspaces();

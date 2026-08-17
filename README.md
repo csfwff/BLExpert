@@ -44,7 +44,7 @@ BLExpert 是一款基于 Flutter 的跨平台 BLE 协议调试与分析工具。
 - 提供 HEX、校验和、CRC、MD5 等 JavaScript 内置工具函数。
 - Web 端保留脚本配置，但不执行 JavaScript 脚本。
 - 导入工作区的脚本会被强制禁用并标记为未信任；首次启用需要显式确认来源与风险。
-- 脚本源码、输入/输出帧和日志已有大小上限；Android/Windows/Linux 的 QuickJS 已启用 50ms/16MiB 硬限制，Apple JavaScriptCore 仍缺少可终止超时；发送速率和危险命令策略尚未完成。
+- 脚本源码、输入/输出帧和日志已有大小上限；Android/Windows/Linux 的 QuickJS 已启用 50ms/16MiB 硬限制，脚本写入按 200ms 限流，改写帧与高风险关键词命令会要求确认。Apple JavaScriptCore 的可终止超时、工作区命令白名单和设备能力策略尚未完成。
 
 ## 当前边界与已知限制
 
