@@ -11,6 +11,7 @@ import 'models/data_mapping.dart';
 import 'models/device_profile.dart';
 import 'models/protocol_profile.dart';
 import 'models/script_config.dart';
+import 'models/session_log_record.dart';
 import 'services/bluetooth_service.dart';
 import 'services/script_engine.dart';
 import 'services/send_safety_policy.dart';
@@ -19,6 +20,7 @@ import 'services/packet_encoder.dart';
 import 'services/packet_decoder.dart';
 import 'services/data_mapper.dart';
 import 'services/workspace_manager.dart';
+import 'services/session_log_store.dart';
 import 'utils/ascii_utils.dart';
 import 'utils/web_service_uuid_parser.dart';
 
@@ -273,9 +275,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const int _maxConsoleLogs = 2000;
+  static const int _maxConsoleLogs = SessionLogStore.maxRecords;
   static const int _maxPendingReceiveEvents = 64;
   late final WorkspaceManager _workspaceManager;
+  late final SessionLogStore _sessionLogStore;
   late final BluetoothService _bluetoothService;
   late final ScriptEngineService _scriptEngine;
   final PacketEncoder _packetEncoder = PacketEncoder();
@@ -290,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<BluetoothDeviceInfo> _devices = <BluetoothDeviceInfo>[];
   List<BluetoothCharacteristicInfo> _characteristics =
       <BluetoothCharacteristicInfo>[];
-  final List<_LogEntry> _logs = <_LogEntry>[];
+  final List<SessionLogRecord> _logs = <SessionLogRecord>[];
   final Map<String, _MonitoredFieldValue> _monitoredValues =
       <String, _MonitoredFieldValue>{};
   String? _selectedDeviceId;
@@ -302,6 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _inspectorOpen = true;
   List<String> _webOptionalServices = <String>[];
   Future<void> _saveWorkspaceChain = Future<void>.value();
+  Future<void> _saveSessionLogsChain = Future<void>.value();
   final List<BluetoothIncomingData> _pendingReceiveEvents =
       <BluetoothIncomingData>[];
   bool _processingReceiveEvents = false;
@@ -311,6 +315,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _workspaceManager = WorkspaceManager();
     unawaited(_restoreWorkspaces());
+    _sessionLogStore = SessionLogStore();
+    unawaited(_restoreSessionLogs());
     _scriptEngine = ScriptEngineService();
     _bluetoothService =
         widget.bluetoothService ??
@@ -371,6 +377,34 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _restoreSessionLogs() async {
+    try {
+      final List<SessionLogRecord> records = await _sessionLogStore.load();
+      if (!mounted) return;
+      setState(() {
+        _logs
+          ..clear()
+          ..addAll(records);
+      });
+    } catch (error) {
+      debugPrint('会话记录加载失败：$error');
+    }
+  }
+
+  void _persistSessionLogs() {
+    final List<SessionLogRecord> snapshot = List<SessionLogRecord>.from(_logs);
+    _saveSessionLogsChain = _saveSessionLogsChain
+        .then((_) => _sessionLogStore.save(snapshot))
+        .catchError((Object error) => debugPrint('会话记录保存失败：$error'));
+  }
+
+  void _clearLogs() {
+    setState(_logs.clear);
+    _saveSessionLogsChain = _saveSessionLogsChain
+        .then((_) => _sessionLogStore.clear())
+        .catchError((Object error) => debugPrint('会话记录清除失败：$error'));
+  }
+
   void _persistWorkspaces() {
     _saveWorkspaceChain = _saveWorkspaceChain
         .then((_) => _workspaceManager.save())
@@ -407,11 +441,15 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _logs.insert(
           0,
-          _LogEntry(_LogKind.received, DateTime.now(), event.bytes),
+          SessionLogRecord(
+            kind: SessionLogKind.received,
+            timestamp: DateTime.now(),
+            data: event.bytes,
+          ),
         );
         _logs.insert(
           0,
-          _LogEntry.system(
+          SessionLogRecord.system(
             timestamp: DateTime.now(),
             message: 'RX 处理队列已满，已保留原始数据并跳过协议/脚本处理。',
           ),
@@ -470,7 +508,11 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             _logs.insert(
               0,
-              _LogEntry(_LogKind.received, DateTime.now(), payload),
+              SessionLogRecord(
+                kind: SessionLogKind.received,
+                timestamp: DateTime.now(),
+                data: payload,
+              ),
             );
             _trimLogs();
           });
@@ -514,12 +556,19 @@ class _HomeScreenState extends State<HomeScreen> {
         if (parsed != null) parsedResponses.add(parsed);
       }
       setState(() {
-        _logs.insert(0, _LogEntry(_LogKind.received, DateTime.now(), payload));
+        _logs.insert(
+          0,
+          SessionLogRecord(
+            kind: SessionLogKind.received,
+            timestamp: DateTime.now(),
+            data: payload,
+          ),
+        );
         for (final ScriptEngineResult result in results) {
           if (!hasStandardProtocol && !listEquals(result.bytes, payload)) {
             _logs.insert(
               0,
-              _LogEntry.system(
+              SessionLogRecord.system(
                 timestamp: DateTime.now(),
                 message: '脚本解码：${_toHex(result.bytes)}',
               ),
@@ -528,7 +577,7 @@ class _HomeScreenState extends State<HomeScreen> {
           for (final String log in result.logs.reversed) {
             _logs.insert(
               0,
-              _LogEntry.system(timestamp: DateTime.now(), message: log),
+              SessionLogRecord.system(timestamp: DateTime.now(), message: log),
             );
           }
         }
@@ -546,7 +595,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
           _logs.insert(
             0,
-            _LogEntry.system(
+            SessionLogRecord.system(
               timestamp: DateTime.now(),
               message: _formatParsedResponseLog(
                 parsed,
@@ -561,7 +610,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (ascii.isNotEmpty) {
               _logs.insert(
                 0,
-                _LogEntry.system(
+                SessionLogRecord.system(
                   timestamp: DateTime.now(),
                   message: AppLocalizations.of(
                     context,
@@ -1558,11 +1607,18 @@ class _HomeScreenState extends State<HomeScreen> {
       await _bluetoothService.sendData(device.id, result.bytes);
       if (!mounted) return;
       setState(() {
-        _logs.insert(0, _LogEntry(_LogKind.sent, DateTime.now(), result.bytes));
+        _logs.insert(
+          0,
+          SessionLogRecord(
+            kind: SessionLogKind.sent,
+            timestamp: DateTime.now(),
+            data: result.bytes,
+          ),
+        );
         for (final String log in result.logs.reversed) {
           _logs.insert(
             0,
-            _LogEntry.system(timestamp: DateTime.now(), message: log),
+            SessionLogRecord.system(timestamp: DateTime.now(), message: log),
           );
         }
         _trimLogs();
@@ -1668,7 +1724,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _logs.insert(
         0,
-        _LogEntry.error(
+        SessionLogRecord.error(
           timestamp: DateTime.now(),
           message: '$message\n${error.toString()}',
         ),
@@ -1687,7 +1743,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _logs.insert(
         0,
-        _LogEntry.system(timestamp: DateTime.now(), message: message),
+        SessionLogRecord.system(timestamp: DateTime.now(), message: message),
       );
       _trimLogs();
     });
@@ -1697,6 +1753,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_logs.length > _maxConsoleLogs) {
       _logs.removeRange(_maxConsoleLogs, _logs.length);
     }
+    _persistSessionLogs();
   }
 
   String _bluetoothErrorMessage(Object error) {
@@ -1723,16 +1780,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void _previewExport() {
     final jsonText = _workspaceManager.exportWorkspaces();
     final length = jsonText.length < 32 ? jsonText.length : 32;
-    setState(
-      () => _logs.insert(
+    setState(() {
+      _logs.insert(
         0,
-        _LogEntry(
-          _LogKind.system,
-          DateTime.now(),
-          utf8.encode(jsonText.substring(0, length)),
+        SessionLogRecord(
+          kind: SessionLogKind.system,
+          timestamp: DateTime.now(),
+          data: utf8.encode(jsonText.substring(0, length)),
         ),
-      ),
-    );
+      );
+      _trimLogs();
+    });
   }
 
   @override
@@ -1799,7 +1857,7 @@ class _HomeScreenState extends State<HomeScreen> {
         debugPane: _ConsoleArea(
           logs: _logs,
           autoScroll: _autoScroll,
-          onClear: () => setState(_logs.clear),
+          onClear: _clearLogs,
           onAutoScrollChanged: (value) => setState(() => _autoScroll = value),
           inputController: _inputController,
           hexMode: _hexMode,
@@ -3524,7 +3582,7 @@ class _ConsoleArea extends StatelessWidget {
     required this.writeTarget,
     required this.l10n,
   });
-  final List<_LogEntry> logs;
+  final List<SessionLogRecord> logs;
   final bool autoScroll;
   final VoidCallback onClear;
   final ValueChanged<bool> onAutoScrollChanged;
@@ -4659,17 +4717,17 @@ class _CapabilityChip extends StatelessWidget {
 
 class _LogLine extends StatelessWidget {
   const _LogLine({required this.entry, required this.l10n});
-  final _LogEntry entry;
+  final SessionLogRecord entry;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme colors = Theme.of(context).colorScheme;
     final Color color = switch (entry.kind) {
-      _LogKind.received => colors.tertiary,
-      _LogKind.sent => colors.primary,
-      _LogKind.system => Theme.of(context).colorScheme.secondary,
-      _LogKind.error => Theme.of(context).colorScheme.error,
+      SessionLogKind.received => colors.tertiary,
+      SessionLogKind.sent => colors.primary,
+      SessionLogKind.system => Theme.of(context).colorScheme.secondary,
+      SessionLogKind.error => Theme.of(context).colorScheme.error,
     };
     final String payload = entry.message ?? _toHex(entry.data);
     final String timestamp = entry.timestamp.toIso8601String().split('T').last;
@@ -4706,7 +4764,7 @@ class _LogLine extends StatelessWidget {
                 fontFamily: 'monospace',
                 fontSize: 12,
                 height: 1.45,
-                color: entry.kind == _LogKind.error ? color : null,
+                color: entry.kind == SessionLogKind.error ? color : null,
               ),
             );
             if (compact) {
@@ -4776,34 +4834,19 @@ class _LogLine extends StatelessWidget {
   }
 }
 
-enum _LogKind { sent, received, system, error }
-
-class _LogEntry {
-  const _LogEntry(this.kind, this.timestamp, this.data) : message = null;
-  const _LogEntry.system({required this.timestamp, required this.message})
-    : kind = _LogKind.system,
-      data = const <int>[];
-  const _LogEntry.error({required this.timestamp, required this.message})
-    : kind = _LogKind.error,
-      data = const <int>[];
-
-  final _LogKind kind;
-  final DateTime timestamp;
-  final List<int> data;
-  final String? message;
-
+extension _SessionLogRecordLabels on SessionLogRecord {
   String directionLabel(AppLocalizations l10n) => switch (kind) {
-    _LogKind.received => l10n.received,
-    _LogKind.sent => l10n.sendData,
-    _LogKind.system => l10n.system,
-    _LogKind.error => l10n.error,
+    SessionLogKind.received => l10n.received,
+    SessionLogKind.sent => l10n.sendData,
+    SessionLogKind.system => l10n.system,
+    SessionLogKind.error => l10n.error,
   };
 
   String get shortDirection => switch (kind) {
-    _LogKind.received => 'RX',
-    _LogKind.sent => 'TX',
-    _LogKind.system => 'SYS',
-    _LogKind.error => 'ERR',
+    SessionLogKind.received => 'RX',
+    SessionLogKind.sent => 'TX',
+    SessionLogKind.system => 'SYS',
+    SessionLogKind.error => 'ERR',
   };
 }
 

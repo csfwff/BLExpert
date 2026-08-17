@@ -533,7 +533,7 @@ class _ConfigurationNavigation extends StatelessWidget {
 class _RecordWorkspace extends StatelessWidget {
   const _RecordWorkspace({required this.logs, required this.l10n});
 
-  final List<_LogEntry> logs;
+  final List<SessionLogRecord> logs;
   final AppLocalizations l10n;
 
   @override
