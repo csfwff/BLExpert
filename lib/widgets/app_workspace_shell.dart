@@ -9,21 +9,40 @@ class _AppIdentity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        Icon(
-          Icons.bluetooth_connected,
-          color: Theme.of(context).colorScheme.primary,
+        Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: colors.primaryContainer,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Icon(
+            Icons.bluetooth_connected,
+            size: 18,
+            color: colors.onPrimaryContainer,
+          ),
         ),
         const SizedBox(width: 8),
-        const Text('BLExpert', style: TextStyle(fontWeight: FontWeight.w800)),
-        const SizedBox(width: 10),
-        Text(
-          workspace.deviceModel.isEmpty
-              ? workspace.name
-              : workspace.deviceModel,
-          style: Theme.of(context).textTheme.labelMedium,
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'BLExpert',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            Text(
+              workspace.deviceModel.isEmpty
+                  ? workspace.name
+                  : workspace.deviceModel,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
         ),
       ],
     );
@@ -562,12 +581,20 @@ class _PanelHeading extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
+          Icon(
+            Icons.data_object_outlined,
+            size: 17,
+            color: Theme.of(context).colorScheme.secondary,
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w700),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
           if (trailing != null) ...<Widget>[

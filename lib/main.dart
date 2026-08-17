@@ -79,27 +79,27 @@ ThemeData _buildTheme(Brightness brightness) {
         secondary: dark ? const Color(0xFF38BDF8) : const Color(0xFF0369A1),
         tertiary: dark ? const Color(0xFF34D399) : const Color(0xFF047857),
         error: dark ? const Color(0xFFF87171) : const Color(0xFFB91C1C),
-        surface: dark ? const Color(0xFF131A26) : const Color(0xFFFBFCFE),
+        surface: dark ? const Color(0xFF101824) : const Color(0xFFFCFDFF),
         surfaceContainerLow: dark
-            ? const Color(0xFF182131)
-            : const Color(0xFFF2F5F8),
+            ? const Color(0xFF152131)
+            : const Color(0xFFF3F6FA),
         surfaceContainerHighest: dark
-            ? const Color(0xFF253247)
-            : const Color(0xFFE6ECF2),
+            ? const Color(0xFF203147)
+            : const Color(0xFFE8EEF5),
       );
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
     scaffoldBackgroundColor: dark
-        ? const Color(0xFF0D131E)
-        : const Color(0xFFF6F8FB),
+        ? const Color(0xFF0A111B)
+        : const Color(0xFFF7F9FC),
     textTheme: Typography.material2021().black.apply(
       bodyColor: scheme.onSurface,
       displayColor: scheme.onSurface,
       fontFamily: 'sans-serif',
     ),
     appBarTheme: AppBarTheme(
-      backgroundColor: dark ? const Color(0xFF131A26) : scheme.surface,
+      backgroundColor: dark ? const Color(0xFF101824) : scheme.surface,
       foregroundColor: scheme.onSurface,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
@@ -111,32 +111,78 @@ ThemeData _buildTheme(Brightness brightness) {
         borderRadius: BorderRadius.all(Radius.circular(6)),
       ),
     ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: dark ? const Color(0xFF101B29) : scheme.surface,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(6)),
+      ),
+    ),
     dividerTheme: DividerThemeData(
-      color: dark ? const Color(0xFF2A3A50) : const Color(0xFFD7E0E9),
+      color: dark ? const Color(0xFF2A3C52) : const Color(0xFFD9E2EC),
       space: 1,
       thickness: 1,
     ),
-    inputDecorationTheme: const InputDecorationTheme(
+    inputDecorationTheme: InputDecorationTheme(
       isDense: true,
-      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 9),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(4)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+      border: const UnderlineInputBorder(),
+      enabledBorder: UnderlineInputBorder(
+        borderSide: BorderSide(color: scheme.outlineVariant),
+      ),
+      focusedBorder: UnderlineInputBorder(
+        borderSide: BorderSide(color: scheme.primary, width: 2),
       ),
     ),
-    iconButtonTheme: const IconButtonThemeData(
+    iconButtonTheme: IconButtonThemeData(
       style: ButtonStyle(
-        minimumSize: WidgetStatePropertyAll(Size(32, 32)),
-        padding: WidgetStatePropertyAll(EdgeInsets.all(6)),
+        minimumSize: const WidgetStatePropertyAll(Size(36, 36)),
+        padding: const WidgetStatePropertyAll(EdgeInsets.all(6)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(40, 40)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: ButtonStyle(
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
       ),
     ),
     navigationRailTheme: NavigationRailThemeData(
-      backgroundColor: dark ? const Color(0xFF101824) : const Color(0xFFF9FBFD),
-      indicatorColor: dark ? const Color(0xFF1E3A5F) : const Color(0xFFDCEBFF),
+      backgroundColor: dark ? const Color(0xFF0D1622) : const Color(0xFFFAFCFE),
+      indicatorColor: dark ? const Color(0xFF173A5E) : const Color(0xFFDCEBFF),
       selectedIconTheme: IconThemeData(color: scheme.primary),
       selectedLabelTextStyle: TextStyle(
         color: scheme.primary,
         fontSize: 12,
         fontWeight: FontWeight.w700,
+      ),
+      unselectedIconTheme: IconThemeData(color: scheme.onSurfaceVariant),
+      unselectedLabelTextStyle: TextStyle(
+        color: scheme.onSurfaceVariant,
+        fontSize: 12,
+      ),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      height: 64,
+      backgroundColor: dark ? const Color(0xFF101824) : scheme.surface,
+      indicatorColor: dark ? const Color(0xFF173A5E) : const Color(0xFFDCEBFF),
+      labelTextStyle: WidgetStatePropertyAll(
+        TextStyle(color: scheme.onSurface, fontSize: 12),
       ),
     ),
     tooltipTheme: TooltipThemeData(
@@ -149,6 +195,60 @@ ThemeData _buildTheme(Brightness brightness) {
       ),
     ),
   );
+}
+
+class _ToolAlertDialog extends StatelessWidget {
+  const _ToolAlertDialog({
+    required this.icon,
+    required this.title,
+    required this.content,
+    required this.actions,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget content;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      titlePadding: EdgeInsets.zero,
+      contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      actionsPadding: const EdgeInsets.fromLTRB(12, 8, 16, 14),
+      title: Container(
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Theme.of(context).dividerColor),
+          ),
+        ),
+        child: Row(
+          children: <Widget>[
+            ExcludeSemantics(
+              child: Icon(icon, size: 19, color: colors.secondary),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      ),
+      content: content,
+      actions: actions,
+    );
+  }
 }
 
 class HomeScreen extends StatefulWidget {
@@ -341,6 +441,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final Workspace workspace = _workspaceManager.activeWorkspace;
     try {
       final bool hasStandardProtocol =
+          !workspace.scriptConfig.enabled &&
           workspace.protocol.receiveSegments.isNotEmpty;
       final List<PacketDecodeEvent> decodedEvents = hasStandardProtocol
           ? _packetDecoder.add(
@@ -516,8 +617,9 @@ class _HomeScreenState extends State<HomeScreen> {
         String? validationError;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) =>
-              AlertDialog(
-                title: Text(l10n.webServiceUuids),
+              _ToolAlertDialog(
+                icon: Icons.bluetooth_searching_outlined,
+                title: l10n.webServiceUuids,
                 content: SizedBox(
                   width: 460,
                   child: TextField(
@@ -580,8 +682,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final AppLocalizations l10n = AppLocalizations.of(context)!;
     final Workspace? updated = await showDialog<Workspace>(
       context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: Text(l10n.editWorkspace),
+      builder: (BuildContext context) => _ToolAlertDialog(
+        icon: Icons.folder_outlined,
+        title: l10n.editWorkspace,
         content: SizedBox(
           width: 440,
           child: SingleChildScrollView(
@@ -593,16 +696,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   autofocus: true,
                   decoration: InputDecoration(labelText: l10n.workspace),
                 ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: modelController,
                   decoration: InputDecoration(labelText: l10n.deviceModel),
                 ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: descriptionController,
                   minLines: 2,
                   maxLines: 4,
                   decoration: InputDecoration(labelText: l10n.description),
                 ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: tagsController,
                   decoration: InputDecoration(labelText: l10n.tags),
@@ -666,8 +772,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final bool confirmed =
           await showDialog<bool>(
             context: context,
-            builder: (BuildContext context) => AlertDialog(
-              title: const Text('启用未信任脚本？'),
+            builder: (BuildContext context) => _ToolAlertDialog(
+              icon: Icons.warning_amber_outlined,
+              title: '启用未信任脚本？',
               content: Text(
                 '来源：${scriptConfig.source}\n'
                 '代码规模：${scriptConfig.beforeSendScript.length + scriptConfig.afterReceiveScript.length} 字符\n\n'
@@ -694,6 +801,7 @@ class _HomeScreenState extends State<HomeScreen> {
         trustState: ScriptTrustState.trustedByUser,
       );
     }
+    _packetDecoder.reset();
     setState(
       () => _upsertWorkspace(
         workspace.copyWith(scriptConfig: accepted, updatedAt: DateTime.now()),
@@ -728,10 +836,9 @@ class _HomeScreenState extends State<HomeScreen> {
         String? validationError;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) =>
-              AlertDialog(
-                title: Text(
-                  existing == null ? l10n.newCommand : l10n.editCommand,
-                ),
+              _ToolAlertDialog(
+                icon: Icons.terminal_outlined,
+                title: existing == null ? l10n.newCommand : l10n.editCommand,
                 content: SizedBox(
                   width: 460,
                   child: SingleChildScrollView(
@@ -981,12 +1088,11 @@ class _HomeScreenState extends State<HomeScreen> {
         String? validationError;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) =>
-              AlertDialog(
-                title: Text(
-                  existing == null
-                      ? AppLocalizations.of(context)!.newResponseMapping
-                      : AppLocalizations.of(context)!.editResponseMapping,
-                ),
+              _ToolAlertDialog(
+                icon: Icons.data_object_outlined,
+                title: existing == null
+                    ? AppLocalizations.of(context)!.newResponseMapping
+                    : AppLocalizations.of(context)!.editResponseMapping,
                 content: SizedBox(
                   width: 640,
                   child: SingleChildScrollView(
@@ -1001,6 +1107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             )!.responseName,
                           ),
                         ),
+                        const SizedBox(height: 12),
                         TextField(
                           controller: commandController,
                           decoration: InputDecoration(
@@ -1390,6 +1497,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final Workspace workspace = _workspaceManager.activeWorkspace;
       final bool hasStandardProtocol =
+          !workspace.scriptConfig.enabled &&
           workspace.protocol.sendSegments.isNotEmpty;
       final List<int> businessPayload = List<int>.unmodifiable(bytes);
       ScriptEngineResult result;
@@ -1544,9 +1652,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final workspace = _workspaceManager.activeWorkspace;
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 52,
+        toolbarHeight: 56,
         titleSpacing: 12,
         title: _AppIdentity(workspace: workspace),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1),
+        ),
         actions: <Widget>[
           _WorkspaceSelector(
             workspace: workspace,
@@ -1668,24 +1780,22 @@ class _WorkspaceSelector extends StatelessWidget {
       itemBuilder: (_) => workspaces
           .map((item) => PopupMenuItem(value: item.id, child: Text(item.name)))
           .toList(),
-      child: Container(
+      child: SizedBox(
         width: 180,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                workspace.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  workspace.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            const Icon(Icons.expand_more, size: 18),
-          ],
+              const Icon(Icons.expand_more, size: 18),
+            ],
+          ),
         ),
       ),
     );
@@ -1785,12 +1895,7 @@ class _ConnectionStatusBadge extends StatelessWidget {
     return Semantics(
       label: '蓝牙连接状态：$label',
       child: Container(
-        constraints: const BoxConstraints(minHeight: 28),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          border: Border.all(color: color.withValues(alpha: 0.6)),
-          borderRadius: BorderRadius.circular(4),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -2070,7 +2175,6 @@ class _ProtocolModeNote extends StatelessWidget {
         color: standard
             ? Theme.of(context).colorScheme.secondaryContainer
             : Theme.of(context).colorScheme.tertiaryContainer,
-        borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         standard ? l10n.standardProtocolHint : l10n.scriptProtocolHint,
@@ -2220,8 +2324,9 @@ class _ScriptMethodContract extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(5),
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2264,7 +2369,6 @@ class _ScriptBuiltinLibrary extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2410,11 +2514,11 @@ class _InlineProtocolSegmentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
       decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(5),
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -2753,11 +2857,11 @@ class _CommandLibraryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
       decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(5),
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -2869,11 +2973,11 @@ class _DataMappingLibraryPanel extends StatelessWidget {
       else
         ...mappings.map(
           (ResponseMapping mapping) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+            padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
             decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).dividerColor),
-              borderRadius: BorderRadius.circular(5),
+              border: Border(
+                bottom: BorderSide(color: Theme.of(context).dividerColor),
+              ),
             ),
             child: Row(
               children: <Widget>[
@@ -2929,11 +3033,9 @@ class _CommandParameterEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 8),
-    padding: const EdgeInsets.all(8),
+    padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
     decoration: BoxDecoration(
-      border: Border.all(color: Theme.of(context).dividerColor),
-      borderRadius: BorderRadius.circular(4),
+      border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
     ),
     child: Column(
       children: <Widget>[
@@ -3060,11 +3162,9 @@ class _MappingFieldEditor extends StatelessWidget {
       _ => false,
     };
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
       decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(4),
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: Column(
         children: <Widget>[
@@ -3357,18 +3457,30 @@ class _ConsoleArea extends StatelessWidget {
           // Reserve space for the floating Inspector control at the top-right.
           padding: const EdgeInsets.fromLTRB(12, 0, 60, 0),
           decoration: BoxDecoration(
-            color: dark ? const Color(0xFF131A26) : colors.surface,
+            color: dark ? const Color(0xFF101824) : colors.surface,
             border: Border(
               bottom: BorderSide(color: Theme.of(context).dividerColor),
             ),
           ),
           child: Row(
             children: <Widget>[
+              Icon(Icons.terminal_rounded, size: 18, color: colors.secondary),
+              const SizedBox(width: 8),
               Text(
                 l10n.console,
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(width: 12),
+              Icon(
+                writeTarget == null
+                    ? Icons.warning_amber_outlined
+                    : Icons.output_outlined,
+                size: 15,
+                color: writeTarget == null ? colors.error : colors.tertiary,
+              ),
+              const SizedBox(width: 5),
               Text(
                 writeTarget == null
                     ? '未选择写入特征'
@@ -3403,7 +3515,7 @@ class _ConsoleArea extends StatelessWidget {
         ),
         Expanded(
           child: Container(
-            color: dark ? const Color(0xFF0D131E) : colors.surface,
+            color: dark ? const Color(0xFF0A111B) : colors.surface,
             child: ListView.builder(
               reverse: false,
               padding: const EdgeInsets.all(14),
@@ -3418,7 +3530,7 @@ class _ConsoleArea extends StatelessWidget {
         Container(
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
           decoration: BoxDecoration(
-            color: dark ? const Color(0xFF131A26) : colors.surface,
+            color: dark ? const Color(0xFF101824) : colors.surface,
             border: Border(
               top: BorderSide(color: Theme.of(context).dividerColor),
             ),
@@ -3812,11 +3924,11 @@ class _CommandTileState extends State<_CommandTile> {
     final bool sendEnabled = widget.canSend && command.enabled;
     final bool hasParameters = command.parameters.isNotEmpty;
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(8, 6, 6, 6),
+      padding: const EdgeInsets.fromLTRB(8, 8, 6, 8),
       decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(5),
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
       ),
       child: Semantics(
         label: '${command.name}：${command.payload}',
