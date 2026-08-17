@@ -801,6 +801,7 @@ class MockBluetoothService implements BluetoothService {
   }
 
   final Object? connectError;
+  final List<List<int>> sentPackets = <List<int>>[];
 
   final StreamController<List<BluetoothDeviceInfo>> _scannedDevicesController =
       StreamController<List<BluetoothDeviceInfo>>.broadcast();
@@ -938,6 +939,7 @@ class MockBluetoothService implements BluetoothService {
     if (!hasWriteTarget) {
       throw StateError('No write characteristic selected for $deviceId.');
     }
+    sentPackets.add(List<int>.unmodifiable(bytes));
     _incomingControllers
         .putIfAbsent(
           deviceId,

@@ -187,6 +187,63 @@ void main() {
     expect(find.text('01'), findsOneWidget);
   });
 
+  testWidgets('工作区命令白名单会阻止未选中指令进入发送链路', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final MockBluetoothService bluetoothService = MockBluetoothService();
+    await tester.pumpWidget(
+      BlexpertApp(
+        locale: const Locale('zh'),
+        bluetoothService: bluetoothService,
+      ),
+    );
+    await tester.pump();
+
+    Future<void> addCommand(String name, String payload) async {
+      await tester.tap(find.byTooltip('新建指令'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), name);
+      await tester.enterText(find.byType(TextField).at(1), '测试');
+      await tester.enterText(find.byType(TextField).at(2), payload);
+      await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.byTooltip('连接设备'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('写入目标'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('配置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('指令'));
+    await tester.pumpAndSettle();
+    await addCommand('允许指令', 'AA');
+    await addCommand('拒绝指令', 'BB');
+
+    await tester.tap(find.widgetWithText(SwitchListTile, '仅允许已选指令发送'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CheckboxListTile, '拒绝指令'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '保存').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('快捷入口').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('快捷入口').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('调试'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('发送 允许指令'));
+    await tester.pumpAndSettle();
+    expect(bluetoothService.sentPackets, hasLength(1));
+    await tester.tap(find.byTooltip('发送 拒绝指令'));
+    await tester.pumpAndSettle();
+
+    expect(bluetoothService.sentPackets, hasLength(1));
+  });
+
   testWidgets('可在左侧新增协议定义', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 

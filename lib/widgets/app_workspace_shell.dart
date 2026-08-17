@@ -416,6 +416,7 @@ class _ConfigurationWorkspace extends StatefulWidget {
     required this.onDeleteCommand,
     required this.onCommandEnabledChanged,
     required this.onCommandQuickAccessChanged,
+    required this.onCommandWhitelistChanged,
     required this.onNewResponseMapping,
     required this.onEditResponseMapping,
     required this.onDeleteResponseMapping,
@@ -431,6 +432,7 @@ class _ConfigurationWorkspace extends StatefulWidget {
   final ValueChanged<CommandDefinition> onDeleteCommand;
   final void Function(CommandDefinition, bool) onCommandEnabledChanged;
   final void Function(CommandDefinition, bool) onCommandQuickAccessChanged;
+  final ValueChanged<List<String>> onCommandWhitelistChanged;
   final VoidCallback onNewResponseMapping;
   final ValueChanged<ResponseMapping> onEditResponseMapping;
   final ValueChanged<ResponseMapping> onDeleteResponseMapping;
@@ -462,11 +464,13 @@ class _ConfigurationWorkspaceState extends State<_ConfigurationWorkspace> {
       ),
       _CommandLibraryPanel(
         commands: widget.workspace.commands,
+        allowedCommandIds: widget.workspace.allowedCommandIds,
         onNewCommand: widget.onNewCommand,
         onEditCommand: widget.onEditCommand,
         onDeleteCommand: widget.onDeleteCommand,
         onEnabledChanged: widget.onCommandEnabledChanged,
         onQuickAccessChanged: widget.onCommandQuickAccessChanged,
+        onWhitelistChanged: widget.onCommandWhitelistChanged,
         l10n: widget.l10n,
       ),
       _DataMappingLibraryPanel(

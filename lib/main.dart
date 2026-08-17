@@ -1157,6 +1157,9 @@ class _HomeScreenState extends State<HomeScreen> {
           commands: workspace.commands
               .where((CommandDefinition item) => item.id != command.id)
               .toList(growable: false),
+          allowedCommandIds: workspace.allowedCommandIds
+              .where((String id) => id != command.id)
+              .toList(growable: false),
           updatedAt: DateTime.now(),
         ),
       ),
@@ -1199,11 +1202,41 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _setCommandWhitelist(List<String> commandIds) {
+    final Workspace workspace = _workspaceManager.activeWorkspace;
+    final Set<String> existingIds = workspace.commands
+        .map((CommandDefinition command) => command.id)
+        .toSet();
+    final List<String> sanitizedIds = commandIds
+        .where(existingIds.contains)
+        .toSet()
+        .toList(growable: false);
+    setState(
+      () => _upsertWorkspace(
+        workspace.copyWith(
+          allowedCommandIds: sanitizedIds,
+          updatedAt: DateTime.now(),
+        ),
+      ),
+    );
+  }
+
   Future<void> _sendCommandDefinition(
     CommandDefinition command,
     Map<String, String> values,
   ) async {
     try {
+      final Workspace workspace = _workspaceManager.activeWorkspace;
+      if (!workspace.allowsConfiguredCommand(command.id)) {
+        const String message = '工作区命令白名单已拒绝该指令发送。';
+        _addSystemLog(
+          '$message 指令：${command.name}',
+          characteristicId: _currentWriteTargetUuid,
+          commandName: command.name,
+        );
+        _showBluetoothError(StateError(message));
+        return;
+      }
       final List<int> bytes = CommandPayloadEncoder.encode(command, values);
       _addSystemLog(
         _formatCommandSendLog(command, values, AppLocalizations.of(context)!),
@@ -2317,6 +2350,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onDeleteCommand: _deleteCommand,
           onCommandEnabledChanged: _setCommandEnabled,
           onCommandQuickAccessChanged: _setCommandQuickAccess,
+          onCommandWhitelistChanged: _setCommandWhitelist,
           onNewResponseMapping: () => _editResponseMapping(),
           onEditResponseMapping: _editResponseMapping,
           onDeleteResponseMapping: _deleteResponseMapping,
@@ -3329,24 +3363,29 @@ ProtocolSegment _newProtocolSegment(ProtocolSegmentType type) {
 class _CommandLibraryPanel extends StatelessWidget {
   const _CommandLibraryPanel({
     required this.commands,
+    required this.allowedCommandIds,
     required this.onNewCommand,
     required this.onEditCommand,
     required this.onDeleteCommand,
     required this.onEnabledChanged,
     required this.onQuickAccessChanged,
+    required this.onWhitelistChanged,
     required this.l10n,
   });
 
   final List<CommandDefinition> commands;
+  final List<String> allowedCommandIds;
   final VoidCallback onNewCommand;
   final ValueChanged<CommandDefinition> onEditCommand;
   final ValueChanged<CommandDefinition> onDeleteCommand;
   final void Function(CommandDefinition, bool) onEnabledChanged;
   final void Function(CommandDefinition, bool) onQuickAccessChanged;
+  final ValueChanged<List<String>> onWhitelistChanged;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
+    final bool whitelistEnabled = allowedCommandIds.isNotEmpty;
     final Map<String, List<CommandDefinition>> byGroup =
         <String, List<CommandDefinition>>{};
     for (final CommandDefinition command in commands) {
@@ -3375,6 +3414,33 @@ class _CommandLibraryPanel extends StatelessWidget {
               icon: const Icon(Icons.add, size: 19),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          title: const Text('仅允许已选指令发送'),
+          subtitle: Text(
+            whitelistEnabled
+                ? '当前允许 ${allowedCommandIds.length} 条指令；手动控制台发送不受影响。'
+                : '关闭时所有已启用指令都可发送；手动控制台发送不受影响。',
+          ),
+          value: whitelistEnabled,
+          onChanged: commands.isEmpty
+              ? null
+              : (bool enabled) async {
+                  if (!enabled) {
+                    onWhitelistChanged(const <String>[]);
+                    return;
+                  }
+                  final List<String>? selected = await _selectWhitelist(
+                    context,
+                    commands,
+                    allowedCommandIds,
+                  );
+                  if (selected != null && selected.isNotEmpty) {
+                    onWhitelistChanged(selected);
+                  }
+                },
         ),
         const SizedBox(height: 12),
         if (commands.isEmpty)
@@ -3405,6 +3471,81 @@ class _CommandLibraryPanel extends StatelessWidget {
             ],
           ),
       ],
+    );
+  }
+
+  Future<List<String>?> _selectWhitelist(
+    BuildContext context,
+    List<CommandDefinition> commands,
+    List<String> currentIds,
+  ) async {
+    final Set<String> selectedIds = currentIds.isEmpty
+        ? commands.map((CommandDefinition command) => command.id).toSet()
+        : currentIds.toSet();
+    return showDialog<List<String>>(
+      context: context,
+      builder: (BuildContext context) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setDialogState) =>
+            _ToolAlertDialog(
+              icon: Icons.verified_user_outlined,
+              title: '选择允许发送的指令',
+              content: SizedBox(
+                width: 440,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 360),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text('未选中的可复用指令将被拒绝，手动控制台发送不受影响。'),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: ListView(
+                          children: <Widget>[
+                            for (final CommandDefinition command in commands)
+                              CheckboxListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(command.name),
+                                subtitle: Text(
+                                  command.group.isEmpty
+                                      ? command.payload
+                                      : command.group,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                value: selectedIds.contains(command.id),
+                                onChanged: (bool? value) => setDialogState(() {
+                                  if (value ?? false) {
+                                    selectedIds.add(command.id);
+                                  } else {
+                                    selectedIds.remove(command.id);
+                                  }
+                                }),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: selectedIds.isEmpty
+                      ? null
+                      : () => Navigator.pop(
+                          context,
+                          selectedIds.toList(growable: false),
+                        ),
+                  child: const Text('保存'),
+                ),
+              ],
+            ),
+      ),
     );
   }
 }

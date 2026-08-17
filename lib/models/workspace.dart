@@ -21,6 +21,7 @@ class Workspace {
     required this.responseMappings,
     required this.createdAt,
     required this.updatedAt,
+    this.allowedCommandIds = const <String>[],
   });
 
   final String id;
@@ -32,6 +33,9 @@ class Workspace {
   final ProtocolDefinition protocol;
   final ScriptConfig scriptConfig;
   final List<CommandDefinition> commands;
+
+  /// Empty means the workspace does not restrict reusable command sends.
+  final List<String> allowedCommandIds;
   final List<ResponseMapping> responseMappings;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -82,6 +86,12 @@ class Workspace {
                 CommandDefinition.fromJson(Map<String, dynamic>.from(item)),
           )
           .toList(growable: false),
+      allowedCommandIds:
+          (json['allowedCommandIds'] as List<dynamic>? ?? const <dynamic>[])
+              .map((dynamic item) => item.toString())
+              .where((String id) => id.trim().isNotEmpty)
+              .toSet()
+              .toList(growable: false),
       responseMappings:
           (json['responseMappings'] as List<dynamic>? ?? const <dynamic>[])
               .whereType<Map>()
@@ -114,6 +124,7 @@ class Workspace {
       'commands': commands
           .map((CommandDefinition item) => item.toJson())
           .toList(growable: false),
+      'allowedCommandIds': allowedCommandIds,
       'responseMappings': responseMappings
           .map((ResponseMapping item) => item.toJson())
           .toList(growable: false),
@@ -134,6 +145,7 @@ class Workspace {
     ProtocolDefinition? protocol,
     ScriptConfig? scriptConfig,
     List<CommandDefinition>? commands,
+    List<String>? allowedCommandIds,
     List<ResponseMapping>? responseMappings,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -148,11 +160,17 @@ class Workspace {
       protocol: protocol ?? this.protocol,
       scriptConfig: scriptConfig ?? this.scriptConfig,
       commands: commands ?? this.commands,
+      allowedCommandIds: allowedCommandIds ?? this.allowedCommandIds,
       responseMappings: responseMappings ?? this.responseMappings,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  bool get commandWhitelistEnabled => allowedCommandIds.isNotEmpty;
+
+  bool allowsConfiguredCommand(String commandId) =>
+      !commandWhitelistEnabled || allowedCommandIds.contains(commandId);
 }
 
 ProtocolDefinition _protocolFromJson(Map<String, dynamic> json) {

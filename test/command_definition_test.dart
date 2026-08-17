@@ -78,6 +78,7 @@ void main() {
           requiresConfirmation: true,
         ),
       ],
+      allowedCommandIds: const <String>['status'],
     );
 
     final Workspace restored = Workspace.fromJson(workspace.toJson());
@@ -88,6 +89,10 @@ void main() {
     expect(restored.commands.single.format, CommandPayloadFormat.hex);
     expect(restored.commands.single.isQuickAccess, isTrue);
     expect(restored.commands.single.requiresConfirmation, isTrue);
+    expect(restored.allowedCommandIds, <String>['status']);
+    expect(restored.commandWhitelistEnabled, isTrue);
+    expect(restored.allowsConfiguredCommand('status'), isTrue);
+    expect(restored.allowsConfiguredCommand('other'), isFalse);
     expect(restored.protocol.sendSegments.first.fixedHex, 'AA 55');
   });
 
@@ -100,6 +105,8 @@ void main() {
     expect(workspace.commands, isEmpty);
     expect(workspace.protocol.sendSegments, isEmpty);
     expect(workspace.protocol.receiveSegments, isEmpty);
+    expect(workspace.commandWhitelistEnabled, isFalse);
+    expect(workspace.allowsConfiguredCommand('any-command'), isTrue);
   });
 
   test('parameterized HEX command expands business payload placeholders', () {
