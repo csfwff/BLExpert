@@ -4466,7 +4466,39 @@ class _ConsoleArea extends StatelessWidget {
               Row(
                 children: <Widget>[
                   SegmentedButton<bool>(
+                    key: const ValueKey<String>('console-mode-toggle'),
                     showSelectedIcon: false,
+                    style: ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                      minimumSize: const WidgetStatePropertyAll<Size>(
+                        Size(0, 36),
+                      ),
+                      padding: const WidgetStatePropertyAll<EdgeInsets>(
+                        EdgeInsets.symmetric(horizontal: 10),
+                      ),
+                      shape: WidgetStatePropertyAll<OutlinedBorder>(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      side: WidgetStatePropertyAll<BorderSide>(
+                        BorderSide(color: colors.outlineVariant),
+                      ),
+                      backgroundColor: WidgetStateProperty.resolveWith<Color?>((
+                        states,
+                      ) {
+                        return states.contains(WidgetState.selected)
+                            ? colors.secondaryContainer
+                            : colors.surface;
+                      }),
+                      foregroundColor: WidgetStateProperty.resolveWith<Color?>((
+                        states,
+                      ) {
+                        return states.contains(WidgetState.selected)
+                            ? colors.onSecondaryContainer
+                            : colors.onSurfaceVariant;
+                      }),
+                    ),
                     segments: <ButtonSegment<bool>>[
                       ButtonSegment(value: true, label: Text(l10n.hexMode)),
                       ButtonSegment(value: false, label: Text(l10n.textMode)),
@@ -4481,15 +4513,27 @@ class _ConsoleArea extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(width: 4),
-                  DropdownButton<String>(
-                    value: 'none',
-                    underline: const SizedBox(),
-                    items: <DropdownMenuItem<String>>[
-                      DropdownMenuItem(value: 'none', child: Text(l10n.none)),
-                      DropdownMenuItem(value: 'lf', child: Text(l10n.lf)),
-                      DropdownMenuItem(value: 'crlf', child: Text(l10n.crlf)),
-                    ],
-                    onChanged: (_) {},
+                  Container(
+                    key: const ValueKey<String>('console-line-ending'),
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      border: Border.all(color: colors.outlineVariant),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: DropdownButton<String>(
+                      value: 'none',
+                      isDense: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      borderRadius: BorderRadius.circular(6),
+                      underline: const SizedBox(),
+                      items: <DropdownMenuItem<String>>[
+                        DropdownMenuItem(value: 'none', child: Text(l10n.none)),
+                        DropdownMenuItem(value: 'lf', child: Text(l10n.lf)),
+                        DropdownMenuItem(value: 'crlf', child: Text(l10n.crlf)),
+                      ],
+                      onChanged: (_) {},
+                    ),
                   ),
                 ],
               ),

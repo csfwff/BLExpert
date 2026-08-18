@@ -42,6 +42,22 @@ void main() {
     expect(clearButton.right, lessThanOrEqualTo(inspectorToggle.left - 4));
   });
 
+  testWidgets('发送区模式与行尾控件使用紧凑统一尺寸', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    final Rect modeToggle = tester.getRect(
+      find.byKey(const ValueKey<String>('console-mode-toggle')),
+    );
+    final Rect lineEnding = tester.getRect(
+      find.byKey(const ValueKey<String>('console-line-ending')),
+    );
+
+    expect(modeToggle.height, lessThanOrEqualTo(40));
+    expect(lineEnding.height, 36);
+    expect(modeToggle.center.dy, closeTo(lineEnding.center.dy, 2));
+    expect(modeToggle.width, lessThan(140));
+  });
+
   testWidgets('可从语言菜单切换至英文界面', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
