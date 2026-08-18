@@ -61,6 +61,10 @@
   ,"systemFilter": "SYS"
   ,"errorFilter": "ERR"
   ,"filterLogs": "Filter logs"
+  ,"searchLogs": "Search logs, HEX, source or command"
+  ,"noMatchingLogs": "No matching logs"
+  ,"backToLatest": "Back to latest"
+  ,"exportLogs": "Export logs"
   ,"retainedLogs": "{retained} retained / {discarded} discarded"
   ,"@retainedLogs": {"placeholders": {"retained": {"type": "int"}, "discarded": {"type": "int"}}}
   ,"clear": "Clear"

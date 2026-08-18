@@ -31,7 +31,13 @@ import 'services/session_log_store.dart';
 import 'utils/ascii_utils.dart';
 import 'utils/web_service_uuid_parser.dart';
 
+part 'app/app_theme.dart';
+part 'app/app_shortcuts.dart';
 part 'widgets/app_workspace_shell.dart';
+part 'features/debug/console_filter_bar.dart';
+part 'features/debug/inspector_panel.dart';
+part 'features/configuration/configuration_workspace.dart';
+part 'features/records/record_workspace.dart';
 
 void main() => runApp(const BlexpertApp());
 
@@ -96,135 +102,6 @@ class _BlexpertAppState extends State<BlexpertApp> {
   }
 }
 
-ThemeData _buildTheme(Brightness brightness) {
-  final bool dark = brightness == Brightness.dark;
-  final ColorScheme scheme =
-      ColorScheme.fromSeed(
-        seedColor: const Color(0xFF2563EB),
-        brightness: brightness,
-      ).copyWith(
-        primary: dark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
-        secondary: dark ? const Color(0xFF38BDF8) : const Color(0xFF0369A1),
-        tertiary: dark ? const Color(0xFF34D399) : const Color(0xFF047857),
-        error: dark ? const Color(0xFFF87171) : const Color(0xFFB91C1C),
-        surface: dark ? const Color(0xFF101824) : const Color(0xFFFCFDFF),
-        surfaceContainerLow: dark
-            ? const Color(0xFF152131)
-            : const Color(0xFFF3F6FA),
-        surfaceContainerHighest: dark
-            ? const Color(0xFF203147)
-            : const Color(0xFFE8EEF5),
-      );
-  return ThemeData(
-    useMaterial3: true,
-    colorScheme: scheme,
-    scaffoldBackgroundColor: dark
-        ? const Color(0xFF0A111B)
-        : const Color(0xFFF7F9FC),
-    textTheme: Typography.material2021().black.apply(
-      bodyColor: scheme.onSurface,
-      displayColor: scheme.onSurface,
-      fontFamily: 'sans-serif',
-    ),
-    appBarTheme: AppBarTheme(
-      backgroundColor: dark ? const Color(0xFF101824) : scheme.surface,
-      foregroundColor: scheme.onSurface,
-      elevation: 0,
-      surfaceTintColor: Colors.transparent,
-    ),
-    cardTheme: const CardThemeData(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(6)),
-      ),
-    ),
-    dialogTheme: DialogThemeData(
-      backgroundColor: dark ? const Color(0xFF101B29) : scheme.surface,
-      elevation: 0,
-      surfaceTintColor: Colors.transparent,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(6)),
-      ),
-    ),
-    dividerTheme: DividerThemeData(
-      color: dark ? const Color(0xFF2A3C52) : const Color(0xFFD9E2EC),
-      space: 1,
-      thickness: 1,
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
-      border: const UnderlineInputBorder(),
-      enabledBorder: UnderlineInputBorder(
-        borderSide: BorderSide(color: scheme.outlineVariant),
-      ),
-      focusedBorder: UnderlineInputBorder(
-        borderSide: BorderSide(color: scheme.primary, width: 2),
-      ),
-    ),
-    iconButtonTheme: IconButtonThemeData(
-      style: ButtonStyle(
-        minimumSize: const WidgetStatePropertyAll(Size(36, 36)),
-        padding: const WidgetStatePropertyAll(EdgeInsets.all(6)),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        ),
-      ),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: ButtonStyle(
-        minimumSize: const WidgetStatePropertyAll(Size(40, 40)),
-        padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        ),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        ),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: ButtonStyle(
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        ),
-      ),
-    ),
-    navigationRailTheme: NavigationRailThemeData(
-      backgroundColor: dark ? const Color(0xFF0D1622) : const Color(0xFFFAFCFE),
-      indicatorColor: dark ? const Color(0xFF173A5E) : const Color(0xFFDCEBFF),
-      selectedIconTheme: IconThemeData(color: scheme.primary),
-      selectedLabelTextStyle: TextStyle(
-        color: scheme.primary,
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-      ),
-      unselectedIconTheme: IconThemeData(color: scheme.onSurfaceVariant),
-      unselectedLabelTextStyle: TextStyle(
-        color: scheme.onSurfaceVariant,
-        fontSize: 12,
-      ),
-    ),
-    navigationBarTheme: NavigationBarThemeData(
-      height: 64,
-      backgroundColor: dark ? const Color(0xFF101824) : scheme.surface,
-      indicatorColor: dark ? const Color(0xFF173A5E) : const Color(0xFFDCEBFF),
-      labelTextStyle: WidgetStatePropertyAll(
-        TextStyle(color: scheme.onSurface, fontSize: 12),
-      ),
-    ),
-    tooltipTheme: TooltipThemeData(
-      decoration: BoxDecoration(
-        color: dark ? const Color(0xFFE7EDF5) : const Color(0xFF172033),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      textStyle: TextStyle(
-        color: dark ? const Color(0xFF172033) : Colors.white,
-      ),
-    ),
-  );
-}
-
 class _WorkspaceImportDecision {
   const _WorkspaceImportDecision({
     required this.jsonText,
@@ -272,6 +149,8 @@ class _HomeScreenState extends State<HomeScreen> {
   _serviceEventSubscription;
   StreamSubscription<BluetoothIncomingData>? _dataSubscription;
   final TextEditingController _inputController = TextEditingController();
+  final TextEditingController _consoleSearchController =
+      TextEditingController();
   final FocusNode _inputFocusNode = FocusNode(debugLabel: 'console-input');
 
   List<BluetoothDeviceInfo> _devices = <BluetoothDeviceInfo>[];
@@ -343,6 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _serviceEventSubscription.cancel();
     _dataSubscription?.cancel();
     _inputController.dispose();
+    _consoleSearchController.dispose();
     _inputFocusNode.dispose();
     _scriptEngine.dispose();
     unawaited(_bluetoothService.dispose());
@@ -402,20 +282,29 @@ class _HomeScreenState extends State<HomeScreen> {
         .catchError((Object error) => debugPrint('会话记录清除失败：$error'));
   }
 
-  List<SessionLogRecord> get _visibleConsoleLogs =>
-      _consoleLogFilter == _ConsoleLogFilter.all
-      ? _logs
-      : _logs
-            .where(
-              (SessionLogRecord entry) => switch (_consoleLogFilter) {
-                _ConsoleLogFilter.all => true,
-                _ConsoleLogFilter.tx => entry.kind == SessionLogKind.sent,
-                _ConsoleLogFilter.rx => entry.kind == SessionLogKind.received,
-                _ConsoleLogFilter.system => entry.kind == SessionLogKind.system,
-                _ConsoleLogFilter.error => entry.kind == SessionLogKind.error,
-              },
-            )
-            .toList(growable: false);
+  List<SessionLogRecord> get _visibleConsoleLogs {
+    final String query = _consoleSearchController.text.trim().toLowerCase();
+    return _logs
+        .where((SessionLogRecord entry) {
+          final bool matchesKind = switch (_consoleLogFilter) {
+            _ConsoleLogFilter.all => true,
+            _ConsoleLogFilter.tx => entry.kind == SessionLogKind.sent,
+            _ConsoleLogFilter.rx => entry.kind == SessionLogKind.received,
+            _ConsoleLogFilter.system => entry.kind == SessionLogKind.system,
+            _ConsoleLogFilter.error => entry.kind == SessionLogKind.error,
+          };
+          if (!matchesKind || query.isEmpty) return matchesKind;
+          final String haystack = <String?>[
+            entry.message,
+            entry.characteristicId,
+            entry.commandName,
+            entry.transactionId,
+            entry.data.isEmpty ? null : _toHex(entry.data),
+          ].whereType<String>().join(' ').toLowerCase();
+          return haystack.contains(query);
+        })
+        .toList(growable: false);
+  }
 
   void _toggleSessionLogBookmark(SessionLogRecord record) {
     final int index = _logs.indexOf(record);
@@ -2540,24 +2429,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final workspace = _workspaceManager.activeWorkspace;
+    final bool compactToolbar = MediaQuery.sizeOf(context).width < 680;
     return CallbackShortcuts(
-      bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.keyL, control: true): () =>
-            _inputFocusNode.requestFocus(),
-        const SingleActivator(LogicalKeyboardKey.enter, control: true):
-            _sendInput,
-        const SingleActivator(
-          LogicalKeyboardKey.keyK,
-          control: true,
-          shift: true,
-        ): _clearLogs,
-        const SingleActivator(
-          LogicalKeyboardKey.keyI,
-          control: true,
-          shift: true,
-        ): () =>
+      bindings: _appShortcutBindings(
+        inputFocusNode: _inputFocusNode,
+        onSend: _sendInput,
+        onClearLogs: _clearLogs,
+        onToggleInspector: () =>
             setState(() => _inspectorOpen = !_inspectorOpen),
-      },
+      ),
       child: Focus(
         autofocus: true,
         child: Scaffold(
@@ -2570,30 +2450,46 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Divider(height: 1),
             ),
             actions: <Widget>[
-              _WorkspaceSelector(
-                workspace: workspace,
-                workspaces: _workspaceManager.workspaces,
-                onSelected: (String workspaceId) {
-                  setState(() {
-                    _packetDecoder.reset();
-                    _scriptSendRateLimiter.reset();
-                    _pendingReceiveEvents.clear();
-                    _workspaceManager.setActiveWorkspace(workspaceId);
-                    _persistWorkspaces();
-                  });
-                },
-                l10n: l10n,
-              ),
-              const SizedBox(width: 8),
-              _ConnectionSelector(
-                devices: _devices,
-                selectedId: _selectedDeviceId,
-                connected: _selectedDevice?.connected ?? false,
-                connecting: _connecting,
-                onSelected: _selectDevice,
-                onToggleConnection: _toggleConnection,
-                l10n: l10n,
-              ),
+              if (!compactToolbar) ...<Widget>[
+                _WorkspaceSelector(
+                  workspace: workspace,
+                  workspaces: _workspaceManager.workspaces,
+                  onSelected: (String workspaceId) {
+                    setState(() {
+                      _packetDecoder.reset();
+                      _scriptSendRateLimiter.reset();
+                      _pendingReceiveEvents.clear();
+                      _workspaceManager.setActiveWorkspace(workspaceId);
+                      _persistWorkspaces();
+                    });
+                  },
+                  l10n: l10n,
+                ),
+                const SizedBox(width: 8),
+                _ConnectionSelector(
+                  devices: _devices,
+                  selectedId: _selectedDeviceId,
+                  connected: _selectedDevice?.connected ?? false,
+                  connecting: _connecting,
+                  onSelected: _selectDevice,
+                  onToggleConnection: _toggleConnection,
+                  l10n: l10n,
+                ),
+              ],
+              if (compactToolbar)
+                IconButton(
+                  tooltip: _selectedDevice?.connected == true
+                      ? l10n.disconnectDevice
+                      : l10n.connectDevice,
+                  onPressed: _selectedDevice == null || _connecting
+                      ? null
+                      : _toggleConnection,
+                  icon: Icon(
+                    _selectedDevice?.connected == true
+                        ? Icons.link_off_outlined
+                        : Icons.bluetooth_outlined,
+                  ),
+                ),
               IconButton(
                 tooltip: _scanning ? l10n.stopScan : l10n.startScan,
                 onPressed: _toggleScan,
@@ -2628,6 +2524,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onAutoScrollChanged: (value) =>
                   setState(() => _autoScroll = value),
               inputController: _inputController,
+              searchController: _consoleSearchController,
               inputFocusNode: _inputFocusNode,
               hexMode: _hexMode,
               onModeChanged: (value) => setState(() => _hexMode = value),
@@ -2647,6 +2544,8 @@ class _HomeScreenState extends State<HomeScreen> {
               logFilter: _consoleLogFilter,
               onLogFilterChanged: (value) =>
                   setState(() => _consoleLogFilter = value),
+              onSearchChanged: (_) => setState(() {}),
+              onExport: _exportSessionLogs,
             ),
             devicePane: _DeviceToolsPanel(
               characteristics: _characteristics,
@@ -2811,8 +2710,6 @@ class _ConnectionSelector extends StatelessWidget {
 }
 
 enum _ConnectionStatus { disconnected, connecting, connected }
-
-enum _ConsoleLogFilter { all, tx, rx, system, error }
 
 class _ConnectionStatusBadge extends StatelessWidget {
   const _ConnectionStatusBadge({required this.status, required this.l10n});
@@ -4486,6 +4383,7 @@ class _ConsoleLogView extends StatefulWidget {
     required this.autoScroll,
     required this.selectedLog,
     required this.onLogSelected,
+    required this.onJumpToLatest,
     required this.l10n,
   });
 
@@ -4493,6 +4391,7 @@ class _ConsoleLogView extends StatefulWidget {
   final bool autoScroll;
   final SessionLogRecord? selectedLog;
   final ValueChanged<SessionLogRecord> onLogSelected;
+  final VoidCallback onJumpToLatest;
   final AppLocalizations l10n;
 
   @override
@@ -4501,11 +4400,24 @@ class _ConsoleLogView extends StatefulWidget {
 
 class _ConsoleLogViewState extends State<_ConsoleLogView> {
   final ScrollController _scrollController = ScrollController();
+  bool _showJumpToLatest = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients) return;
+    final bool shouldShow =
+        _scrollController.position.maxScrollExtent -
+            _scrollController.position.pixels >
+        32;
+    if (shouldShow != _showJumpToLatest && mounted) {
+      setState(() => _showJumpToLatest = shouldShow);
+    }
   }
 
   @override
@@ -4527,6 +4439,7 @@ class _ConsoleLogViewState extends State<_ConsoleLogView> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     super.dispose();
   }
@@ -4534,27 +4447,49 @@ class _ConsoleLogViewState extends State<_ConsoleLogView> {
   @override
   Widget build(BuildContext context) {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      color: dark
-          ? const Color(0xFF0A111B)
-          : Theme.of(context).colorScheme.surface,
-      child: ListView.builder(
-        key: const ValueKey<String>('console-log-list'),
-        controller: _scrollController,
-        reverse: false,
-        padding: const EdgeInsets.all(14),
-        itemCount: widget.logs.length,
-        itemBuilder: (_, index) {
-          final SessionLogRecord entry =
-              widget.logs[widget.logs.length - index - 1];
-          return _LogLine(
-            entry: entry,
-            l10n: widget.l10n,
-            selected: identical(entry, widget.selectedLog),
-            onTap: () => widget.onLogSelected(entry),
-          );
-        },
-      ),
+    return Stack(
+      children: <Widget>[
+        Container(
+          color: dark
+              ? const Color(0xFF0A111B)
+              : Theme.of(context).colorScheme.surface,
+          child: widget.logs.isEmpty
+              ? Center(child: Text(widget.l10n.noMatchingLogs))
+              : ListView.builder(
+                  key: const ValueKey<String>('console-log-list'),
+                  controller: _scrollController,
+                  reverse: false,
+                  padding: const EdgeInsets.all(14),
+                  itemCount: widget.logs.length,
+                  itemBuilder: (_, index) {
+                    final SessionLogRecord entry =
+                        widget.logs[widget.logs.length - index - 1];
+                    return _LogLine(
+                      entry: entry,
+                      l10n: widget.l10n,
+                      selected: identical(entry, widget.selectedLog),
+                      onTap: () => widget.onLogSelected(entry),
+                    );
+                  },
+                ),
+        ),
+        if (_showJumpToLatest)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: Tooltip(
+              message: widget.l10n.backToLatest,
+              child: IconButton.filledTonal(
+                key: const ValueKey<String>('console-jump-latest'),
+                onPressed: () {
+                  widget.onJumpToLatest();
+                  _scrollToLatest();
+                },
+                icon: const Icon(Icons.vertical_align_bottom, size: 18),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -4567,6 +4502,7 @@ class _ConsoleArea extends StatelessWidget {
     required this.onClear,
     required this.onAutoScrollChanged,
     required this.inputController,
+    required this.searchController,
     required this.inputFocusNode,
     required this.hexMode,
     required this.onModeChanged,
@@ -4580,6 +4516,8 @@ class _ConsoleArea extends StatelessWidget {
     required this.onLogSelected,
     required this.logFilter,
     required this.onLogFilterChanged,
+    required this.onSearchChanged,
+    required this.onExport,
   });
   final List<SessionLogRecord> logs;
   final int discardedLogCount;
@@ -4587,6 +4525,7 @@ class _ConsoleArea extends StatelessWidget {
   final VoidCallback onClear;
   final ValueChanged<bool> onAutoScrollChanged;
   final TextEditingController inputController;
+  final TextEditingController searchController;
   final FocusNode inputFocusNode;
   final bool hexMode;
   final ValueChanged<bool> onModeChanged;
@@ -4600,17 +4539,20 @@ class _ConsoleArea extends StatelessWidget {
   final ValueChanged<SessionLogRecord> onLogSelected;
   final _ConsoleLogFilter logFilter;
   final ValueChanged<_ConsoleLogFilter> onLogFilterChanged;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<List<SessionLogRecord>> onExport;
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme colors = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final bool compactHeader = MediaQuery.sizeOf(context).width < 680;
     return Column(
       children: <Widget>[
         Container(
           height: 42,
           // Reserve space for the floating Inspector control at the top-right.
-          padding: const EdgeInsets.fromLTRB(12, 0, 60, 0),
+          padding: EdgeInsets.fromLTRB(12, 0, compactHeader ? 12 : 60, 0),
           decoration: BoxDecoration(
             color: dark ? const Color(0xFF101824) : colors.surface,
             border: Border(
@@ -4628,69 +4570,42 @@ class _ConsoleArea extends StatelessWidget {
                 ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(width: 8),
-              PopupMenuButton<_ConsoleLogFilter>(
-                tooltip: l10n.filterLogs,
-                initialValue: logFilter,
-                onSelected: onLogFilterChanged,
-                itemBuilder: (BuildContext context) =>
-                    <PopupMenuEntry<_ConsoleLogFilter>>[
-                      _logFilterItem(
-                        _ConsoleLogFilter.all,
-                        l10n.allFilter,
-                        logFilter,
-                      ),
-                      _logFilterItem(
-                        _ConsoleLogFilter.tx,
-                        l10n.txFilter,
-                        logFilter,
-                      ),
-                      _logFilterItem(
-                        _ConsoleLogFilter.rx,
-                        l10n.rxFilter,
-                        logFilter,
-                      ),
-                      _logFilterItem(
-                        _ConsoleLogFilter.system,
-                        l10n.systemFilter,
-                        logFilter,
-                      ),
-                      _logFilterItem(
-                        _ConsoleLogFilter.error,
-                        l10n.errorFilter,
-                        logFilter,
-                      ),
-                    ],
-                icon: const Icon(Icons.filter_list_outlined, size: 18),
+              _ConsoleLogFilterBar(
+                filter: logFilter,
+                onChanged: onLogFilterChanged,
+                l10n: l10n,
               ),
               const SizedBox(width: 2),
-              Flexible(
-                child: Text(
-                  l10n.retainedLogs(logs.length, discardedLogCount),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall,
+              if (!compactHeader) ...<Widget>[
+                Flexible(
+                  child: Text(
+                    l10n.retainedLogs(logs.length, discardedLogCount),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Icon(
-                writeTarget == null
-                    ? Icons.warning_amber_outlined
-                    : Icons.output_outlined,
-                size: 15,
-                color: writeTarget == null ? colors.error : colors.tertiary,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                writeTarget == null
-                    ? '未选择写入特征'
-                    : '写入  ${_shortUuid(writeTarget!)}',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontFamily: 'monospace',
-                  color: writeTarget == null
-                      ? Theme.of(context).colorScheme.error
-                      : null,
+                const SizedBox(width: 12),
+                Icon(
+                  writeTarget == null
+                      ? Icons.warning_amber_outlined
+                      : Icons.output_outlined,
+                  size: 15,
+                  color: writeTarget == null ? colors.error : colors.tertiary,
                 ),
-              ),
+                const SizedBox(width: 5),
+                Text(
+                  writeTarget == null
+                      ? '未选择写入特征'
+                      : '写入  ${_shortUuid(writeTarget!)}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: writeTarget == null
+                        ? Theme.of(context).colorScheme.error
+                        : null,
+                  ),
+                ),
+              ],
               const Spacer(),
               Tooltip(
                 message: l10n.autoScroll,
@@ -4699,11 +4614,18 @@ class _ConsoleArea extends StatelessWidget {
                   onChanged: onAutoScrollChanged,
                 ),
               ),
-              Text(
-                l10n.autoScroll,
-                style: Theme.of(context).textTheme.bodySmall,
+              if (!compactHeader) ...<Widget>[
+                Text(
+                  l10n.autoScroll,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(width: 4),
+              ],
+              IconButton(
+                tooltip: l10n.exportLogs,
+                onPressed: logs.isEmpty ? null : () => onExport(logs),
+                icon: const Icon(Icons.download_outlined, size: 19),
               ),
-              const SizedBox(width: 4),
               IconButton(
                 tooltip: l10n.clear,
                 onPressed: onClear,
@@ -4712,12 +4634,46 @@ class _ConsoleArea extends StatelessWidget {
             ],
           ),
         ),
+        Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: dark ? const Color(0xFF101824) : colors.surface,
+            border: Border(
+              bottom: BorderSide(color: Theme.of(context).dividerColor),
+            ),
+          ),
+          child: TextField(
+            key: const ValueKey<String>('console-search'),
+            controller: searchController,
+            onChanged: onSearchChanged,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            decoration: InputDecoration(
+              hintText: l10n.searchLogs,
+              prefixIcon: const Icon(Icons.search, size: 17),
+              suffixIcon: searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: l10n.clear,
+                      onPressed: () {
+                        searchController.clear();
+                        onSearchChanged('');
+                      },
+                      icon: const Icon(Icons.close, size: 16),
+                    ),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ),
         Expanded(
           child: _ConsoleLogView(
             logs: logs,
             autoScroll: autoScroll,
             selectedLog: selectedLog,
             onLogSelected: onLogSelected,
+            onJumpToLatest: () => onAutoScrollChanged(true),
             l10n: l10n,
           ),
         ),
@@ -4924,25 +4880,6 @@ class _ConsoleArea extends StatelessWidget {
       ],
     );
   }
-}
-
-PopupMenuItem<_ConsoleLogFilter> _logFilterItem(
-  _ConsoleLogFilter value,
-  String label,
-  _ConsoleLogFilter selected,
-) {
-  return PopupMenuItem<_ConsoleLogFilter>(
-    value: value,
-    child: Row(
-      children: <Widget>[
-        SizedBox(
-          width: 22,
-          child: value == selected ? const Icon(Icons.check, size: 16) : null,
-        ),
-        Text(label),
-      ],
-    ),
-  );
 }
 
 String _serviceTitle(String serviceId, AppLocalizations l10n) {

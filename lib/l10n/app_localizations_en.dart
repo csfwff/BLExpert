@@ -145,6 +145,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get filterLogs => 'Filter logs';
 
   @override
+  String get searchLogs => 'Search logs, HEX, source or command';
+
+  @override
+  String get noMatchingLogs => 'No matching logs';
+
+  @override
+  String get backToLatest => 'Back to latest';
+
+  @override
+  String get exportLogs => 'Export logs';
+
+  @override
   String retainedLogs(int retained, int discarded) {
     return '$retained retained / $discarded discarded';
   }

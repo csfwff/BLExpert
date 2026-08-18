@@ -344,6 +344,30 @@ abstract class AppLocalizations {
   /// **'Filter logs'**
   String get filterLogs;
 
+  /// No description provided for @searchLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Search logs, HEX, source or command'**
+  String get searchLogs;
+
+  /// No description provided for @noMatchingLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching logs'**
+  String get noMatchingLogs;
+
+  /// No description provided for @backToLatest.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to latest'**
+  String get backToLatest;
+
+  /// No description provided for @exportLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Export logs'**
+  String get exportLogs;
+
   /// No description provided for @retainedLogs.
   ///
   /// In en, this message translates to:

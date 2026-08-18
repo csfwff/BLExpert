@@ -144,6 +144,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get filterLogs => '筛选日志';
 
   @override
+  String get searchLogs => '搜索日志、HEX、来源或指令';
+
+  @override
+  String get noMatchingLogs => '没有匹配的日志';
+
+  @override
+  String get backToLatest => '回到最新';
+
+  @override
+  String get exportLogs => '导出日志';
+
+  @override
   String retainedLogs(int retained, int discarded) {
     return '保留 $retained 条 / 已丢弃 $discarded 条';
   }

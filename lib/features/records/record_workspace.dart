@@ -1,0 +1,268 @@
+part of '../../main.dart';
+
+class _RecordWorkspace extends StatefulWidget {
+  const _RecordWorkspace({
+    required this.logs,
+    required this.l10n,
+    required this.onExport,
+    required this.onToggleBookmark,
+  });
+
+  final List<SessionLogRecord> logs;
+  final AppLocalizations l10n;
+  final ValueChanged<List<SessionLogRecord>> onExport;
+  final ValueChanged<SessionLogRecord> onToggleBookmark;
+
+  @override
+  State<_RecordWorkspace> createState() => _RecordWorkspaceState();
+}
+
+class _RecordWorkspaceState extends State<_RecordWorkspace> {
+  final TextEditingController _filterController = TextEditingController();
+  SessionLogKind? _kindFilter;
+  String? _characteristicFilter;
+  String? _commandFilter;
+  String? _transactionFilter;
+  bool _bookmarksOnly = false;
+
+  @override
+  void dispose() {
+    _filterController.dispose();
+    super.dispose();
+  }
+
+  List<SessionLogRecord> _filteredLogs() {
+    final String query = _filterController.text.trim().toLowerCase();
+    return widget.logs
+        .where((SessionLogRecord log) {
+          if (_kindFilter != null && log.kind != _kindFilter) return false;
+          if (_characteristicFilter != null &&
+              log.characteristicId != _characteristicFilter) {
+            return false;
+          }
+          if (_commandFilter != null && log.commandName != _commandFilter) {
+            return false;
+          }
+          if (_transactionFilter != null &&
+              log.transactionId != _transactionFilter) {
+            return false;
+          }
+          if (_bookmarksOnly && !log.bookmarked) return false;
+          if (query.isEmpty) return true;
+          final String payload = log.message ?? _toHex(log.data);
+          return payload.toLowerCase().contains(query) ||
+              log.kind.name.toLowerCase().contains(query) ||
+              (log.characteristicId?.toLowerCase().contains(query) ?? false) ||
+              (log.commandName?.toLowerCase().contains(query) ?? false) ||
+              (log.transactionId?.toLowerCase().contains(query) ?? false);
+        })
+        .toList(growable: false);
+  }
+
+  List<String> _metadataValues(String? Function(SessionLogRecord log) valueOf) {
+    final List<String> values =
+        widget.logs
+            .map(valueOf)
+            .whereType<String>()
+            .where((String value) => value.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    return values;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<SessionLogRecord> filteredLogs = _filteredLogs();
+    return Column(
+      children: <Widget>[
+        _PanelHeading(
+          title: '会话记录',
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                '${filteredLogs.length}/${widget.logs.length} 条',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: '导出会话记录',
+                onPressed: filteredLogs.isEmpty
+                    ? null
+                    : () => widget.onExport(filteredLogs),
+                icon: const Icon(Icons.download_outlined, size: 18),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: TextField(
+            controller: _filterController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              isDense: true,
+              prefixIcon: const Icon(Icons.search, size: 18),
+              hintText: '搜索文本或 HEX',
+              suffixIcon: _filterController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: '清除筛选',
+                      onPressed: () {
+                        _filterController.clear();
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.clear, size: 18),
+                    ),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 42,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            children: <Widget>[
+              _filterChip('全部', null),
+              _filterChip('TX', SessionLogKind.sent),
+              _filterChip('RX', SessionLogKind.received),
+              _filterChip('SYS', SessionLogKind.system),
+              _filterChip('ERR', SessionLogKind.error),
+              _bookmarkFilterChip(),
+            ],
+          ),
+        ),
+        if (_metadataValues(
+              (SessionLogRecord log) => log.characteristicId,
+            ).isNotEmpty ||
+            _metadataValues(
+              (SessionLogRecord log) => log.commandName,
+            ).isNotEmpty ||
+            _metadataValues(
+              (SessionLogRecord log) => log.transactionId,
+            ).isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) =>
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      if (_metadataValues(
+                        (SessionLogRecord log) => log.characteristicId,
+                      ).isNotEmpty)
+                        _metadataFilter(
+                          label: '特征',
+                          allLabel: '全部特征',
+                          value: _characteristicFilter,
+                          values: _metadataValues(
+                            (SessionLogRecord log) => log.characteristicId,
+                          ),
+                          maxWidth: constraints.maxWidth,
+                          onChanged: (String? value) =>
+                              setState(() => _characteristicFilter = value),
+                        ),
+                      if (_metadataValues(
+                        (SessionLogRecord log) => log.commandName,
+                      ).isNotEmpty)
+                        _metadataFilter(
+                          label: '指令',
+                          allLabel: '全部指令',
+                          value: _commandFilter,
+                          values: _metadataValues(
+                            (SessionLogRecord log) => log.commandName,
+                          ),
+                          maxWidth: constraints.maxWidth,
+                          onChanged: (String? value) =>
+                              setState(() => _commandFilter = value),
+                        ),
+                      if (_metadataValues(
+                        (SessionLogRecord log) => log.transactionId,
+                      ).isNotEmpty)
+                        _metadataFilter(
+                          label: '事务',
+                          allLabel: '全部事务',
+                          value: _transactionFilter,
+                          values: _metadataValues(
+                            (SessionLogRecord log) => log.transactionId,
+                          ),
+                          maxWidth: constraints.maxWidth,
+                          onChanged: (String? value) =>
+                              setState(() => _transactionFilter = value),
+                        ),
+                    ],
+                  ),
+            ),
+          ),
+        Expanded(
+          child: filteredLogs.isEmpty
+              ? Center(child: Text(widget.l10n.noData))
+              : ListView.separated(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: filteredLogs.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (_, int index) => _LogLine(
+                    entry: filteredLogs[index],
+                    l10n: widget.l10n,
+                    onToggleBookmark: widget.onToggleBookmark,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _filterChip(String label, SessionLogKind? kind) => Padding(
+    padding: const EdgeInsets.only(right: 6),
+    child: FilterChip(
+      label: Text(label),
+      selected: _kindFilter == kind,
+      onSelected: (_) => setState(() => _kindFilter = kind),
+      visualDensity: VisualDensity.compact,
+    ),
+  );
+
+  Widget _bookmarkFilterChip() => Padding(
+    padding: const EdgeInsets.only(right: 6),
+    child: FilterChip(
+      label: const Text('书签'),
+      selected: _bookmarksOnly,
+      onSelected: (bool selected) => setState(() => _bookmarksOnly = selected),
+      avatar: const Icon(Icons.bookmark_outline, size: 16),
+      visualDensity: VisualDensity.compact,
+    ),
+  );
+
+  Widget _metadataFilter({
+    required String label,
+    required String allLabel,
+    required String? value,
+    required List<String> values,
+    required double maxWidth,
+    required ValueChanged<String?> onChanged,
+  }) => SizedBox(
+    width: maxWidth < 520 ? maxWidth : 260,
+    child: DropdownButtonFormField<String?>(
+      initialValue: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        border: const OutlineInputBorder(),
+      ),
+      items: <DropdownMenuItem<String?>>[
+        DropdownMenuItem<String?>(value: null, child: Text(allLabel)),
+        for (final String item in values)
+          DropdownMenuItem<String?>(
+            value: item,
+            child: Text(item, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+      onChanged: onChanged,
+    ),
+  );
+}

@@ -61,6 +61,10 @@
   ,"systemFilter": "SYS"
   ,"errorFilter": "ERR"
   ,"filterLogs": "筛选日志"
+  ,"searchLogs": "搜索日志、HEX、来源或指令"
+  ,"noMatchingLogs": "没有匹配的日志"
+  ,"backToLatest": "回到最新"
+  ,"exportLogs": "导出日志"
   ,"retainedLogs": "保留 {retained} 条 / 已丢弃 {discarded} 条"
   ,"@retainedLogs": {"placeholders": {"retained": {"type": "int"}, "discarded": {"type": "int"}}}
   ,"clear": "清空"

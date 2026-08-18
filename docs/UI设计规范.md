@@ -4,10 +4,10 @@
 
 ## 文档状态
 
-- 状态：第一轮信息架构与视觉收敛已完成；第二轮核心交互效率、可访问性和会话定位能力已收口；复杂配置表单和跨平台视觉回归仍待推进
+- 状态：阶段 9（Linux/Flutter/Mock 范围）已完成；核心交互效率、可访问性、会话定位和首轮代码边界拆分已收口；跨平台视觉回归属于阶段 11
 - 设计依据：现有 Flutter 实现 + `ui-ux-pro-max` 的 Flutter、工具型产品、图标可访问性和表单校验规范
 - 适用范围：桌面优先、兼容窄屏的 BLE 协议调试工具
-- 当前阶段：阶段 9 核心交互已收口，后续聚焦复杂配置表单、架构拆分和跨平台视觉回归
+- 当前阶段：阶段 9 已完成当前环境验收；后续聚焦复杂配置表单、阶段 10 草案能力和阶段 11 跨平台回归
 
 ## 设计定位
 
@@ -86,7 +86,7 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 
 ## 组件库选型与迁移边界
 
-结论：采用 `shadcn_flutter` 作为阶段 9 的唯一候选组件库，先完成隔离 spike，再决定是否纳入正式依赖；暂不引入 `fossui`。
+结论：阶段 9 已采用并锁定 `shadcn_flutter` 作为唯一组件库候选，适配层和关键 spike 已完成；暂不引入 `fossui`。
 
 | 候选 | 当前结论 | 原因 |
 | --- | --- | --- |
@@ -104,11 +104,11 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 - 通过 Linux 与 Web、窄屏与宽屏、亮暗主题、键盘焦点/屏幕阅读器语义、文本溢出和 Widget 回归后，再迁移 Button、Dialog、Input、Select、Tabs 与列表组件。
 - `shadcn_flutter` 当前仍为 `0.0.x`，锁定版本并在升级前审查破坏性变更、依赖体积和测试结果。
 
-## 下一轮优先级
+## 后续优先级
 
-### P0：控制台成为真正可定位的通信工作区
+### P1：控制台进一步成为会话分析工作区
 
-当前控制台已具备方向筛选、来源标识、自动滚动、清空和 Inspector 定位；后续重点转为搜索、导出和更完整的解析摘要。
+当前控制台已具备方向筛选、关键字/HEX 搜索、筛选结果导出、来源标识、自动滚动、回到最新和 Inspector 定位；后续重点转为更完整的解析摘要和事务分析。
 
 #### 已完成
 
@@ -126,7 +126,7 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 
 工程师可在不离开调试模式的情况下，用时间、方向、特征或 HEX 快速定位一帧，查看完整上下文并复制或重发该帧。
 
-### P0：发送编辑器明确“目标、输入、结果、风险”（核心项已完成）
+### P1：发送编辑器明确“目标、输入、结果、风险”（核心项已完成）
 
 发送入口是最可能影响真实设备的操作，当前仅显示写入特征短 UUID 和普通输入框，反馈与风险表达还不够。
 
@@ -276,33 +276,23 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 
 ## 代码与架构方向
 
-当前重构已通过 `part 'widgets/app_workspace_shell.dart'` 将 Shell 抽离，这是良好第一步。下一轮不应继续把页面细节集中回 `lib/main.dart`。
+当前重构已通过 `part` 边界将主题、快捷键、Shell、调试控制台/Inspector、配置工作区和记录工作区拆出；`lib/main.dart` 保留状态协调与 BLE 业务编排，不再继续承载页面壳层细节。
 
-建议目录边界：
+当前目录边界：
 
 ```text
 lib/
   app/
     app_theme.dart
-    app_shell.dart
     app_shortcuts.dart
   features/
     debug/
-      debug_workspace.dart
-      device_tree.dart
-      console_panel.dart
-      send_editor.dart
-      inspector.dart
-      log_detail.dart
+      console_filter_bar.dart
+      inspector_panel.dart
     configuration/
       configuration_workspace.dart
-      protocol_editor.dart
-      command_library.dart
-      response_mapping_editor.dart
-      validation_summary.dart
     records/
       record_workspace.dart
-      session_filter.dart
   design/
     tokens.dart
     tool_controls.dart
@@ -314,16 +304,12 @@ lib/
 - 复杂导航使用声明式路由或清晰的命名路由边界，避免未来配置详情、记录详情和导入向导继续堆叠匿名页面。
 - 每个 UI 改造任务必须配套 Widget 测试，覆盖窄屏/宽屏、键盘焦点、禁用态、错误态和文本溢出。
 
-## 推荐实施顺序
+## 后续实施顺序
 
-1. 先做 P0 控制台结构化日志、筛选、详情 Inspector 与有限缓存。
-2. 重构发送编辑器，补齐目标特征、输入校验、最终帧预览和危险发送确认。
-3. 为配置工作区引入草稿、保存状态、错误摘要和字段级校验。
-4. 改造设备特征树的筛选、状态标签和一致的行内操作。
-5. 将 Inspector 改为上下文驱动，并加入固定观察能力。
-6. 收敛主题令牌与高密度控件规格，完成亮暗主题对比度检查。
-7. 增加快捷键、焦点顺序、语义标签和减少动态效果支持。
-8. 将记录模式升级为带元数据、异常标记、脱敏导出和精确事务归因的会话分析工具。
+1. 为复杂协议配置补充草稿、保存状态和跨字段错误摘要。
+2. 将 Inspector 从日志优先扩展到特征、命令和映射对象上下文。
+3. 将记录模式升级为带元数据、异常标记、脱敏导出和精确事务归因的会话分析工具。
+4. 在阶段 11 执行 Android、iOS、Windows、macOS、Linux 和 Web 的视觉、焦点与真实设备回归。
 
 ## 交付检查清单
 

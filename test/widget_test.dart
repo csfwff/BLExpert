@@ -32,6 +32,28 @@ void main() {
     expect(find.text('调试'), findsOneWidget);
   });
 
+  testWidgets('窄屏调试工作区保留搜索和底部模式导航', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(375, 812);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      BlexpertApp(
+        locale: const Locale('zh'),
+        bluetoothService: MockBluetoothService(),
+        shadcnPlatform: TargetPlatform.linux,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('console-search')),
+      findsOneWidget,
+    );
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Inspector 开关不遮挡控制台清空操作', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
@@ -346,6 +368,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '写入目标'))
+          .selected,
+      isTrue,
+    );
     await tester.tap(find.text('配置'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('指令'));
@@ -528,6 +556,57 @@ void main() {
     await tester.pump();
     expect(find.text('选中日志'), findsOneWidget);
     expect(find.textContaining('AA BB'), findsWidgets);
+  });
+
+  testWidgets('控制台可按 HEX 搜索、筛选方向并导出结果', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(find.byTooltip('连接设备'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('写入目标'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '写入目标'))
+          .selected,
+      isTrue,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('console-input')),
+      'AA BB',
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey<String>('console-send-button')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('console-send-button')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('AA BB'), findsWidgets);
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('console-search')),
+      'AA BB',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('没有匹配的日志'), findsNothing);
+
+    await tester.tap(find.byTooltip('筛选日志'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('TX').last);
+    await tester.pumpAndSettle();
+    expect(find.text('没有匹配的日志'), findsNothing);
+
+    await tester.tap(find.byTooltip('导出日志'));
+    await tester.pumpAndSettle();
+    expect(find.text('导出会话记录'), findsOneWidget);
+    expect(find.textContaining('AA BB'), findsWidgets);
+    await tester.tap(find.widgetWithText(TextButton, '关闭'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('仅支持无响应写入的特征可设为写入目标', (WidgetTester tester) async {
