@@ -1,6 +1,6 @@
 # UI设计规范
 
-> 文档基线：2026-08-18。规范已对齐当前工作台实现；业务优先级以 [开发路线图](开发路线图.md) 为准。
+> 文档基线：2026-08-18。规范已对齐当前工作台实现与 shadcn_flutter 迁移结果；业务优先级以 [开发路线图](开发路线图.md) 为准。
 
 ## 文档状态
 
@@ -34,7 +34,7 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 
 | 模式 | 当前职责 | 入口 |
 | --- | --- | --- |
-| 调试 | 设备、特征、通信控制台、当前上下文 | 桌面 `NavigationRail` / 窄屏 `NavigationBar` |
+| 调试 | 设备、特征、通信控制台、当前上下文 | 桌面 shadcn `NavigationRail` / 窄屏 Material `NavigationBar` |
 | 配置 | 工作区、协议、指令、响应映射 | 独立配置导航 |
 | 记录 | 有界会话日志、筛选、书签、导出与基础事务回溯 | 独立记录视图 |
 
@@ -67,7 +67,7 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 - 工作台一般表面使用 4px 圆角，工具对话框使用 6px 圆角；不使用 shadcn 默认 XXL 大圆角，避免弹窗与高密度工具栏产生风格断裂。
 - 应用栏、面板标题、控制台标题和对话框已使用一致的图标、层级和分隔线表达；列表项由独立圆角卡片收敛为连续工具列表。
 - 亮色、暗色与系统主题均可用。
-- `NavigationRail`、`NavigationBar`、调试三栏和配置双栏均通过 `LayoutBuilder` 适应宽度。
+- shadcn `NavigationRail`、Material `NavigationBar`、调试三栏和配置双栏均通过 `LayoutBuilder` 适应宽度。
 - 图标按钮已配置紧凑最小尺寸和 tooltip 主题。
 - 已引入局部 `Semantics` 和多数图标按钮 tooltip。
 
@@ -97,11 +97,14 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 
 - 不混用两套完整 UI 体系，也不一次性重写 Material 3 界面。
 - 新增 `app/design` 适配层封装候选库，业务界面不直接依赖第三方组件 API；主题颜色、间距、圆角、等宽数据文本和语义约束继续由本项目令牌定义。
+- 当前已落地的 shadcn_flutter 组件：`ShadcnLayer` / `DrawerOverlay`、工作区与工具下拉菜单、蓝牙设备与表单选择器、工具对话框、业务输入框、扫描/连接/图标按钮、配置侧栏导航、设置主题分段按钮、记录筛选按钮、开关、复选框、特征能力徽章和特征操作按钮。
+- 桌面模式导航使用 shadcn `NavigationRail`，通过稳定 key 维护选中态与键盘语义；窄屏底部模式导航保留 Flutter `NavigationBar`，继续沿用已验证的安全区域与触控契约。
+- 语言设置和记录页元数据筛选统一通过 `ToolSelect` 使用 shadcn `Select`；弹层测试使用定时 `pump` 覆盖进出场动画，不依赖持续 ticker 收敛。
 - 首个 spike 限定为配置页命令编辑器、设备发送策略确认框和发送编辑器；不得修改 BLE 服务、领域模型、工作区导入导出格式或安全发送策略。
 - 当前已完成 `lib/app/design` 的对话框、输入框与基础选择器适配边界。受保护发送、工作区导入和设备策略等现有工具对话框统一走 `ToolAlertDialog`；它实际使用 `shadcn_flutter.AlertDialog`，并必须通过 `showToolDialog` 的 shadcn `DialogConfiguration` 打开，避免 Material `showDialog` 将 `ModalBackdrop` 按全屏布局。内部仍用透明 Material 容器维持 `ListTile`、按钮和未迁移内容的既有语义与墨水反馈。配置页命令编辑器的名称、分组、载荷和备注统一走 `ToolTextField`，实际使用 `shadcn_flutter.TextField`；可见标签、错误文本与 `Semantics` 仍由应用维护，避免验证和无障碍契约耦合第三方 decoration API。载荷格式统一走 `ToolSelect`，实际使用 `shadcn_flutter.Select`，选项和标签继续由应用拥有。
-- `MaterialApp.builder` 必须提供 `ShadcnLayer` 和 `DrawerOverlay`，为 Dialog、Select 等 shadcn 弹层提供主题、popover 与移动端 drawer 宿主。`ToolTextField` 的调用方必须提供稳定 Key、应用拥有的标签和控制器；多行高度由 `minLines` / `maxLines` 固定，错误文本使用 live region。`ToolSelect` 在工具对话框中向上展开，并限制菜单高度以避免视口外选项；开关、参数编辑和操作按钮仍保持 Material，需在独立 spike 覆盖焦点、错误态、暗色主题和 Widget 回归后才可迁移。
+- `MaterialApp.builder` 必须提供 `ShadcnLayer` 和 `DrawerOverlay`，为 Dialog、Select 等 shadcn 弹层提供主题、popover 与移动端 drawer 宿主。`ToolTextField` 的调用方必须提供稳定 Key、应用拥有的标签和控制器；多行高度由 `minLines` / `maxLines` 固定，错误文本使用 live region。`ToolSelect` 限制菜单高度以避免视口外选项；按钮、开关、复选框与分段控件分别通过 `ToolButton`、`ToolToggle` 和 shadcn `SelectedButton` 统一交互与尺寸。
 - 调试发送区的模式切换使用紧凑矩形分段控件：高度 36px、圆角 6px、水平内边距 10px；选中态使用主题的 secondary container，不使用大范围胶囊或发光效果。行尾选择器与其保持同高、同边框和 6px 圆角，模式、行尾和发送操作在一条工具带中对齐。
-- 通过 Linux 与 Web、窄屏与宽屏、亮暗主题、键盘焦点/屏幕阅读器语义、文本溢出和 Widget 回归后，再迁移 Button、Dialog、Input、Select、Tabs 与列表组件。
+- 已迁移控件需持续通过 Linux 与 Web、窄屏与宽屏、亮暗主题、键盘焦点/屏幕阅读器语义、文本溢出和 Widget 回归；升级 `shadcn_flutter` 时按同一矩阵复测。
 - `shadcn_flutter` 当前仍为 `0.0.x`，锁定版本并在升级前审查破坏性变更、依赖体积和测试结果。
 
 ## 后续优先级
@@ -209,6 +212,7 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 | --- | --- | --- |
 | 页面边距 | 12px 桌面，8px 窄屏 | 外层布局 |
 | 区域工具条高度 | 40px 或 42px | 控制台、Inspector、列表标题 |
+| 首页工具栏控件高度 | 36px | 工作区、设备、连接和扫描控件保持同高 |
 | 紧凑控件高度 | 32px | 图标按钮、筛选器、小型下拉框 |
 | 常规控件高度 | 40px | 表单、主要按钮 |
 | 间距刻度 | 4 / 8 / 12 / 16px | 只使用这四档 |
@@ -262,7 +266,7 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 
 ### 中等宽度：900px 至 1199px
 
-- 保持 `NavigationRail`，但设备区宽度可缩窄。
+- 保持 shadcn `NavigationRail`，但设备区宽度可缩窄。
 - Inspector 默认可收起，可由顶部上下文按钮打开。
 - 控制台不得低于可用主区最小宽度；必要时优先收起 Inspector，而不是压缩 HEX 内容。
 
@@ -285,6 +289,12 @@ lib/
   app/
     app_theme.dart
     app_shortcuts.dart
+    design/
+      tool_alert_dialog.dart
+      tool_button.dart
+      tool_select.dart
+      tool_text_field.dart
+      tool_toggle.dart
   features/
     debug/
       console_filter_bar.dart
@@ -293,10 +303,6 @@ lib/
       configuration_workspace.dart
     records/
       record_workspace.dart
-  design/
-    tokens.dart
-    tool_controls.dart
-    status_indicators.dart
 ```
 
 - 将颜色、尺寸、语义状态和控件样式统一收敛到主题扩展或 design tokens。
@@ -311,15 +317,28 @@ lib/
 3. 将记录模式升级为带元数据、异常标记、脱敏导出和精确事务归因的会话分析工具。
 4. 在阶段 11 执行 Android、iOS、Windows、macOS、Linux 和 Web 的视觉、焦点与真实设备回归。
 
+## 本轮迁移记录
+
+| 区域 | 结果 | 说明 |
+| --- | --- | --- |
+| 首页工作区切换 | 已切换 | 使用 shadcn `DropdownMenu`，同时承载新建、删除、导入和导出命令；高度固定为 36px。 |
+| 首页蓝牙设备选择 | 已切换 | 使用 shadcn `Select`，与工作区、连接和扫描控件统一为 36px，并保留空设备禁用态。 |
+| 桌面配置侧栏 | 已切换 | 使用 shadcn `NavigationRail`，保留窄屏横向 `NavigationBar`。 |
+| 设置主题选择 | 已切换 | 使用 shadcn `SelectedButton`，保留原有 key、语义和三种主题模式。 |
+| 记录筛选 | 已切换 | 方向与书签使用 shadcn `SelectedButton`，元数据使用 `ToolSelect`。 |
+| 工具表单/对话框 | 已切换 | 继续统一经由 `ToolTextField`、`ToolSelect`、`ToolAlertDialog`。 |
+| 顶层模式导航 | 桌面已切换 | 桌面使用 shadcn `NavigationRail`；窄屏底部 Material `NavigationBar` 保留安全区域和现有测试契约。 |
+| 开关与复选框 | 已切换 | 使用 `ToolSwitch` / `ToolCheckbox` 适配 shadcn 控件并保留语义状态。 |
+
 ## 交付检查清单
 
 - [ ] 调试首页无需切换模式即可扫描、连接、选择特征、订阅、输入并发送。
 - [ ] 任意日志行可定位来源、方向、长度、HEX、解析结果与错误。
 - [ ] 控制台、设备树、Inspector 与配置表单没有嵌套滚动造成的操作阻塞。
 - [ ] 所有状态同时具备颜色与文本/图标表达。
-- [ ] 纯图标操作都有 tooltip 与语义名称。
+- [x] 纯图标操作都有 tooltip 与语义名称。
 - [ ] 发送禁用和配置校验失败均有持久、明确、可定位的原因。
 - [ ] 亮色、暗色、1200px、900px、768px 和窄屏下文本不溢出，核心操作可达。
-- [ ] UI 改造不改变 BLE、脚本、工作区、命令和数据映射的现有业务行为。
+- [x] UI 改造不改变 BLE、脚本、工作区、命令和数据映射的现有业务行为。
 - [x] AI/导入脚本保持未信任、禁用且在界面中可见；QuickJS 平台具备运行时硬限制，Apple 平台保持禁用执行，工作区白名单和设备发送策略已接入真实路径。
 - [ ] Android、iOS、Windows、macOS、Linux 的 runtime 能力审计及真实设备安全回归完成后，才可将脚本能力视为发布/共享前置条件已满足。

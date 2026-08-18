@@ -15,37 +15,38 @@ class _ConsoleLogFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<_ConsoleLogFilter>(
+    return ToolIconButton(
       tooltip: l10n.filterLogs,
-      initialValue: filter,
-      onSelected: onChanged,
-      itemBuilder: (BuildContext context) =>
-          <PopupMenuEntry<_ConsoleLogFilter>>[
-            _item(_ConsoleLogFilter.all, l10n.allFilter),
-            _item(_ConsoleLogFilter.tx, l10n.txFilter),
-            _item(_ConsoleLogFilter.rx, l10n.rxFilter),
-            _item(_ConsoleLogFilter.system, l10n.systemFilter),
-            _item(_ConsoleLogFilter.error, l10n.errorFilter),
-          ],
+      onPressed: () => shad
+          .showDropdown<void>(
+            context: context,
+            widthConstraint: shad.PopoverConstraint.flexible,
+            builder: (BuildContext context) => shad.DropdownMenu(
+              children: <shad.MenuItem>[
+                shad.MenuRadioGroup<_ConsoleLogFilter>(
+                  value: filter,
+                  onChanged: (BuildContext context, _ConsoleLogFilter value) =>
+                      onChanged(value),
+                  children: <shad.MenuRadio<_ConsoleLogFilter>>[
+                    _item(_ConsoleLogFilter.all, l10n.allFilter),
+                    _item(_ConsoleLogFilter.tx, l10n.txFilter),
+                    _item(_ConsoleLogFilter.rx, l10n.rxFilter),
+                    _item(_ConsoleLogFilter.system, l10n.systemFilter),
+                    _item(_ConsoleLogFilter.error, l10n.errorFilter),
+                  ],
+                ),
+              ],
+            ),
+          )
+          .future,
       icon: const Icon(Icons.filter_list_outlined, size: 18),
     );
   }
 
-  PopupMenuItem<_ConsoleLogFilter> _item(
+  shad.MenuRadio<_ConsoleLogFilter> _item(
     _ConsoleLogFilter value,
     String label,
   ) {
-    return PopupMenuItem<_ConsoleLogFilter>(
-      value: value,
-      child: Row(
-        children: <Widget>[
-          SizedBox(
-            width: 22,
-            child: value == filter ? const Icon(Icons.check, size: 16) : null,
-          ),
-          Text(label),
-        ],
-      ),
-    );
+    return shad.MenuRadio<_ConsoleLogFilter>(value: value, child: Text(label));
   }
 }

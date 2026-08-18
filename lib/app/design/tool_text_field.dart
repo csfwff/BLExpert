@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 /// Text input boundary used while migrating form controls to shadcn_flutter.
@@ -8,46 +9,110 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 class ToolTextField extends StatelessWidget {
   const ToolTextField({
     super.key,
-    required this.controller,
+    this.controller,
+    this.initialValue,
     required this.label,
     this.errorText,
+    this.helperText,
+    this.hintText,
+    this.showLabel = true,
     this.autofocus = false,
     this.minLines,
     this.maxLines = 1,
+    this.focusNode,
+    this.keyboardType,
+    this.textInputAction,
+    this.textAlign = TextAlign.start,
+    this.style,
+    this.inputFormatters,
+    this.enabled = true,
+    this.prefix,
+    this.suffix,
+    this.onChanged,
+    this.onSubmitted,
+    this.validator,
+    this.padding,
   });
 
-  final TextEditingController controller;
+  final TextEditingController? controller;
+  final String? initialValue;
   final String label;
   final String? errorText;
+  final String? helperText;
+  final String? hintText;
+  final bool showLabel;
   final bool autofocus;
   final int? minLines;
   final int? maxLines;
+  final FocusNode? focusNode;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final TextAlign textAlign;
+  final TextStyle? style;
+  final List<TextInputFormatter>? inputFormatters;
+  final bool enabled;
+  final Widget? prefix;
+  final Widget? suffix;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final FormFieldValidator<String>? validator;
+  final EdgeInsetsGeometry? padding;
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildField(BuildContext context, FormFieldState<String>? field) {
     final ColorScheme colors = Theme.of(context).colorScheme;
+    final String? effectiveError = errorText ?? field?.errorText;
+    final Widget input = shad.TextField(
+      controller: controller,
+      initialValue: controller == null ? initialValue : null,
+      focusNode: focusNode,
+      autofocus: autofocus,
+      minLines: minLines,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      textAlign: textAlign,
+      style: style,
+      padding: padding,
+      inputFormatters: inputFormatters,
+      enabled: enabled,
+      placeholder: hintText == null && showLabel
+          ? null
+          : Text(hintText ?? label),
+      features: <shad.InputFeature>[
+        if (prefix != null) shad.InputFeature.leading(prefix!),
+        if (suffix != null) shad.InputFeature.trailing(suffix!),
+      ],
+      onChanged: (String value) {
+        field?.didChange(value);
+        onChanged?.call(value);
+      },
+      onSubmitted: onSubmitted,
+    );
+    if (!showLabel && helperText == null && effectiveError == null) {
+      return Semantics(textField: true, label: label, child: input);
+    }
     return Semantics(
       textField: true,
       label: label,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(label, style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(height: 4),
-          shad.TextField(
-            controller: controller,
-            autofocus: autofocus,
-            minLines: minLines,
-            maxLines: maxLines,
-            placeholder: Text(label),
-          ),
-          if (errorText != null) ...<Widget>[
+          if (showLabel) ...<Widget>[
+            Text(label, style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 4),
+          ],
+          input,
+          if (helperText != null && effectiveError == null) ...<Widget>[
+            const SizedBox(height: 4),
+            Text(helperText!, style: Theme.of(context).textTheme.bodySmall),
+          ],
+          if (effectiveError != null) ...<Widget>[
             const SizedBox(height: 4),
             Semantics(
               liveRegion: true,
-              label: errorText,
+              label: effectiveError,
               child: Text(
-                errorText!,
+                effectiveError,
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: colors.error),
@@ -56,6 +121,16 @@ class ToolTextField extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (validator == null) return _buildField(context, null);
+    return FormField<String>(
+      initialValue: controller?.text ?? initialValue ?? '',
+      validator: validator,
+      builder: (FormFieldState<String> field) => _buildField(context, field),
     );
   }
 }

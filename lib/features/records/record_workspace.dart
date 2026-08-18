@@ -86,38 +86,35 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
                 style: Theme.of(context).textTheme.labelSmall,
               ),
               const SizedBox(width: 4),
-              IconButton(
+              ToolIconButton(
                 tooltip: '导出会话记录',
                 onPressed: filteredLogs.isEmpty
                     ? null
                     : () => widget.onExport(filteredLogs),
                 icon: const Icon(Icons.download_outlined, size: 18),
-                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: TextField(
+          child: ToolTextField(
             controller: _filterController,
+            label: '搜索文本或 HEX',
+            hintText: '搜索文本或 HEX',
+            showLabel: false,
             onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              isDense: true,
-              prefixIcon: const Icon(Icons.search, size: 18),
-              hintText: '搜索文本或 HEX',
-              suffixIcon: _filterController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: '清除筛选',
-                      onPressed: () {
-                        _filterController.clear();
-                        setState(() {});
-                      },
-                      icon: const Icon(Icons.clear, size: 18),
-                    ),
-              border: const OutlineInputBorder(),
-            ),
+            prefix: const Icon(Icons.search, size: 18),
+            suffix: _filterController.text.isEmpty
+                ? null
+                : ToolIconButton(
+                    tooltip: '清除筛选',
+                    onPressed: () {
+                      _filterController.clear();
+                      setState(() {});
+                    },
+                    icon: const Icon(Icons.clear, size: 18),
+                  ),
           ),
         ),
         SizedBox(
@@ -218,22 +215,42 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
 
   Widget _filterChip(String label, SessionLogKind? kind) => Padding(
     padding: const EdgeInsets.only(right: 6),
-    child: FilterChip(
-      label: Text(label),
-      selected: _kindFilter == kind,
-      onSelected: (_) => setState(() => _kindFilter = kind),
-      visualDensity: VisualDensity.compact,
+    child: shad.SelectedButton(
+      value: _kindFilter == kind,
+      style: const shad.ButtonStyle.outline(
+        size: shad.ButtonSize.xSmall,
+        density: shad.ButtonDensity.dense,
+      ),
+      selectedStyle: const shad.ButtonStyle.secondary(
+        size: shad.ButtonSize.xSmall,
+        density: shad.ButtonDensity.dense,
+      ),
+      onChanged: (_) => setState(() => _kindFilter = kind),
+      child: Text(label),
     ),
   );
 
   Widget _bookmarkFilterChip() => Padding(
     padding: const EdgeInsets.only(right: 6),
-    child: FilterChip(
-      label: const Text('书签'),
-      selected: _bookmarksOnly,
-      onSelected: (bool selected) => setState(() => _bookmarksOnly = selected),
-      avatar: const Icon(Icons.bookmark_outline, size: 16),
-      visualDensity: VisualDensity.compact,
+    child: shad.SelectedButton(
+      value: _bookmarksOnly,
+      style: const shad.ButtonStyle.outline(
+        size: shad.ButtonSize.xSmall,
+        density: shad.ButtonDensity.dense,
+      ),
+      selectedStyle: const shad.ButtonStyle.secondary(
+        size: shad.ButtonSize.xSmall,
+        density: shad.ButtonDensity.dense,
+      ),
+      onChanged: (bool selected) => setState(() => _bookmarksOnly = selected),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(Icons.bookmark_outline, size: 16),
+          SizedBox(width: 4),
+          Text('书签'),
+        ],
+      ),
     ),
   );
 
@@ -246,23 +263,15 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
     required ValueChanged<String?> onChanged,
   }) => SizedBox(
     width: maxWidth < 520 ? maxWidth : 260,
-    child: DropdownButtonFormField<String?>(
-      initialValue: value,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: label,
-        isDense: true,
-        border: const OutlineInputBorder(),
-      ),
-      items: <DropdownMenuItem<String?>>[
-        DropdownMenuItem<String?>(value: null, child: Text(allLabel)),
+    child: ToolSelect<String>(
+      value: value ?? '',
+      label: label,
+      options: <ToolSelectOption<String>>[
+        ToolSelectOption<String>(value: '', label: allLabel),
         for (final String item in values)
-          DropdownMenuItem<String?>(
-            value: item,
-            child: Text(item, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
+          ToolSelectOption<String>(value: item, label: item),
       ],
-      onChanged: onChanged,
+      onChanged: (String next) => onChanged(next.isEmpty ? null : next),
     ),
   );
 }

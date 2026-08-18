@@ -1,13 +1,35 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'package:blexpert/main.dart';
+import 'package:blexpert/app/design/tool_button.dart';
+import 'package:blexpert/app/design/tool_select.dart';
+import 'package:blexpert/app/design/tool_toggle.dart';
 import 'package:blexpert/models/command_definition.dart';
 import 'package:blexpert/services/bluetooth_service.dart';
 
+class _DelayedBluetoothService extends MockBluetoothService {
+  final Completer<void> _connectCompleter = Completer<void>();
+
+  @override
+  Future<void> connect(String deviceId) async {
+    await _connectCompleter.future;
+    await super.connect(deviceId);
+  }
+
+  void completeConnection() {
+    if (!_connectCompleter.isCompleted) _connectCompleter.complete();
+  }
+}
+
 void main() {
-  Future<void> pumpDesktopApp(WidgetTester tester) async {
+  Future<void> pumpDesktopApp(
+    WidgetTester tester, {
+    BluetoothService? bluetoothService,
+  }) async {
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -15,21 +37,40 @@ void main() {
     await tester.pumpWidget(
       BlexpertApp(
         locale: const Locale('zh'),
-        bluetoothService: MockBluetoothService(),
+        bluetoothService: bluetoothService ?? MockBluetoothService(),
         shadcnPlatform: TargetPlatform.linux,
       ),
     );
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  Future<void> openWorkspaceSelector(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('选择工作区'));
+    // shadcn's anchored menu keeps an overlay ticker while it is open.
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+  }
+
+  Future<void> selectAppMode(WidgetTester tester, String mode) async {
+    await tester.tap(find.byKey(ValueKey<String>('app-mode-$mode')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
   }
 
   testWidgets('应用启动后显示 BLExpert 调试工作台', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
     expect(find.text('BLExpert'), findsWidgets);
+    expect(find.text('未知设备'), findsNothing);
     expect(find.text('默认工作区'), findsOneWidget);
     expect(find.text('控制台'), findsOneWidget);
     expect(find.text('当前上下文'), findsOneWidget);
     expect(find.text('调试'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('app-mode-navigation')),
+      findsOneWidget,
+    );
+    expect(find.byType(shad.NavigationRail), findsOneWidget);
   });
 
   testWidgets('扫描和连接按钮显示当前动作与连接状态', (WidgetTester tester) async {
@@ -54,6 +95,95 @@ void main() {
     );
   });
 
+  testWidgets('首页工作区和蓝牙设备选择使用 shadcn 控件', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    expect(
+      tester
+          .widget<shad.Button>(
+            find.byKey(const ValueKey<String>('workspace-selector')),
+          )
+          .style,
+      isA<shad.ButtonStyle>(),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('bluetooth-device-selector')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('bluetooth-device-selector')),
+      findsOneWidget,
+    );
+
+    await openWorkspaceSelector(tester);
+    expect(find.byType(shad.DropdownMenu), findsOneWidget);
+    await tester.tap(find.byTooltip('选择工作区'));
+    await tester.pump();
+  });
+
+  testWidgets('首页工具栏选择器与操作按钮使用统一高度', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    final List<Finder> controls = <Finder>[
+      find.byKey(const ValueKey<String>('workspace-selector')),
+      find.byKey(const ValueKey<String>('bluetooth-device-selector')),
+      find.byKey(const ValueKey<String>('connection-action-button')),
+      find.byKey(const ValueKey<String>('scan-button')),
+    ];
+    for (final Finder control in controls) {
+      expect(tester.getSize(control).height, 36);
+    }
+
+    expect(
+      tester
+          .widget<shad.Button>(
+            find.byKey(const ValueKey<String>('connection-action-button')),
+          )
+          .alignment,
+      Alignment.center,
+    );
+    expect(
+      tester
+          .widget<shad.Button>(
+            find.byKey(const ValueKey<String>('scan-button')),
+          )
+          .alignment,
+      Alignment.center,
+    );
+  });
+
+  testWidgets('连接中图标保持正方形且按钮内容居中', (WidgetTester tester) async {
+    final _DelayedBluetoothService bluetoothService =
+        _DelayedBluetoothService();
+    await pumpDesktopApp(tester, bluetoothService: bluetoothService);
+
+    await tester.tap(find.byTooltip('连接设备'));
+    await tester.pump();
+
+    final Finder connectionButton = find.byKey(
+      const ValueKey<String>('connection-action-button'),
+    );
+    final Finder loadingIcon = find.descendant(
+      of: connectionButton,
+      matching: find.byType(ToolLoadingIcon),
+    );
+    final Finder progressIndicator = find.descendant(
+      of: connectionButton,
+      matching: find.byType(shad.CircularProgressIndicator),
+    );
+
+    expect(loadingIcon, findsOneWidget);
+    expect(tester.getSize(loadingIcon).width, 16);
+    expect(tester.getSize(progressIndicator), const Size.square(16));
+    expect(
+      tester.widget<shad.Button>(connectionButton).alignment,
+      Alignment.center,
+    );
+
+    bluetoothService.completeConnection();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('窄屏调试工作区保留搜索和底部模式导航', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(375, 812);
     tester.view.devicePixelRatio = 1;
@@ -73,6 +203,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(NavigationBar), findsOneWidget);
+    final Text sendLabel = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('console-send-button')),
+        matching: find.text('发送数据'),
+      ),
+    );
+    expect(sendLabel.maxLines, 1);
+    expect(sendLabel.softWrap, isFalse);
     expect(tester.takeException(), isNull);
   });
 
@@ -108,7 +246,7 @@ void main() {
     expect(find.text('暂不可发送：未连接'), findsOneWidget);
     expect(
       tester
-          .widget<FilledButton>(
+          .widget<ToolButton>(
             find.byKey(const ValueKey<String>('console-send-button')),
           )
           .onPressed,
@@ -119,25 +257,15 @@ void main() {
   testWidgets('可从设置工作区切换至英文界面', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationRail),
-        matching: find.text('设置'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'settings');
     await tester.tap(find.byKey(const ValueKey<String>('language-selector')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.text('英文').last);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationRail),
-        matching: find.text('Debug'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'debug');
 
     expect(find.text('Console'), findsOneWidget);
     expect(find.text('Current context'), findsOneWidget);
@@ -149,13 +277,7 @@ void main() {
     expect(find.byTooltip('主题模式'), findsNothing);
     expect(find.byTooltip('语言'), findsNothing);
 
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationRail),
-        matching: find.text('设置'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'settings');
 
     expect(
       find.byKey(const ValueKey<String>('theme-mode-selector')),
@@ -178,9 +300,11 @@ void main() {
     );
 
     await tester.tap(find.byKey(const ValueKey<String>('language-selector')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.text('英文').last);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('Settings'), findsNWidgets(2));
   });
@@ -188,42 +312,40 @@ void main() {
   testWidgets('工作区可导出、预览并确认替换导入', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('选择工作区'));
-    await tester.pumpAndSettle();
+    await openWorkspaceSelector(tester);
     await tester.tap(find.text('导出工作区'));
     await tester.pumpAndSettle();
     expect(find.text('导出工作区'), findsOneWidget);
     expect(find.textContaining('"workspaces"'), findsOneWidget);
-    await tester.tap(find.widgetWithText(TextButton, '关闭'));
+    await tester.tap(find.widgetWithText(ToolButton, '关闭'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('选择工作区'));
-    await tester.pumpAndSettle();
+    await openWorkspaceSelector(tester);
     await tester.tap(find.text('导入工作区'));
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '确认替换'))
+          .widget<ToolButton>(find.widgetWithText(ToolButton, '确认替换'))
           .onPressed,
       isNull,
     );
 
     await tester.enterText(
-      find.byType(TextField).last,
+      find.byType(shad.TextField).last,
       '{"version":1,"activeWorkspaceId":"imported","workspaces":[{"id":"imported","name":"导入测试工作区","scriptConfig":{"enabled":true,"beforeSendScript":"function beforeSend() { return {}; }","afterReceiveScript":"","language":"javascript"}}]}',
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(OutlinedButton, '检查导入'));
+    await tester.tap(find.widgetWithText(ToolButton, '检查导入'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('脚本工作区 1 个'), findsOneWidget);
     expect(
       tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '确认替换'))
+          .widget<ToolButton>(find.widgetWithText(ToolButton, '确认替换'))
           .onPressed,
       isNotNull,
     );
-    await tester.tap(find.widgetWithText(FilledButton, '确认替换'));
+    await tester.tap(find.widgetWithText(ToolButton, '确认替换'));
     await tester.pumpAndSettle();
 
     expect(find.text('导入测试工作区'), findsWidgets);
@@ -233,15 +355,14 @@ void main() {
     await pumpDesktopApp(tester);
 
     Future<void> importAndConfirm(String jsonText) async {
-      await tester.tap(find.byTooltip('选择工作区'));
-      await tester.pumpAndSettle();
+      await openWorkspaceSelector(tester);
       await tester.tap(find.text('导入工作区'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).last, jsonText);
+      await tester.enterText(find.byType(shad.TextField).last, jsonText);
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(OutlinedButton, '检查导入'));
+      await tester.tap(find.widgetWithText(ToolButton, '检查导入'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '确认替换'));
+      await tester.tap(find.widgetWithText(ToolButton, '确认替换'));
       await tester.pumpAndSettle();
     }
 
@@ -250,16 +371,15 @@ void main() {
     );
     expect(find.text('原始工作区'), findsWidgets);
 
-    await tester.tap(find.byTooltip('选择工作区'));
-    await tester.pumpAndSettle();
+    await openWorkspaceSelector(tester);
     await tester.tap(find.text('导入工作区'));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.byType(TextField).last,
+      find.byType(shad.TextField).last,
       '{"version":2,"activeWorkspaceId":"new","workspaces":[{"id":"conflict","name":"覆盖版本"},{"id":"new","name":"新增工作区"}]}',
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(OutlinedButton, '检查导入'));
+    await tester.tap(find.widgetWithText(ToolButton, '检查导入'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('合并导入'));
     await tester.pumpAndSettle();
@@ -268,11 +388,10 @@ void main() {
     expect(find.text('保留当前'), findsOneWidget);
     await tester.tap(find.text('保留当前'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '确认导入'));
+    await tester.tap(find.widgetWithText(ToolButton, '确认导入'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('选择工作区'));
-    await tester.pumpAndSettle();
+    await openWorkspaceSelector(tester);
     expect(find.text('原始工作区'), findsWidgets);
     expect(find.text('新增工作区'), findsWidgets);
     expect(find.text('覆盖版本'), findsNothing);
@@ -283,8 +402,7 @@ void main() {
 
     expect(find.text('控制台'), findsOneWidget);
     expect(find.text('特征'), findsOneWidget);
-    await tester.tap(find.text('配置'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'configure');
 
     expect(find.text('工作区'), findsWidgets);
     expect(find.text('设备型号'), findsOneWidget);
@@ -294,11 +412,32 @@ void main() {
     );
   });
 
+  testWidgets('配置导航在宽屏和窄屏均可切换协议页', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await selectAppMode(tester, 'configure');
+    expect(find.byType(shad.NavigationRail), findsNWidgets(2));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('configuration-section-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('协议定义'), findsOneWidget);
+
+    tester.view.physicalSize = const Size(375, 812);
+    await tester.pumpAndSettle();
+    expect(find.byType(shad.NavigationBar), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey<String>('configuration-section-0')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('设备型号'), findsOneWidget);
+  });
+
   testWidgets('新建工作区直接进入配置表单', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('选择工作区'));
-    await tester.pumpAndSettle();
+    await openWorkspaceSelector(tester);
     await tester.tap(find.text('新建工作区'));
     await tester.pumpAndSettle();
 
@@ -309,7 +448,7 @@ void main() {
     expect(find.byType(Form), findsOneWidget);
 
     await tester.enterText(nameField, '温度计工作区');
-    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.tap(find.widgetWithText(ToolButton, '保存'));
     await tester.pumpAndSettle();
 
     expect(find.text('温度计工作区'), findsWidgets);
@@ -319,8 +458,7 @@ void main() {
   testWidgets('工作区指令可选择显示在右侧快捷区', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.text('配置'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('新建指令'));
@@ -395,7 +533,7 @@ void main() {
       find.byKey(const ValueKey<String>('command-payload-field')),
       'AA 55 01',
     );
-    await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+    await tester.tap(find.widgetWithText(ToolButton, '保存').first);
     await tester.pumpAndSettle();
 
     expect(find.text('查询'), findsOneWidget);
@@ -404,8 +542,7 @@ void main() {
 
     await tester.tap(find.byTooltip('快捷入口'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('调试'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'debug');
     expect(find.bySemanticsLabel('查询状态：AA 55 01'), findsOneWidget);
     expect(find.text('AA'), findsOneWidget);
     expect(find.text('55'), findsOneWidget);
@@ -415,19 +552,18 @@ void main() {
   testWidgets('命令编辑器按字段显示保存校验错误', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.text('配置'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('新建指令'));
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '保存').first)
+          .widget<ToolButton>(find.widgetWithText(ToolButton, '保存').first)
           .onPressed,
       isNotNull,
     );
-    await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+    await tester.tap(find.widgetWithText(ToolButton, '保存').first);
     await tester.pumpAndSettle();
     expect(find.byType(shad.AlertDialog), findsOneWidget);
     expect(find.textContaining('请先修复以下问题：'), findsOneWidget);
@@ -447,7 +583,7 @@ void main() {
         bluetoothService: bluetoothService,
       ),
     );
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     Future<void> addCommand(String name, String payload) async {
       await tester.tap(find.byTooltip('新建指令'));
@@ -464,7 +600,7 @@ void main() {
         find.byKey(const ValueKey<String>('command-payload-field')),
         payload,
       );
-      await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+      await tester.tap(find.widgetWithText(ToolButton, '保存').first);
       await tester.pumpAndSettle();
     }
 
@@ -480,26 +616,34 @@ void main() {
           .value,
       isTrue,
     );
-    await tester.tap(find.text('配置'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
     await addCommand('允许指令', 'AA');
     await addCommand('拒绝指令', 'BB');
 
-    await tester.tap(find.widgetWithText(SwitchListTile, '仅允许已选指令发送'));
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(ToolSwitchTile, '仅允许已选指令发送'),
+        matching: find.byType(shad.Switch),
+      ),
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(CheckboxListTile, '拒绝指令'));
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(ToolCheckboxTile, '拒绝指令'),
+        matching: find.byType(shad.Checkbox),
+      ),
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '保存').last);
+    await tester.tap(find.widgetWithText(ToolButton, '保存').last);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('快捷入口').first);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('快捷入口').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('调试'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'debug');
     await tester.tap(find.byTooltip('发送 允许指令'));
     await tester.pumpAndSettle();
     expect(bluetoothService.sentPackets, hasLength(1));
@@ -521,7 +665,7 @@ void main() {
         bluetoothService: bluetoothService,
       ),
     );
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(find.byTooltip('连接设备'));
     await tester.pumpAndSettle();
@@ -529,15 +673,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('设备发送策略'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextFormField), '1');
-    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.enterText(find.byType(shad.TextField).last, '1');
+    await tester.tap(find.widgetWithText(ToolButton, '保存'));
     await tester.pumpAndSettle();
 
     await tester.enterText(
       find.byKey(const ValueKey<String>('console-input')),
       'AA BB',
     );
-    await tester.tap(find.widgetWithText(FilledButton, '发送数据'));
+    await tester.tap(find.widgetWithText(ToolButton, '发送数据'));
     await tester.pumpAndSettle();
 
     expect(bluetoothService.sentPackets, isEmpty);
@@ -546,18 +690,23 @@ void main() {
   testWidgets('可在左侧新增协议定义', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.text('配置'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'configure');
     await tester.tap(find.text('协议'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), '主协议');
-    await tester.enterText(find.byType(TextField).at(1), '测试设备主链路');
+    await tester.enterText(find.byType(shad.TextField).at(0), '主协议');
+    await tester.enterText(find.byType(shad.TextField).at(1), '测试设备主链路');
     await tester.tap(find.byTooltip('新增片段').first);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.text('固定 HEX').last);
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(TextField, '主协议'), findsOneWidget);
+    expect(
+      tester
+          .widgetList<shad.TextField>(find.byType(shad.TextField))
+          .any((shad.TextField field) => field.controller?.text == '主协议'),
+      isTrue,
+    );
     expect(find.text('固定 HEX'), findsWidgets);
   });
 
@@ -615,7 +764,7 @@ void main() {
 
     expect(
       tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '发送数据'))
+          .widget<ToolButton>(find.widgetWithText(ToolButton, '发送数据'))
           .onPressed,
       isNotNull,
     );
@@ -630,9 +779,10 @@ void main() {
     final Finder filter = find.byKey(
       const ValueKey<String>('characteristic-filter'),
     );
-    final TextField filterField = tester.widget<TextField>(filter);
+    final shad.TextField filterField = tester.widget<shad.TextField>(
+      find.descendant(of: filter, matching: find.byType(shad.TextField)),
+    );
     expect(filterField.style?.fontSize, 12);
-    expect(filterField.decoration?.hintStyle?.fontSize, 12);
     expect(tester.getSize(filter).height, lessThanOrEqualTo(36));
 
     final shad.Button scanButton = tester.widget<shad.Button>(
@@ -688,7 +838,7 @@ void main() {
     );
     expect(
       tester
-          .widget<FilledButton>(
+          .widget<ToolButton>(
             find.byKey(const ValueKey<String>('console-send-button')),
           )
           .onPressed,
@@ -732,7 +882,7 @@ void main() {
     await tester.pump();
     expect(
       tester
-          .widget<FilledButton>(
+          .widget<ToolButton>(
             find.byKey(const ValueKey<String>('console-send-button')),
           )
           .onPressed,
@@ -750,7 +900,8 @@ void main() {
     expect(find.text('没有匹配的日志'), findsNothing);
 
     await tester.tap(find.byTooltip('筛选日志'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.text('TX').last);
     await tester.pumpAndSettle();
     expect(find.text('没有匹配的日志'), findsNothing);
@@ -759,7 +910,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('导出会话记录'), findsOneWidget);
     expect(find.textContaining('AA BB'), findsWidgets);
-    await tester.tap(find.widgetWithText(TextButton, '关闭'));
+    await tester.tap(find.widgetWithText(ToolButton, '关闭'));
     await tester.pumpAndSettle();
   });
 
@@ -791,8 +942,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('配置'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('新建指令'));
@@ -810,12 +960,11 @@ void main() {
       find.byKey(const ValueKey<String>('command-payload-field')),
       'AA 55',
     );
-    await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+    await tester.tap(find.widgetWithText(ToolButton, '保存').first);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('快捷入口'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('调试'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'debug');
 
     await tester.tap(find.byTooltip('发送 恢复出厂设置'));
     await tester.pumpAndSettle();
@@ -844,8 +993,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('配置'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('新建指令'));
@@ -863,14 +1011,18 @@ void main() {
       find.byKey(const ValueKey<String>('command-payload-field')),
       'AA 55',
     );
-    await tester.tap(find.widgetWithText(SwitchListTile, '发送前始终确认'));
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(ToolSwitchTile, '发送前始终确认'),
+        matching: find.byType(shad.Switch),
+      ),
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+    await tester.tap(find.widgetWithText(ToolButton, '保存').first);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('快捷入口'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('调试'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'debug');
 
     await tester.tap(find.byTooltip('发送 安全动作'));
     await tester.pumpAndSettle();
@@ -894,7 +1046,7 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(find.byTooltip('连接设备'));
     await tester.pumpAndSettle();
@@ -916,14 +1068,13 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(find.byTooltip('连接设备'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('记录'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'records');
     await tester.enterText(
-      find.byType(TextField),
+      find.byType(shad.TextField),
       'session-record-filter-test',
     );
     await tester.pumpAndSettle();
@@ -931,7 +1082,7 @@ void main() {
     expect(find.textContaining('1/'), findsOneWidget);
     await tester.tap(find.byTooltip('添加书签'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilterChip, '书签'));
+    await tester.tap(find.widgetWithText(shad.SelectedButton, '书签'));
     await tester.pumpAndSettle();
     expect(find.byTooltip('取消书签'), findsOneWidget);
     await tester.tap(find.byTooltip('导出会话记录'));
@@ -948,8 +1099,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('配置'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('新建指令'));
@@ -967,25 +1117,30 @@ void main() {
       find.byKey(const ValueKey<String>('command-payload-field')),
       'AA 55',
     );
-    await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+    await tester.tap(find.widgetWithText(ToolButton, '保存').first);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('快捷入口'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('调试'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'debug');
     await tester.tap(find.byTooltip('发送 诊断命令'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('记录'));
-    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'records');
 
     final Finder commandFilter = find.byWidgetPredicate(
-      (Widget widget) => widget is DropdownButtonFormField<String?>,
+      (Widget widget) => widget is ToolSelect<String> && widget.label == '指令',
     );
-    expect(commandFilter, findsNWidgets(3));
-    await tester.tap(commandFilter.at(1));
-    await tester.pumpAndSettle();
+    expect(commandFilter, findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: commandFilter,
+        matching: find.byType(shad.Select<String>),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.text('诊断命令').last);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     await tester.tap(find.byTooltip('导出会话记录'));
     await tester.pumpAndSettle();

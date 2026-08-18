@@ -84,6 +84,7 @@ class _ConfigurationWorkspaceState extends State<_ConfigurationWorkspace> {
         final Widget navigation = _ConfigurationNavigation(
           value: _section,
           onChanged: (int value) => setState(() => _section = value),
+          narrow: narrow,
         );
         return narrow
             ? Column(
@@ -109,10 +110,12 @@ class _ConfigurationNavigation extends StatelessWidget {
   const _ConfigurationNavigation({
     required this.value,
     required this.onChanged,
+    required this.narrow,
   });
 
   final int value;
   final ValueChanged<int> onChanged;
+  final bool narrow;
 
   @override
   Widget build(BuildContext context) {
@@ -123,22 +126,59 @@ class _ConfigurationNavigation extends StatelessWidget {
           (icon: Icons.list_alt_outlined, label: '指令'),
           (icon: Icons.data_object_outlined, label: '响应映射'),
         ];
-    return ListView(
-      padding: const EdgeInsets.all(8),
-      children: <Widget>[
-        const Padding(
-          padding: EdgeInsets.fromLTRB(8, 8, 8, 12),
+    final List<Widget> navigationItems = <Widget>[
+      for (int index = 0; index < items.length; index++)
+        shad.NavigationItem(
+          key: ValueKey<String>('configuration-section-$index'),
+          label: Text(items[index].label),
+          child: Icon(items[index].icon, size: 19),
+        ),
+    ];
+
+    if (narrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 10, 12, 4),
+            child: Text('配置', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+          shad.NavigationBar(
+            expanded: true,
+            labelPosition: shad.NavigationLabelPosition.bottom,
+            selectedKey: ValueKey<String>('configuration-section-$value'),
+            onSelected: (Key? key) {
+              final String? keyValue = (key as ValueKey<String>?)?.value;
+              if (keyValue == null) return;
+              final int? section = int.tryParse(keyValue.split('-').last);
+              if (section != null) onChanged(section);
+            },
+            children: navigationItems,
+          ),
+        ],
+      );
+    }
+
+    return shad.NavigationRail(
+      alignment: shad.NavigationRailAlignment.start,
+      expanded: true,
+      expandedSize: 220,
+      labelType: shad.NavigationLabelType.all,
+      labelPosition: shad.NavigationLabelPosition.end,
+      selectedKey: ValueKey<String>('configuration-section-$value'),
+      onSelected: (Key? key) {
+        final String? keyValue = (key as ValueKey<String>?)?.value;
+        if (keyValue == null) return;
+        final int? section = int.tryParse(keyValue.split('-').last);
+        if (section != null) onChanged(section);
+      },
+      header: const <Widget>[
+        Padding(
+          padding: EdgeInsets.fromLTRB(8, 8, 8, 4),
           child: Text('配置', style: TextStyle(fontWeight: FontWeight.w700)),
         ),
-        for (int index = 0; index < items.length; index++)
-          ListTile(
-            dense: true,
-            selected: value == index,
-            leading: Icon(items[index].icon, size: 20),
-            title: Text(items[index].label),
-            onTap: () => onChanged(index),
-          ),
       ],
+      children: navigationItems,
     );
   }
 }

@@ -5,14 +5,11 @@ enum _AppMode { debug, configure, records, settings }
 enum _LanguagePreference { system, chinese, english }
 
 class _AppIdentity extends StatelessWidget {
-  const _AppIdentity({required this.workspace});
-
-  final Workspace workspace;
+  const _AppIdentity();
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme colors = Theme.of(context).colorScheme;
-    final bool compact = MediaQuery.sizeOf(context).width < 680;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -31,32 +28,13 @@ class _AppIdentity extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Flexible(
-          child: compact
-              ? const Text(
-                  'BLExpert',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text(
-                      'BLExpert',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    Text(
-                      workspace.deviceModel.isEmpty
-                          ? workspace.name
-                          : workspace.deviceModel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ],
-                ),
+        const Flexible(
+          child: Text(
+            'BLExpert',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
         ),
       ],
     );
@@ -80,76 +58,78 @@ class _AppOverflowMenu extends StatelessWidget {
   final VoidCallback? onConfigureWebServices;
   final AppLocalizations l10n;
 
+  void _select(_ToolbarAction action) {
+    switch (action) {
+      case _ToolbarAction.webServices:
+        onConfigureWebServices?.call();
+      case _ToolbarAction.light:
+        onThemeModeChanged(ThemeMode.light);
+      case _ToolbarAction.dark:
+        onThemeModeChanged(ThemeMode.dark);
+      case _ToolbarAction.systemTheme:
+        onThemeModeChanged(ThemeMode.system);
+      case _ToolbarAction.chinese:
+        onLocaleChanged(const Locale('zh'));
+      case _ToolbarAction.english:
+        onLocaleChanged(const Locale('en'));
+      case _ToolbarAction.systemLanguage:
+        onLocaleChanged(null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<_ToolbarAction>(
+    return ToolIconButton(
       tooltip: '更多操作',
       icon: const Icon(Icons.more_vert),
-      onSelected: (_ToolbarAction action) {
-        switch (action) {
-          case _ToolbarAction.webServices:
-            onConfigureWebServices?.call();
-          case _ToolbarAction.light:
-            onThemeModeChanged(ThemeMode.light);
-          case _ToolbarAction.dark:
-            onThemeModeChanged(ThemeMode.dark);
-          case _ToolbarAction.systemTheme:
-            onThemeModeChanged(ThemeMode.system);
-          case _ToolbarAction.chinese:
-            onLocaleChanged(const Locale('zh'));
-          case _ToolbarAction.english:
-            onLocaleChanged(const Locale('en'));
-          case _ToolbarAction.systemLanguage:
-            onLocaleChanged(null);
-        }
-      },
-      itemBuilder: (BuildContext context) => <PopupMenuEntry<_ToolbarAction>>[
-        if (onConfigureWebServices != null)
-          PopupMenuItem(
-            value: _ToolbarAction.webServices,
-            child: ListTile(
-              leading: const Icon(Icons.tune),
-              title: Text(l10n.webServiceUuids),
+      onPressed: () => shad
+          .showDropdown<void>(
+            context: context,
+            widthConstraint: shad.PopoverConstraint.flexible,
+            builder: (BuildContext context) => shad.DropdownMenu(
+              children: <shad.MenuItem>[
+                if (onConfigureWebServices != null)
+                  shad.MenuButton(
+                    leading: const Icon(Icons.tune),
+                    onPressed: (_) => _select(_ToolbarAction.webServices),
+                    child: Text(l10n.webServiceUuids),
+                  ),
+                if (onConfigureWebServices != null && includeAppearance)
+                  const shad.MenuDivider(),
+                if (includeAppearance) ...<shad.MenuItem>[
+                  shad.MenuButton(
+                    leading: Icon(_themeModeIcon(themeMode)),
+                    onPressed: (_) => _select(_ToolbarAction.systemTheme),
+                    child: Text(l10n.followSystem),
+                  ),
+                  shad.MenuButton(
+                    leading: const Icon(Icons.light_mode_outlined),
+                    onPressed: (_) => _select(_ToolbarAction.light),
+                    child: Text(l10n.lightMode),
+                  ),
+                  shad.MenuButton(
+                    leading: const Icon(Icons.dark_mode_outlined),
+                    onPressed: (_) => _select(_ToolbarAction.dark),
+                    child: Text(l10n.darkMode),
+                  ),
+                  const shad.MenuDivider(),
+                  shad.MenuButton(
+                    onPressed: (_) => _select(_ToolbarAction.systemLanguage),
+                    child: Text(l10n.followSystem),
+                  ),
+                  shad.MenuButton(
+                    onPressed: (_) => _select(_ToolbarAction.chinese),
+                    child: Text(l10n.chinese),
+                  ),
+                  shad.MenuButton(
+                    onPressed: (_) => _select(_ToolbarAction.english),
+                    child: Text(l10n.english),
+                  ),
+                ],
+              ],
             ),
-          ),
-        if (includeAppearance) ...<PopupMenuEntry<_ToolbarAction>>[
-          const PopupMenuDivider(),
-          PopupMenuItem(
-            value: _ToolbarAction.systemTheme,
-            child: ListTile(
-              leading: Icon(_themeModeIcon(themeMode)),
-              title: Text(l10n.followSystem),
-            ),
-          ),
-          PopupMenuItem(
-            value: _ToolbarAction.light,
-            child: ListTile(
-              leading: const Icon(Icons.light_mode_outlined),
-              title: Text(l10n.lightMode),
-            ),
-          ),
-          PopupMenuItem(
-            value: _ToolbarAction.dark,
-            child: ListTile(
-              leading: const Icon(Icons.dark_mode_outlined),
-              title: Text(l10n.darkMode),
-            ),
-          ),
-          const PopupMenuDivider(),
-          PopupMenuItem(
-            value: _ToolbarAction.systemLanguage,
-            child: Text(l10n.followSystem),
-          ),
-          PopupMenuItem(
-            value: _ToolbarAction.chinese,
-            child: Text(l10n.chinese),
-          ),
-          PopupMenuItem(
-            value: _ToolbarAction.english,
-            child: Text(l10n.english),
-          ),
-        ],
-      ],
+          )
+          .future,
     );
   }
 }
@@ -264,33 +244,84 @@ class _ModeRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NavigationRail(
-      selectedIndex: value.index,
-      labelType: NavigationRailLabelType.all,
-      minWidth: 76,
-      destinations: <NavigationRailDestination>[
-        NavigationRailDestination(
-          icon: Icon(Icons.terminal_outlined),
-          selectedIcon: Icon(Icons.terminal),
-          label: Text(l10n.debug),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.tune_outlined),
-          selectedIcon: Icon(Icons.tune),
-          label: Text(l10n.configure),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.history_outlined),
-          selectedIcon: Icon(Icons.history),
-          label: Text(l10n.records),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.settings_outlined),
-          selectedIcon: Icon(Icons.settings),
-          label: Text(l10n.settings),
-        ),
-      ],
-      onDestinationSelected: (int index) => onChanged(_AppMode.values[index]),
+    final List<
+      ({_AppMode mode, IconData icon, IconData selectedIcon, String label})
+    >
+    items =
+        <({_AppMode mode, IconData icon, IconData selectedIcon, String label})>[
+          (
+            mode: _AppMode.debug,
+            icon: Icons.terminal_outlined,
+            selectedIcon: Icons.terminal,
+            label: l10n.debug,
+          ),
+          (
+            mode: _AppMode.configure,
+            icon: Icons.tune_outlined,
+            selectedIcon: Icons.tune,
+            label: l10n.configure,
+          ),
+          (
+            mode: _AppMode.records,
+            icon: Icons.history_outlined,
+            selectedIcon: Icons.history,
+            label: l10n.records,
+          ),
+          (
+            mode: _AppMode.settings,
+            icon: Icons.settings_outlined,
+            selectedIcon: Icons.settings,
+            label: l10n.settings,
+          ),
+        ];
+    return SizedBox(
+      width: 76,
+      child: shad.NavigationRail(
+        key: const ValueKey<String>('app-mode-navigation'),
+        alignment: shad.NavigationRailAlignment.start,
+        expanded: true,
+        expandedSize: 76,
+        labelType: shad.NavigationLabelType.all,
+        labelPosition: shad.NavigationLabelPosition.bottom,
+        selectedKey: ValueKey<String>('app-mode-${value.name}'),
+        children: <Widget>[
+          for (final item in items)
+            shad.SelectedButton(
+              key: ValueKey<String>('app-mode-${item.mode.name}'),
+              value: value == item.mode,
+              style: const shad.ButtonStyle.ghost(
+                size: shad.ButtonSize.small,
+                density: shad.ButtonDensity.compact,
+              ),
+              selectedStyle: const shad.ButtonStyle.secondary(
+                size: shad.ButtonSize.small,
+                density: shad.ButtonDensity.compact,
+              ),
+              onChanged: (bool selected) {
+                if (selected) onChanged(item.mode);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(
+                      value == item.mode ? item.selectedIcon : item.icon,
+                      size: 20,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -349,56 +380,59 @@ class _SettingsWorkspace extends StatelessWidget {
                 _SettingsSection(
                   icon: Icons.contrast_outlined,
                   title: l10n.themeMode,
-                  child: SegmentedButton<ThemeMode>(
+                  child: KeyedSubtree(
                     key: const ValueKey<String>('theme-mode-selector'),
-                    showSelectedIcon: false,
-                    segments: <ButtonSegment<ThemeMode>>[
-                      ButtonSegment<ThemeMode>(
-                        value: ThemeMode.system,
-                        icon: const Icon(Icons.brightness_auto_outlined),
-                        label: Text(l10n.followSystem),
-                      ),
-                      ButtonSegment<ThemeMode>(
-                        value: ThemeMode.light,
-                        icon: const Icon(Icons.light_mode_outlined),
-                        label: Text(l10n.lightMode),
-                      ),
-                      ButtonSegment<ThemeMode>(
-                        value: ThemeMode.dark,
-                        icon: const Icon(Icons.dark_mode_outlined),
-                        label: Text(l10n.darkMode),
-                      ),
-                    ],
-                    selected: <ThemeMode>{themeMode},
-                    onSelectionChanged: (Set<ThemeMode> selected) =>
-                        onThemeModeChanged(selected.single),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        _ThemeModeButton(
+                          value: ThemeMode.system,
+                          currentValue: themeMode,
+                          icon: Icons.brightness_auto_outlined,
+                          label: l10n.followSystem,
+                          onChanged: onThemeModeChanged,
+                        ),
+                        _ThemeModeButton(
+                          value: ThemeMode.light,
+                          currentValue: themeMode,
+                          icon: Icons.light_mode_outlined,
+                          label: l10n.lightMode,
+                          onChanged: onThemeModeChanged,
+                        ),
+                        _ThemeModeButton(
+                          value: ThemeMode.dark,
+                          currentValue: themeMode,
+                          icon: Icons.dark_mode_outlined,
+                          label: l10n.darkMode,
+                          onChanged: onThemeModeChanged,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const Divider(height: 40),
                 _SettingsSection(
                   icon: Icons.language_outlined,
                   title: l10n.language,
-                  child: DropdownButtonFormField<_LanguagePreference>(
+                  child: ToolSelect<_LanguagePreference>(
                     key: const ValueKey<String>('language-selector'),
-                    initialValue: language,
-                    isExpanded: true,
-                    decoration: const InputDecoration(),
-                    items: <DropdownMenuItem<_LanguagePreference>>[
-                      DropdownMenuItem<_LanguagePreference>(
+                    value: language,
+                    options: <ToolSelectOption<_LanguagePreference>>[
+                      ToolSelectOption<_LanguagePreference>(
                         value: _LanguagePreference.system,
-                        child: Text(l10n.followSystem),
+                        label: l10n.followSystem,
                       ),
-                      DropdownMenuItem<_LanguagePreference>(
+                      ToolSelectOption<_LanguagePreference>(
                         value: _LanguagePreference.chinese,
-                        child: Text(l10n.chinese),
+                        label: l10n.chinese,
                       ),
-                      DropdownMenuItem<_LanguagePreference>(
+                      ToolSelectOption<_LanguagePreference>(
                         value: _LanguagePreference.english,
-                        child: Text(l10n.english),
+                        label: l10n.english,
                       ),
                     ],
-                    onChanged: (_LanguagePreference? value) {
-                      if (value == null) return;
+                    onChanged: (_LanguagePreference value) {
                       onLocaleChanged(switch (value) {
                         _LanguagePreference.system => null,
                         _LanguagePreference.chinese => const Locale('zh'),
@@ -412,6 +446,48 @@ class _SettingsWorkspace extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ThemeModeButton extends StatelessWidget {
+  const _ThemeModeButton({
+    required this.value,
+    required this.currentValue,
+    required this.icon,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final ThemeMode value;
+  final ThemeMode currentValue;
+  final IconData icon;
+  final String label;
+  final ValueChanged<ThemeMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return shad.SelectedButton(
+      value: currentValue == value,
+      style: const shad.ButtonStyle.outline(
+        size: shad.ButtonSize.small,
+        density: shad.ButtonDensity.dense,
+      ),
+      selectedStyle: const shad.ButtonStyle.secondary(
+        size: shad.ButtonSize.small,
+        density: shad.ButtonDensity.dense,
+      ),
+      onChanged: (bool selected) {
+        if (selected) onChanged(value);
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 16),
+          const SizedBox(width: 6),
+          Text(label),
+        ],
+      ),
     );
   }
 }
@@ -506,7 +582,7 @@ class _DebugWorkspace extends StatelessWidget {
                   Positioned(
                     top: 6,
                     right: 8,
-                    child: IconButton(
+                    child: ToolIconButton(
                       tooltip: inspectorOpen ? '收起上下文面板' : '展开上下文面板',
                       onPressed: () =>
                           onInspectorVisibilityChanged(!inspectorOpen),

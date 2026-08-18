@@ -62,33 +62,35 @@ class ToolSelect<T> extends StatelessWidget {
       ).call,
     );
 
-    return Semantics(
+    final Widget semantics = Semantics(
       button: true,
       label: label ?? selected.label,
       value: selected.label,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          if (label != null) ...<Widget>[
-            Text(label!, style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: 4),
-          ],
-          select,
-          if (errorText != null) ...<Widget>[
-            const SizedBox(height: 4),
-            Semantics(
-              liveRegion: true,
-              label: errorText,
-              child: Text(
-                errorText!,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: colors.error),
-              ),
-            ),
-          ],
+      child: select,
+    );
+    if (label == null && errorText == null) return semantics;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (label != null) ...<Widget>[
+          Text(label!, style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 4),
         ],
-      ),
+        semantics,
+        if (errorText != null) ...<Widget>[
+          const SizedBox(height: 4),
+          Semantics(
+            liveRegion: true,
+            label: errorText,
+            child: Text(
+              errorText!,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.error),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -7,8 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'app/design/tool_alert_dialog.dart';
+import 'app/design/tool_button.dart';
 import 'app/design/tool_select.dart';
 import 'app/design/tool_text_field.dart';
+import 'app/design/tool_toggle.dart';
 import 'l10n/app_localizations.dart';
 import 'models/workspace.dart';
 import 'models/command_definition.dart';
@@ -633,25 +635,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: l10n.webServiceUuids,
                 content: SizedBox(
                   width: 460,
-                  child: TextField(
+                  child: ToolTextField(
                     controller: controller,
+                    label: l10n.webServiceUuids,
+                    hintText: l10n.webServiceUuidsHint,
+                    errorText: validationError,
                     autofocus: true,
                     minLines: 4,
                     maxLines: 8,
-                    decoration: InputDecoration(
-                      labelText: l10n.webServiceUuids,
-                      hintText: l10n.webServiceUuidsHint,
-                      errorText: validationError,
-                      border: const OutlineInputBorder(),
-                    ),
                   ),
                 ),
                 actions: <Widget>[
-                  TextButton(
+                  ToolButton.ghost(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(l10n.cancel),
                   ),
-                  FilledButton(
+                  ToolButton.primary(
                     onPressed: () {
                       final List<String>? parsed = parseWebServiceUuids(
                         controller.text,
@@ -708,15 +707,11 @@ class _HomeScreenState extends State<HomeScreen> {
             title: l10n.deleteWorkspace,
             content: Text(l10n.deleteWorkspaceConfirm(workspace.name)),
             actions: <Widget>[
-              TextButton(
+              ToolButton.ghost(
                 onPressed: () => Navigator.of(context).pop(false),
                 child: Text(l10n.cancel),
               ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                  foregroundColor: Theme.of(context).colorScheme.onError,
-                ),
+              ToolButton.destructive(
                 onPressed: () => Navigator.of(context).pop(true),
                 child: Text(l10n.deleteWorkspace),
               ),
@@ -772,11 +767,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 '脚本可修改发送到真实设备的 BLE 数据。仅在已审查脚本内容并信任来源时启用。',
               ),
               actions: <Widget>[
-                TextButton(
+                ToolButton.ghost(
                   onPressed: () => Navigator.pop(context, false),
                   child: const Text('保持禁用'),
                 ),
-                FilledButton(
+                ToolButton.primary(
                   onPressed: () => Navigator.pop(context, true),
                   child: const Text('信任并启用'),
                 ),
@@ -902,7 +897,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             const Expanded(
                               child: Text('参数（在 HEX 中使用 {{key}}）'),
                             ),
-                            IconButton(
+                            ToolIconButton(
                               tooltip: '新增参数',
                               onPressed: () => setDialogState(
                                 () => parameters.add(_newCommandParameter()),
@@ -927,24 +922,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           maxLines: 3,
                           label: l10n.commandNotes,
                         ),
-                        SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
+                        ToolSwitchTile(
                           title: Text(l10n.commandEnabled),
                           value: enabled,
                           onChanged: (bool value) {
                             setDialogState(() => enabled = value);
                           },
                         ),
-                        SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
+                        ToolSwitchTile(
                           title: Text(l10n.quickAccess),
                           value: isQuickAccess,
                           onChanged: (bool value) {
                             setDialogState(() => isQuickAccess = value);
                           },
                         ),
-                        SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
+                        ToolSwitchTile(
                           title: const Text('发送前始终确认'),
                           value: requiresConfirmation,
                           onChanged: (bool value) {
@@ -956,11 +948,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 actions: <Widget>[
-                  TextButton(
+                  ToolButton.ghost(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(l10n.cancel),
                   ),
-                  FilledButton(
+                  ToolButton.primary(
                     onPressed: () {
                       final String name = nameController.text.trim();
                       final String payload = payloadController.text.trim();
@@ -1173,22 +1165,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        TextField(
+                        ToolTextField(
                           controller: nameController,
-                          decoration: InputDecoration(
-                            labelText: AppLocalizations.of(
-                              context,
-                            )!.responseName,
-                          ),
+                          label: AppLocalizations.of(context)!.responseName,
                         ),
                         const SizedBox(height: 12),
-                        TextField(
+                        ToolTextField(
                           controller: commandController,
-                          decoration: InputDecoration(
-                            labelText: AppLocalizations.of(
-                              context,
-                            )!.responseCommandHex,
-                          ),
+                          label: AppLocalizations.of(
+                            context,
+                          )!.responseCommandHex,
                         ),
                         const SizedBox(height: 12),
                         Row(
@@ -1200,7 +1186,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 )!.responseFieldsHint,
                               ),
                             ),
-                            IconButton(
+                            ToolIconButton(
                               tooltip: AppLocalizations.of(
                                 context,
                               )!.addDataField,
@@ -1219,8 +1205,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             onDelete: () =>
                                 setDialogState(() => fields.removeAt(index)),
                           ),
-                        SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
+                        ToolSwitchTile(
                           title: Text(
                             AppLocalizations.of(context)!.responseAsciiLog,
                           ),
@@ -1246,11 +1231,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 actions: <Widget>[
-                  TextButton(
+                  ToolButton.ghost(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(AppLocalizations.of(context)!.cancel),
                   ),
-                  FilledButton(
+                  ToolButton.primary(
                     onPressed: () {
                       final String commandHex = commandController.text
                           .replaceAll(RegExp(r'[^0-9a-fA-F]'), '');
@@ -1627,8 +1612,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 4),
                         for (final BluetoothCharacteristicInfo characteristic
                             in writable)
-                          CheckboxListTile(
-                            contentPadding: EdgeInsets.zero,
+                          ToolCheckboxTile(
                             title: Text(
                               characteristic.characteristicId,
                               softWrap: true,
@@ -1638,8 +1622,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: const TextStyle(fontFamily: 'monospace'),
                             ),
                             value: allowedKeys.contains(characteristic.key),
-                            onChanged: (bool? value) => setDialogState(() {
-                              if (value ?? false) {
+                            onChanged: (bool value) => setDialogState(() {
+                              if (value) {
                                 allowedKeys.add(characteristic.key);
                               } else {
                                 allowedKeys.remove(characteristic.key);
@@ -1647,14 +1631,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             }),
                           ),
                         const SizedBox(height: 8),
-                        TextFormField(
+                        ToolTextField(
                           controller: maxFrameController,
+                          label: '最终帧最大字节数',
+                          hintText: '留空表示不限制（全局上限 4096）',
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: '最终帧最大字节数',
-                            hintText: '留空表示不限制（全局上限 4096）',
-                            border: OutlineInputBorder(),
-                          ),
                           validator: (String? value) {
                             final String trimmed = value?.trim() ?? '';
                             if (trimmed.isEmpty) return null;
@@ -1668,8 +1649,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           },
                         ),
                         const SizedBox(height: 8),
-                        SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
+                        ToolSwitchTile(
                           title: const Text('只允许带响应写入'),
                           subtitle: const Text(
                             '仅支持 Write without response 的特征将被拒绝。',
@@ -1685,11 +1665,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               actions: <Widget>[
-                TextButton(
+                ToolButton.ghost(
                   onPressed: () => Navigator.pop(context),
                   child: const Text('取消'),
                 ),
-                FilledButton(
+                ToolButton.primary(
                   onPressed: () {
                     if (!formKey.currentState!.validate()) return;
                     final String limitText = maxFrameController.text.trim();
@@ -1943,11 +1923,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             actions: <Widget>[
-              TextButton(
+              ToolButton.ghost(
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text('取消'),
               ),
-              FilledButton(
+              ToolButton.primary(
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text('确认发送'),
               ),
@@ -2132,11 +2112,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: <Widget>[
-          TextButton(
+          ToolButton.ghost(
             onPressed: () => Navigator.pop(context),
             child: const Text('关闭'),
           ),
-          FilledButton.icon(
+          ToolButton.primary(
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: jsonText));
               if (context.mounted) {
@@ -2145,8 +2125,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ).showSnackBar(const SnackBar(content: Text('工作区 JSON 已复制。')));
               }
             },
-            icon: const Icon(Icons.copy_outlined),
-            label: const Text('复制 JSON'),
+            leading: const Icon(Icons.copy_outlined),
+            child: const Text('复制 JSON'),
           ),
         ],
       ),
@@ -2176,41 +2156,36 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    TextField(
+                    ToolTextField(
                       controller: controller,
+                      label: '工作区 JSON',
                       minLines: 8,
                       maxLines: 16,
                       onChanged: (_) => setDialogState(() {
                         preview = null;
                         validationError = null;
                       }),
-                      decoration: const InputDecoration(
-                        labelText: '工作区 JSON',
-                        alignLabelWithHint: true,
-                        border: OutlineInputBorder(),
-                      ),
                       style: const TextStyle(fontFamily: 'monospace'),
                     ),
                     const SizedBox(height: 14),
                     Text('导入方式', style: Theme.of(context).textTheme.labelLarge),
                     const SizedBox(height: 6),
-                    SegmentedButton<WorkspaceImportMode>(
-                      segments: const <ButtonSegment<WorkspaceImportMode>>[
-                        ButtonSegment<WorkspaceImportMode>(
+                    ToolSegmentedControl<WorkspaceImportMode>(
+                      options: const <ToolSegmentOption<WorkspaceImportMode>>[
+                        ToolSegmentOption<WorkspaceImportMode>(
                           value: WorkspaceImportMode.replace,
                           icon: Icon(Icons.sync_disabled_outlined),
-                          label: Text('完整替换'),
+                          label: '完整替换',
                         ),
-                        ButtonSegment<WorkspaceImportMode>(
+                        ToolSegmentOption<WorkspaceImportMode>(
                           value: WorkspaceImportMode.merge,
                           icon: Icon(Icons.merge_type_outlined),
-                          label: Text('合并导入'),
+                          label: '合并导入',
                         ),
                       ],
-                      selected: <WorkspaceImportMode>{mode},
-                      onSelectionChanged: (Set<WorkspaceImportMode> value) {
-                        setDialogState(() => mode = value.first);
-                      },
+                      value: mode,
+                      onChanged: (WorkspaceImportMode value) =>
+                          setDialogState(() => mode = value),
                     ),
                     if (validationError != null) ...<Widget>[
                       const SizedBox(height: 12),
@@ -2254,28 +2229,26 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
                         const SizedBox(height: 6),
-                        SegmentedButton<WorkspaceConflictPolicy>(
-                          segments:
-                              const <ButtonSegment<WorkspaceConflictPolicy>>[
-                                ButtonSegment<WorkspaceConflictPolicy>(
+                        ToolSegmentedControl<WorkspaceConflictPolicy>(
+                          options:
+                              const <
+                                ToolSegmentOption<WorkspaceConflictPolicy>
+                              >[
+                                ToolSegmentOption<WorkspaceConflictPolicy>(
                                   value:
                                       WorkspaceConflictPolicy.replaceExisting,
                                   icon: Icon(Icons.sync_outlined),
-                                  label: Text('覆盖当前'),
+                                  label: '覆盖当前',
                                 ),
-                                ButtonSegment<WorkspaceConflictPolicy>(
+                                ToolSegmentOption<WorkspaceConflictPolicy>(
                                   value: WorkspaceConflictPolicy.keepExisting,
                                   icon: Icon(Icons.shield_outlined),
-                                  label: Text('保留当前'),
+                                  label: '保留当前',
                                 ),
                               ],
-                          selected: <WorkspaceConflictPolicy>{conflictPolicy},
-                          onSelectionChanged:
-                              (Set<WorkspaceConflictPolicy> value) {
-                                setDialogState(
-                                  () => conflictPolicy = value.first,
-                                );
-                              },
+                          value: conflictPolicy,
+                          onChanged: (WorkspaceConflictPolicy value) =>
+                              setDialogState(() => conflictPolicy = value),
                         ),
                       ],
                       const SizedBox(height: 8),
@@ -2294,11 +2267,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           actions: <Widget>[
-            TextButton(
+            ToolButton.ghost(
               onPressed: () => Navigator.pop(context),
               child: const Text('取消'),
             ),
-            OutlinedButton(
+            ToolButton.outline(
               onPressed: controller.text.trim().isEmpty
                   ? null
                   : () {
@@ -2318,7 +2291,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
               child: const Text('检查导入'),
             ),
-            FilledButton(
+            ToolButton.primary(
               onPressed: preview == null
                   ? null
                   : () => Navigator.pop(
@@ -2392,7 +2365,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: <Widget>[
-          TextButton(
+          ToolButton.ghost(
             onPressed: () => Navigator.pop(context),
             child: const Text('关闭'),
           ),
@@ -2420,7 +2393,7 @@ class _HomeScreenState extends State<HomeScreen> {
           appBar: AppBar(
             toolbarHeight: 56,
             titleSpacing: 12,
-            title: _AppIdentity(workspace: workspace),
+            title: const _AppIdentity(),
             bottom: const PreferredSize(
               preferredSize: Size.fromHeight(1),
               child: Divider(height: 1),
@@ -2637,98 +2610,106 @@ class _WorkspaceSelector extends StatelessWidget {
   final VoidCallback onImport;
   final AppLocalizations l10n;
 
+  static const double _toolbarControlHeight = 36;
+
+  void _showWorkspaceMenu(BuildContext context) {
+    shad
+        .showDropdown<void>(
+          context: context,
+          widthConstraint: shad.PopoverConstraint.flexible,
+          showDuration: Duration.zero,
+          dismissDuration: Duration.zero,
+          builder: (BuildContext context) => shad.DropdownMenu(
+            children: <shad.MenuItem>[
+              shad.MenuLabel(
+                leading: const Icon(Icons.folder_outlined, size: 18),
+                child: Text(l10n.selectWorkspace),
+              ),
+              const shad.MenuDivider(),
+              shad.MenuRadioGroup<String>(
+                value: workspace.id,
+                onChanged: (BuildContext context, String workspaceId) =>
+                    onSelected(workspaceId),
+                children: workspaces
+                    .map(
+                      (Workspace item) => shad.MenuRadio<String>(
+                        value: item.id,
+                        child: Text(
+                          item.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+              const shad.MenuDivider(),
+              shad.MenuButton(
+                leading: const Icon(Icons.create_new_folder_outlined),
+                onPressed: (_) => onNew(),
+                child: Text(l10n.newWorkspace),
+              ),
+              shad.MenuButton(
+                leading: const Icon(Icons.delete_outline),
+                enabled: workspaces.length > 1,
+                onPressed: (_) => onDelete(),
+                child: Text(l10n.deleteWorkspace),
+              ),
+              const shad.MenuDivider(),
+              shad.MenuButton(
+                leading: const Icon(Icons.download_outlined),
+                onPressed: (_) => onImport(),
+                child: Text(l10n.importWorkspace),
+              ),
+              shad.MenuButton(
+                leading: const Icon(Icons.upload_file_outlined),
+                onPressed: (_) => onExport(),
+                child: Text(l10n.exportWorkspace),
+              ),
+            ],
+          ),
+        )
+        .future;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<Object>(
-      tooltip: l10n.selectWorkspace,
-      onSelected: (Object value) {
-        if (value is String) {
-          onSelected(value);
-          return;
-        }
-        switch (value) {
-          case _WorkspaceMenuAction.newWorkspace:
-            onNew();
-          case _WorkspaceMenuAction.deleteWorkspace:
-            onDelete();
-          case _WorkspaceMenuAction.exportWorkspaces:
-            onExport();
-          case _WorkspaceMenuAction.importWorkspaces:
-            onImport();
-        }
-      },
-      itemBuilder: (_) => <PopupMenuEntry<Object>>[
-        ...workspaces.map(
-          (Workspace item) => CheckedPopupMenuItem<Object>(
-            value: item.id,
-            checked: item.id == workspace.id,
-            child: Text(item.name),
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem<Object>(
-          value: _WorkspaceMenuAction.newWorkspace,
-          child: ListTile(
-            leading: const Icon(Icons.create_new_folder_outlined),
-            title: Text(l10n.newWorkspace),
-          ),
-        ),
-        PopupMenuItem<Object>(
-          value: _WorkspaceMenuAction.deleteWorkspace,
-          enabled: workspaces.length > 1,
-          child: ListTile(
-            leading: const Icon(Icons.delete_outline),
-            title: Text(l10n.deleteWorkspace),
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem<Object>(
-          value: _WorkspaceMenuAction.importWorkspaces,
-          child: ListTile(
-            leading: const Icon(Icons.download_outlined),
-            title: Text(l10n.importWorkspace),
-          ),
-        ),
-        PopupMenuItem<Object>(
-          value: _WorkspaceMenuAction.exportWorkspaces,
-          child: ListTile(
-            leading: const Icon(Icons.upload_file_outlined),
-            title: Text(l10n.exportWorkspace),
-          ),
-        ),
-      ],
+    final Widget trigger = SizedBox(
+      height: _toolbarControlHeight,
       child: compact
-          ? const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Icon(Icons.folder_outlined),
+          ? shad.IconButton.ghost(
+              key: const ValueKey<String>('workspace-selector'),
+              icon: const Icon(Icons.folder_outlined),
+              size: shad.ButtonSize.small,
+              onPressed: () => _showWorkspaceMenu(context),
             )
           : SizedBox(
-              width: 180,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        workspace.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const Icon(Icons.expand_more, size: 18),
-                  ],
+              width: 190,
+              child: shad.Button(
+                key: const ValueKey<String>('workspace-selector'),
+                style: const shad.ButtonStyle.outline(
+                  size: shad.ButtonSize.small,
+                  density: shad.ButtonDensity.dense,
+                ),
+                leading: const Icon(Icons.folder_outlined, size: 18),
+                trailing: const Icon(Icons.expand_more, size: 18),
+                alignment: Alignment.centerLeft,
+                onPressed: () => _showWorkspaceMenu(context),
+                child: Text(
+                  workspace.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
     );
+    return Semantics(
+      button: true,
+      label: l10n.selectWorkspace,
+      value: workspace.name,
+      child: Tooltip(message: l10n.selectWorkspace, child: trigger),
+    );
   }
-}
-
-enum _WorkspaceMenuAction {
-  newWorkspace,
-  deleteWorkspace,
-  exportWorkspaces,
-  importWorkspaces,
 }
 
 class _ScanButton extends StatelessWidget {
@@ -2745,20 +2726,28 @@ class _ScanButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String label = scanning ? l10n.stopScan : l10n.startScan;
-    return shad.Button(
-      key: const ValueKey<String>('scan-button'),
-      style: scanning
-          ? const shad.ButtonStyle.outline(
-              size: shad.ButtonSize.small,
-              density: shad.ButtonDensity.dense,
-            )
-          : const shad.ButtonStyle.primary(
-              size: shad.ButtonSize.small,
-              density: shad.ButtonDensity.dense,
-            ),
-      onPressed: onPressed,
-      leading: Icon(scanning ? Icons.stop_circle_outlined : Icons.radar),
-      child: Text(label),
+    return SizedBox(
+      width: 108,
+      height: _WorkspaceSelector._toolbarControlHeight,
+      child: shad.Button(
+        key: const ValueKey<String>('scan-button'),
+        style: scanning
+            ? const shad.ButtonStyle.outline(
+                size: shad.ButtonSize.small,
+                density: shad.ButtonDensity.dense,
+              )
+            : const shad.ButtonStyle.primary(
+                size: shad.ButtonSize.small,
+                density: shad.ButtonDensity.dense,
+              ),
+        onPressed: onPressed,
+        alignment: Alignment.center,
+        leading: Icon(
+          scanning ? Icons.stop_circle_outlined : Icons.radar,
+          size: 18,
+        ),
+        child: Text(label),
+      ),
     );
   }
 }
@@ -2796,52 +2785,81 @@ class _ConnectionSelector extends StatelessWidget {
       children: <Widget>[
         Semantics(
           label: l10n.connection,
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
+          child: SizedBox(
+            width: 174,
+            child: shad.Select<String>(
+              key: const ValueKey<String>('bluetooth-device-selector'),
               value: device?.id,
-              hint: Text(l10n.noDevice),
-              items: devices
-                  .map(
-                    (item) => DropdownMenuItem(
-                      value: item.id,
-                      child: SizedBox(
-                        width: 150,
-                        child: Text(item.name, overflow: TextOverflow.ellipsis),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: onSelected,
+              enabled: devices.isNotEmpty,
+              placeholder: Text(l10n.noDevice),
+              constraints: const BoxConstraints.tightFor(
+                height: _WorkspaceSelector._toolbarControlHeight,
+              ),
+              popupConstraints: const BoxConstraints(maxHeight: 280),
+              popoverAlignment: Alignment.bottomCenter,
+              popoverAnchorAlignment: Alignment.topCenter,
+              itemBuilder: (BuildContext context, String deviceId) {
+                final BluetoothDeviceInfo item = devices.firstWhere(
+                  (BluetoothDeviceInfo item) => item.id == deviceId,
+                );
+                return Text(
+                  item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                );
+              },
+              onChanged: devices.isEmpty ? null : onSelected,
+              popup: shad.SelectPopup<String>(
+                items: shad.SelectItemList(
+                  children: devices
+                      .map(
+                        (BluetoothDeviceInfo item) =>
+                            shad.SelectItemButton<String>(
+                              value: item.id,
+                              child: Text(
+                                item.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                      )
+                      .toList(growable: false),
+                ),
+              ).call,
             ),
           ),
         ),
         const SizedBox(width: 8),
         Tooltip(
           message: actionLabel,
-          child: shad.Button(
-            key: const ValueKey<String>('connection-action-button'),
-            style: connected
-                ? const shad.ButtonStyle.secondary(
-                    size: shad.ButtonSize.small,
-                    density: shad.ButtonDensity.dense,
-                  )
-                : const shad.ButtonStyle.primary(
-                    size: shad.ButtonSize.small,
-                    density: shad.ButtonDensity.dense,
-                  ),
-            onPressed: device == null || connecting ? null : onToggleConnection,
-            leading: connecting
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(
-                    connected
-                        ? Icons.link_off_outlined
-                        : Icons.bluetooth_connected_outlined,
-                  ),
-            child: Text(actionLabel),
+          child: SizedBox(
+            width: 160,
+            height: _WorkspaceSelector._toolbarControlHeight,
+            child: shad.Button(
+              key: const ValueKey<String>('connection-action-button'),
+              style: connected
+                  ? const shad.ButtonStyle.secondary(
+                      size: shad.ButtonSize.small,
+                      density: shad.ButtonDensity.dense,
+                    )
+                  : const shad.ButtonStyle.primary(
+                      size: shad.ButtonSize.small,
+                      density: shad.ButtonDensity.dense,
+                    ),
+              onPressed: device == null || connecting
+                  ? null
+                  : onToggleConnection,
+              alignment: Alignment.center,
+              leading: connecting
+                  ? const ToolLoadingIcon()
+                  : Icon(
+                      connected
+                          ? Icons.link_off_outlined
+                          : Icons.bluetooth_connected_outlined,
+                      size: 18,
+                    ),
+              child: Text(actionLabel),
+            ),
           ),
         ),
       ],
@@ -2954,11 +2972,11 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                TextFormField(
+                ToolTextField(
                   key: const ValueKey<String>('workspace-name-field'),
                   controller: _nameController,
+                  label: widget.l10n.workspace,
                   textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(labelText: widget.l10n.workspace),
                   validator: (String? value) {
                     if (value == null || value.trim().isEmpty) {
                       return widget.l10n.requiredField(widget.l10n.workspace);
@@ -2967,30 +2985,26 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
                   },
                 ),
                 const SizedBox(height: 14),
-                TextFormField(
+                ToolTextField(
                   key: const ValueKey<String>('workspace-device-model-field'),
                   controller: _deviceModelController,
+                  label: widget.l10n.deviceModel,
                   textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: widget.l10n.deviceModel,
-                  ),
                 ),
                 const SizedBox(height: 14),
-                TextFormField(
+                ToolTextField(
                   key: const ValueKey<String>('workspace-description-field'),
                   controller: _descriptionController,
+                  label: widget.l10n.description,
                   minLines: 3,
                   maxLines: 5,
-                  decoration: InputDecoration(
-                    labelText: widget.l10n.description,
-                  ),
                 ),
                 const SizedBox(height: 14),
-                TextFormField(
+                ToolTextField(
                   key: const ValueKey<String>('workspace-tags-field'),
                   controller: _tagsController,
+                  label: widget.l10n.tags,
                   textInputAction: TextInputAction.done,
-                  decoration: InputDecoration(labelText: widget.l10n.tags),
                 ),
                 const SizedBox(height: 20),
                 Row(
@@ -3014,10 +3028,10 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
                 const SizedBox(height: 24),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
+                  child: ToolButton.primary(
                     onPressed: _save,
-                    icon: const Icon(Icons.save_outlined),
-                    label: Text(widget.l10n.save),
+                    leading: const Icon(Icons.save_outlined),
+                    child: Text(widget.l10n.save),
                   ),
                 ),
               ],
@@ -3160,35 +3174,34 @@ class _ProtocolConfigurationPanelState
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 12),
-        TextField(
+        ToolTextField(
           controller: _protocolNameController,
+          label: l10n.protocolName,
           onChanged: (_) => _updateProtocol(),
-          decoration: InputDecoration(labelText: l10n.protocolName),
         ),
-        TextField(
+        ToolTextField(
           controller: _descriptionController,
+          label: l10n.description,
           onChanged: (_) => _updateProtocol(),
           minLines: 1,
           maxLines: 3,
-          decoration: InputDecoration(labelText: l10n.description),
         ),
         const SizedBox(height: 14),
-        SegmentedButton<_ProtocolMode>(
-          segments: <ButtonSegment<_ProtocolMode>>[
-            ButtonSegment(
+        ToolSegmentedControl<_ProtocolMode>(
+          options: <ToolSegmentOption<_ProtocolMode>>[
+            ToolSegmentOption(
               value: _ProtocolMode.standard,
               icon: const Icon(Icons.account_tree_outlined),
-              label: Text(l10n.standardProtocol),
+              label: l10n.standardProtocol,
             ),
-            ButtonSegment(
+            ToolSegmentOption(
               value: _ProtocolMode.script,
               icon: const Icon(Icons.code_outlined),
-              label: Text(l10n.scriptProtocolMode),
+              label: l10n.scriptProtocolMode,
             ),
           ],
-          selected: <_ProtocolMode>{_mode},
-          onSelectionChanged: (Set<_ProtocolMode> value) {
-            final _ProtocolMode mode = value.first;
+          value: _mode,
+          onChanged: (_ProtocolMode mode) {
             setState(() => _mode = mode);
             _updateScript(
               enabled: mode == _ProtocolMode.script && widget.runtimeAvailable,
@@ -3328,37 +3341,31 @@ class _ScriptProtocolEditor extends StatelessWidget {
         const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerRight,
-          child: OutlinedButton.icon(
+          child: ToolButton.outline(
             onPressed: () {
               beforeSendController.text = _defaultBeforeSendScript;
               afterReceiveController.text = _defaultAfterReceiveScript;
               onChanged();
             },
-            icon: const Icon(Icons.auto_fix_high_outlined),
-            label: Text(l10n.loadProtocolSample),
+            leading: const Icon(Icons.auto_fix_high_outlined),
+            child: Text(l10n.loadProtocolSample),
           ),
         ),
-        TextField(
+        ToolTextField(
           controller: beforeSendController,
+          label: l10n.beforeSendScript,
           minLines: 16,
           maxLines: 28,
           onChanged: (_) => onChanged(),
-          decoration: InputDecoration(
-            labelText: l10n.beforeSendScript,
-            border: const OutlineInputBorder(),
-          ),
           style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
         ),
         const SizedBox(height: 14),
-        TextField(
+        ToolTextField(
           controller: afterReceiveController,
+          label: l10n.afterReceiveScript,
           minLines: 16,
           maxLines: 28,
           onChanged: (_) => onChanged(),
-          decoration: InputDecoration(
-            labelText: l10n.afterReceiveScript,
-            border: const OutlineInputBorder(),
-          ),
           style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
         ),
       ],
@@ -3481,24 +3488,28 @@ class _InlineProtocolSegmentSection extends StatelessWidget {
             Expanded(
               child: Text(title, style: Theme.of(context).textTheme.titleSmall),
             ),
-            PopupMenuButton<ProtocolSegmentType>(
+            ToolIconButton(
               tooltip: l10n.newProtocolSegment,
               icon: const Icon(Icons.add, size: 18),
-              onSelected: (ProtocolSegmentType type) {
-                onChanged(<ProtocolSegment>[
-                  ...segments,
-                  _newProtocolSegment(type),
-                ]);
-              },
-              itemBuilder: (BuildContext context) => ProtocolSegmentType.values
-                  .map(
-                    (ProtocolSegmentType type) =>
-                        PopupMenuItem<ProtocolSegmentType>(
-                          value: type,
-                          child: Text(_segmentTypeLabel(type, l10n)),
-                        ),
+              onPressed: () => shad
+                  .showDropdown<void>(
+                    context: context,
+                    widthConstraint: shad.PopoverConstraint.flexible,
+                    builder: (BuildContext context) => shad.DropdownMenu(
+                      children: ProtocolSegmentType.values
+                          .map(
+                            (ProtocolSegmentType type) => shad.MenuButton(
+                              onPressed: (_) => onChanged(<ProtocolSegment>[
+                                ...segments,
+                                _newProtocolSegment(type),
+                              ]),
+                              child: Text(_segmentTypeLabel(type, l10n)),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
                   )
-                  .toList(growable: false),
+                  .future,
             ),
           ],
         ),
@@ -3586,162 +3597,124 @@ class _InlineProtocolSegmentTile extends StatelessWidget {
               children: <Widget>[
                 Text(_segmentTypeLabel(segment.type, l10n)),
                 const SizedBox(height: 6),
-                TextFormField(
+                ToolTextField(
                   initialValue: segment.label,
+                  label: l10n.segmentLabel,
                   onChanged: (String value) =>
                       onChanged(segment.copyWith(label: value)),
-                  decoration: InputDecoration(
-                    labelText: l10n.segmentLabel,
-                    isDense: true,
-                  ),
                 ),
                 if (segment.type == ProtocolSegmentType.fixedHex)
-                  TextFormField(
+                  ToolTextField(
                     initialValue: segment.fixedHex,
+                    label: l10n.fixedHexSegment,
                     onChanged: (String value) =>
                         onChanged(segment.copyWith(fixedHex: value)),
-                    decoration: InputDecoration(
-                      labelText: l10n.fixedHexSegment,
-                      isDense: true,
-                    ),
                   ),
                 if (segment.type == ProtocolSegmentType.length ||
                     segment.type == ProtocolSegmentType.sequence)
                   Row(
                     children: <Widget>[
                       Expanded(
-                        child: TextFormField(
+                        child: ToolTextField(
                           initialValue: '${segment.byteLength ?? 1}',
+                          label: l10n.fieldByteLength,
                           keyboardType: TextInputType.number,
                           onChanged: (String value) => onChanged(
                             segment.copyWith(
                               byteLength: int.tryParse(value) ?? 1,
                             ),
                           ),
-                          decoration: InputDecoration(
-                            labelText: l10n.fieldByteLength,
-                            isDense: true,
-                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: DropdownButtonFormField<ProtocolByteOrder>(
-                          initialValue:
+                        child: ToolSelect<ProtocolByteOrder>(
+                          value:
                               segment.byteOrder ??
                               ProtocolByteOrder.littleEndian,
-                          isDense: true,
-                          decoration: InputDecoration(
-                            labelText: l10n.byteOrder,
-                            isDense: true,
-                          ),
-                          items: ProtocolByteOrder.values
+                          label: l10n.byteOrder,
+                          options: ProtocolByteOrder.values
                               .map(
                                 (ProtocolByteOrder item) =>
-                                    DropdownMenuItem<ProtocolByteOrder>(
+                                    ToolSelectOption<ProtocolByteOrder>(
                                       value: item,
-                                      child: Text(_byteOrderLabel(item, l10n)),
+                                      label: _byteOrderLabel(item, l10n),
                                     ),
                               )
                               .toList(growable: false),
-                          onChanged: (ProtocolByteOrder? value) {
-                            if (value != null) {
-                              onChanged(segment.copyWith(byteOrder: value));
-                            }
-                          },
+                          onChanged: (ProtocolByteOrder value) =>
+                              onChanged(segment.copyWith(byteOrder: value)),
                         ),
                       ),
                     ],
                   ),
                 if (segment.type == ProtocolSegmentType.length ||
                     segment.type == ProtocolSegmentType.checksum)
-                  DropdownButtonFormField<ProtocolCalculationRange>(
-                    initialValue:
+                  ToolSelect<ProtocolCalculationRange>(
+                    value:
                         segment.calculationRange ??
                         ProtocolCalculationRange.payloadOnly,
-                    isDense: true,
-                    decoration: InputDecoration(
-                      labelText: l10n.calculationRange,
-                      isDense: true,
-                    ),
-                    items: ProtocolCalculationRange.values
+                    label: l10n.calculationRange,
+                    options: ProtocolCalculationRange.values
                         .map(
                           (ProtocolCalculationRange item) =>
-                              DropdownMenuItem<ProtocolCalculationRange>(
+                              ToolSelectOption<ProtocolCalculationRange>(
                                 value: item,
-                                child: Text(_calculationRangeLabel(item, l10n)),
+                                label: _calculationRangeLabel(item, l10n),
                               ),
                         )
                         .toList(growable: false),
-                    onChanged: (ProtocolCalculationRange? value) {
-                      if (value != null) {
-                        onChanged(segment.copyWith(calculationRange: value));
-                      }
-                    },
+                    onChanged: (ProtocolCalculationRange value) =>
+                        onChanged(segment.copyWith(calculationRange: value)),
                   ),
                 if (segment.type == ProtocolSegmentType.checksum) ...<Widget>[
-                  DropdownButtonFormField<ProtocolChecksumAlgorithm>(
-                    initialValue:
+                  ToolSelect<ProtocolChecksumAlgorithm>(
+                    value:
                         segment.checksumAlgorithm ??
                         ProtocolChecksumAlgorithm.crc16Modbus,
-                    isDense: true,
-                    decoration: InputDecoration(
-                      labelText: l10n.checksumAlgorithm,
-                      isDense: true,
-                    ),
-                    items: ProtocolChecksumAlgorithm.values
+                    label: l10n.checksumAlgorithm,
+                    options: ProtocolChecksumAlgorithm.values
                         .map(
                           (ProtocolChecksumAlgorithm item) =>
-                              DropdownMenuItem<ProtocolChecksumAlgorithm>(
+                              ToolSelectOption<ProtocolChecksumAlgorithm>(
                                 value: item,
-                                child: Text(_checksumLabel(item, l10n)),
+                                label: _checksumLabel(item, l10n),
                               ),
                         )
                         .toList(growable: false),
-                    onChanged: (ProtocolChecksumAlgorithm? value) {
-                      if (value != null) {
-                        onChanged(segment.copyWith(checksumAlgorithm: value));
-                      }
-                    },
+                    onChanged: (ProtocolChecksumAlgorithm value) =>
+                        onChanged(segment.copyWith(checksumAlgorithm: value)),
                   ),
-                  DropdownButtonFormField<ProtocolByteOrder>(
-                    initialValue:
-                        segment.byteOrder ?? ProtocolByteOrder.littleEndian,
-                    isDense: true,
-                    decoration: InputDecoration(
-                      labelText: l10n.byteOrder,
-                      isDense: true,
-                    ),
-                    items: ProtocolByteOrder.values
+                  ToolSelect<ProtocolByteOrder>(
+                    value: segment.byteOrder ?? ProtocolByteOrder.littleEndian,
+                    label: l10n.byteOrder,
+                    options: ProtocolByteOrder.values
                         .map(
                           (ProtocolByteOrder item) =>
-                              DropdownMenuItem<ProtocolByteOrder>(
+                              ToolSelectOption<ProtocolByteOrder>(
                                 value: item,
-                                child: Text(_byteOrderLabel(item, l10n)),
+                                label: _byteOrderLabel(item, l10n),
                               ),
                         )
                         .toList(growable: false),
-                    onChanged: (ProtocolByteOrder? value) {
-                      if (value != null) {
-                        onChanged(segment.copyWith(byteOrder: value));
-                      }
-                    },
+                    onChanged: (ProtocolByteOrder value) =>
+                        onChanged(segment.copyWith(byteOrder: value)),
                   ),
                 ],
               ],
             ),
           ),
-          IconButton(
+          ToolIconButton(
             tooltip: l10n.moveUp,
             onPressed: canMoveUp ? onMoveUp : null,
             icon: const Icon(Icons.arrow_upward, size: 18),
           ),
-          IconButton(
+          ToolIconButton(
             tooltip: l10n.moveDown,
             onPressed: canMoveDown ? onMoveDown : null,
             icon: const Icon(Icons.arrow_downward, size: 18),
           ),
-          IconButton(
+          ToolIconButton(
             tooltip: l10n.deleteProtocolSegment,
             onPressed: onDelete,
             icon: const Icon(Icons.delete_outline, size: 18),
@@ -3860,7 +3833,7 @@ class _CommandLibraryPanel extends StatelessWidget {
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
-            IconButton(
+            ToolIconButton(
               tooltip: l10n.newCommand,
               onPressed: onNewCommand,
               icon: const Icon(Icons.add, size: 19),
@@ -3868,8 +3841,7 @@ class _CommandLibraryPanel extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        SwitchListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+        ToolSwitchTile(
           title: const Text('仅允许已选指令发送'),
           subtitle: Text(
             whitelistEnabled
@@ -3955,8 +3927,7 @@ class _CommandLibraryPanel extends StatelessWidget {
                         child: ListView(
                           children: <Widget>[
                             for (final CommandDefinition command in commands)
-                              CheckboxListTile(
-                                contentPadding: EdgeInsets.zero,
+                              ToolCheckboxTile(
                                 title: Text(command.name),
                                 subtitle: Text(
                                   command.group.isEmpty
@@ -3966,8 +3937,8 @@ class _CommandLibraryPanel extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 value: selectedIds.contains(command.id),
-                                onChanged: (bool? value) => setDialogState(() {
-                                  if (value ?? false) {
+                                onChanged: (bool value) => setDialogState(() {
+                                  if (value) {
                                     selectedIds.add(command.id);
                                   } else {
                                     selectedIds.remove(command.id);
@@ -3982,11 +3953,11 @@ class _CommandLibraryPanel extends StatelessWidget {
                 ),
               ),
               actions: <Widget>[
-                TextButton(
+                ToolButton.ghost(
                   onPressed: () => Navigator.pop(context),
                   child: const Text('取消'),
                 ),
-                FilledButton(
+                ToolButton.primary(
                   onPressed: selectedIds.isEmpty
                       ? null
                       : () => Navigator.pop(
@@ -4062,24 +4033,26 @@ class _CommandLibraryTile extends StatelessWidget {
           ),
           Tooltip(
             message: l10n.commandEnabled,
-            child: Switch.adaptive(
+            child: ToolSwitch(
               value: command.enabled,
               onChanged: onEnabledChanged,
+              label: l10n.commandEnabled,
             ),
           ),
           Tooltip(
             message: l10n.quickAccess,
-            child: Checkbox(
+            child: ToolCheckbox(
               value: command.isQuickAccess,
-              onChanged: (bool? value) => onQuickAccessChanged(value ?? false),
+              onChanged: onQuickAccessChanged,
+              label: l10n.quickAccess,
             ),
           ),
-          IconButton(
+          ToolIconButton(
             tooltip: l10n.editCommand,
             onPressed: onEdit,
             icon: const Icon(Icons.edit_outlined, size: 18),
           ),
-          IconButton(
+          ToolIconButton(
             tooltip: l10n.deleteCommand,
             onPressed: onDelete,
             icon: const Icon(Icons.delete_outline, size: 18),
@@ -4119,7 +4092,7 @@ class _DataMappingLibraryPanel extends StatelessWidget {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
-          IconButton(
+          ToolIconButton(
             tooltip: l10n.addResponseMapping,
             onPressed: onNew,
             icon: const Icon(Icons.add, size: 19),
@@ -4168,12 +4141,12 @@ class _DataMappingLibraryPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-                IconButton(
+                ToolIconButton(
                   tooltip: l10n.editResponseMapping,
                   onPressed: () => onEdit(mapping),
                   icon: const Icon(Icons.edit_outlined, size: 18),
                 ),
-                IconButton(
+                ToolIconButton(
                   tooltip: l10n.deleteResponseMapping,
                   onPressed: () => onDelete(mapping),
                   icon: const Icon(Icons.delete_outline, size: 18),
@@ -4207,29 +4180,23 @@ class _CommandParameterEditor extends StatelessWidget {
         Row(
           children: <Widget>[
             Expanded(
-              child: TextFormField(
+              child: ToolTextField(
                 initialValue: parameter.key,
-                decoration: const InputDecoration(
-                  labelText: 'key',
-                  isDense: true,
-                ),
+                label: 'key',
                 onChanged: (String value) =>
                     onChanged(parameter.copyWith(key: value.trim())),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: TextFormField(
+              child: ToolTextField(
                 initialValue: parameter.label,
-                decoration: const InputDecoration(
-                  labelText: '名称',
-                  isDense: true,
-                ),
+                label: '名称',
                 onChanged: (String value) =>
                     onChanged(parameter.copyWith(label: value)),
               ),
             ),
-            IconButton(
+            ToolIconButton(
               tooltip: '删除参数',
               onPressed: onDelete,
               icon: const Icon(Icons.delete_outline, size: 18),
@@ -4240,33 +4207,27 @@ class _CommandParameterEditor extends StatelessWidget {
         Row(
           children: <Widget>[
             Expanded(
-              child: DropdownButtonFormField<CommandParameterType>(
-                initialValue: parameter.type,
-                decoration: const InputDecoration(
-                  labelText: '类型',
-                  isDense: true,
-                ),
-                items: CommandParameterType.values
+              child: ToolSelect<CommandParameterType>(
+                value: parameter.type,
+                label: '类型',
+                options: CommandParameterType.values
                     .map(
-                      (CommandParameterType item) => DropdownMenuItem(
-                        value: item,
-                        child: Text(_commandParameterTypeLabel(item)),
-                      ),
+                      (CommandParameterType item) =>
+                          ToolSelectOption<CommandParameterType>(
+                            value: item,
+                            label: _commandParameterTypeLabel(item),
+                          ),
                     )
                     .toList(growable: false),
-                onChanged: (CommandParameterType? value) {
-                  if (value != null) onChanged(parameter.copyWith(type: value));
-                },
+                onChanged: (CommandParameterType value) =>
+                    onChanged(parameter.copyWith(type: value)),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: TextFormField(
+              child: ToolTextField(
                 initialValue: parameter.defaultValue,
-                decoration: const InputDecoration(
-                  labelText: '默认值',
-                  isDense: true,
-                ),
+                label: '默认值',
                 onChanged: (String value) =>
                     onChanged(parameter.copyWith(defaultValue: value)),
               ),
@@ -4275,18 +4236,15 @@ class _CommandParameterEditor extends StatelessWidget {
         ),
         if (parameter.type == CommandParameterType.enumValue) ...<Widget>[
           const SizedBox(height: 8),
-          TextFormField(
+          ToolTextField(
             initialValue: parameter.options
                 .map(
                   (CommandParameterOption option) =>
                       '${option.label}=${option.value}',
                 )
                 .join(', '),
-            decoration: const InputDecoration(
-              labelText: '枚举选项',
-              helperText: '名称=数值，多个选项以逗号分隔',
-              isDense: true,
-            ),
+            label: '枚举选项',
+            helperText: '名称=数值，多个选项以逗号分隔',
             onChanged: (String value) => onChanged(
               parameter.copyWith(options: _parseParameterOptions(value)),
             ),
@@ -4336,29 +4294,23 @@ class _MappingFieldEditor extends StatelessWidget {
           Row(
             children: <Widget>[
               Expanded(
-                child: TextFormField(
+                child: ToolTextField(
                   initialValue: field.key,
-                  decoration: const InputDecoration(
-                    labelText: 'key',
-                    isDense: true,
-                  ),
+                  label: 'key',
                   onChanged: (String value) =>
                       onChanged(field.copyWith(key: value.trim())),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: TextFormField(
+                child: ToolTextField(
                   initialValue: field.label,
-                  decoration: InputDecoration(
-                    labelText: l10n.fieldLabel,
-                    isDense: true,
-                  ),
+                  label: l10n.fieldLabel,
                   onChanged: (String value) =>
                       onChanged(field.copyWith(label: value)),
                 ),
               ),
-              IconButton(
+              ToolIconButton(
                 tooltip: l10n.deleteDataField,
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline, size: 18),
@@ -4369,13 +4321,10 @@ class _MappingFieldEditor extends StatelessWidget {
           Row(
             children: <Widget>[
               Expanded(
-                child: TextFormField(
+                child: ToolTextField(
                   initialValue: field.offset.toString(),
+                  label: l10n.dataOffset,
                   keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: l10n.dataOffset,
-                    isDense: true,
-                  ),
                   onChanged: (String value) => onChanged(
                     field.copyWith(offset: int.tryParse(value) ?? 0),
                   ),
@@ -4383,13 +4332,10 @@ class _MappingFieldEditor extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: TextFormField(
+                child: ToolTextField(
                   initialValue: field.byteLength.toString(),
+                  label: l10n.fieldByteLength,
                   keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: l10n.fieldByteLength,
-                    isDense: true,
-                  ),
                   onChanged: (String value) => onChanged(
                     field.copyWith(byteLength: int.tryParse(value) ?? 1),
                   ),
@@ -4397,23 +4343,19 @@ class _MappingFieldEditor extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: DropdownButtonFormField<DataFieldType>(
-                  initialValue: field.type,
-                  decoration: InputDecoration(
-                    labelText: l10n.dataFieldType,
-                    isDense: true,
-                  ),
-                  items: DataFieldType.values
+                child: ToolSelect<DataFieldType>(
+                  value: field.type,
+                  label: l10n.dataFieldType,
+                  options: DataFieldType.values
                       .map(
-                        (DataFieldType item) => DropdownMenuItem(
+                        (DataFieldType item) => ToolSelectOption<DataFieldType>(
                           value: item,
-                          child: Text(item.name),
+                          label: item.name,
                         ),
                       )
                       .toList(growable: false),
-                  onChanged: (DataFieldType? value) {
-                    if (value != null) onChanged(field.copyWith(type: value));
-                  },
+                  onChanged: (DataFieldType value) =>
+                      onChanged(field.copyWith(type: value)),
                 ),
               ),
             ],
@@ -4423,12 +4365,9 @@ class _MappingFieldEditor extends StatelessWidget {
             Row(
               children: <Widget>[
                 Expanded(
-                  child: TextFormField(
+                  child: ToolTextField(
                     initialValue: field.scale.toString(),
-                    decoration: InputDecoration(
-                      labelText: l10n.numericScale,
-                      isDense: true,
-                    ),
+                    label: l10n.numericScale,
                     onChanged: (String value) => onChanged(
                       field.copyWith(scale: double.tryParse(value) ?? 1),
                     ),
@@ -4436,12 +4375,9 @@ class _MappingFieldEditor extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: TextFormField(
+                  child: ToolTextField(
                     initialValue: field.offsetValue.toString(),
-                    decoration: InputDecoration(
-                      labelText: l10n.numericOffset,
-                      isDense: true,
-                    ),
+                    label: l10n.numericOffset,
                     onChanged: (String value) => onChanged(
                       field.copyWith(offsetValue: double.tryParse(value) ?? 0),
                     ),
@@ -4449,12 +4385,9 @@ class _MappingFieldEditor extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: TextFormField(
+                  child: ToolTextField(
                     initialValue: field.unit,
-                    decoration: InputDecoration(
-                      labelText: l10n.unit,
-                      isDense: true,
-                    ),
+                    label: l10n.unit,
                     onChanged: (String value) =>
                         onChanged(field.copyWith(unit: value)),
                   ),
@@ -4464,29 +4397,26 @@ class _MappingFieldEditor extends StatelessWidget {
           ],
           if (needsByteOrder) ...<Widget>[
             const SizedBox(height: 8),
-            DropdownButtonFormField<ProtocolByteOrder>(
-              initialValue: field.byteOrder,
-              decoration: InputDecoration(
-                labelText: l10n.byteOrder,
-                isDense: true,
-              ),
-              items: ProtocolByteOrder.values
+            ToolSelect<ProtocolByteOrder>(
+              value: field.byteOrder,
+              label: l10n.byteOrder,
+              options: ProtocolByteOrder.values
                   .map(
-                    (ProtocolByteOrder item) => DropdownMenuItem(
-                      value: item,
-                      child: Text(_byteOrderLabel(item, l10n)),
-                    ),
+                    (ProtocolByteOrder item) =>
+                        ToolSelectOption<ProtocolByteOrder>(
+                          value: item,
+                          label: _byteOrderLabel(item, l10n),
+                        ),
                   )
                   .toList(growable: false),
-              onChanged: (ProtocolByteOrder? value) {
-                if (value != null) onChanged(field.copyWith(byteOrder: value));
-              },
+              onChanged: (ProtocolByteOrder value) =>
+                  onChanged(field.copyWith(byteOrder: value)),
             ),
           ],
           if (field.type == DataFieldType.bit ||
               field.type == DataFieldType.enumValue) ...<Widget>[
             const SizedBox(height: 8),
-            TextFormField(
+            ToolTextField(
               initialValue: field.type == DataFieldType.bit
                   ? (field.bit ?? 0).toString()
                   : field.enumValues.entries
@@ -4495,15 +4425,12 @@ class _MappingFieldEditor extends StatelessWidget {
                               '${item.key}=${item.value}',
                         )
                         .join(', '),
-              decoration: InputDecoration(
-                labelText: field.type == DataFieldType.bit
-                    ? l10n.bitNumber
-                    : l10n.enumValues,
-                helperText: field.type == DataFieldType.bit
-                    ? l10n.bitNumberHint
-                    : l10n.enumValuesHint,
-                isDense: true,
-              ),
+              label: field.type == DataFieldType.bit
+                  ? l10n.bitNumber
+                  : l10n.enumValues,
+              helperText: field.type == DataFieldType.bit
+                  ? l10n.bitNumberHint
+                  : l10n.enumValuesHint,
               onChanged: (String value) => onChanged(
                 field.type == DataFieldType.bit
                     ? field.copyWith(bit: int.tryParse(value) ?? 0)
@@ -4511,8 +4438,7 @@ class _MappingFieldEditor extends StatelessWidget {
               ),
             ),
           ],
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
+          ToolSwitchTile(
             title: Text(l10n.showInDataPanel),
             value: field.visibleInDataPanel,
             onChanged: (bool value) =>
@@ -4699,16 +4625,15 @@ class _ConsoleLogViewState extends State<_ConsoleLogView> {
           Positioned(
             right: 16,
             bottom: 16,
-            child: Tooltip(
-              message: widget.l10n.backToLatest,
-              child: IconButton.filledTonal(
-                key: const ValueKey<String>('console-jump-latest'),
-                onPressed: () {
-                  widget.onJumpToLatest();
-                  _scrollToLatest();
-                },
-                icon: const Icon(Icons.vertical_align_bottom, size: 18),
-              ),
+            child: ToolIconButton(
+              key: const ValueKey<String>('console-jump-latest'),
+              tooltip: widget.l10n.backToLatest,
+              variant: ToolButtonVariant.secondary,
+              onPressed: () {
+                widget.onJumpToLatest();
+                _scrollToLatest();
+              },
+              icon: const Icon(Icons.vertical_align_bottom, size: 18),
             ),
           ),
       ],
@@ -4831,9 +4756,10 @@ class _ConsoleArea extends StatelessWidget {
               const Spacer(),
               Tooltip(
                 message: l10n.autoScroll,
-                child: Switch.adaptive(
+                child: ToolSwitch(
                   value: autoScroll,
                   onChanged: onAutoScrollChanged,
+                  label: l10n.autoScroll,
                 ),
               ),
               if (!compactHeader) ...<Widget>[
@@ -4843,12 +4769,12 @@ class _ConsoleArea extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
               ],
-              IconButton(
+              ToolIconButton(
                 tooltip: l10n.exportLogs,
                 onPressed: logs.isEmpty ? null : () => onExport(logs),
                 icon: const Icon(Icons.download_outlined, size: 19),
               ),
-              IconButton(
+              ToolIconButton(
                 tooltip: l10n.clear,
                 onPressed: onClear,
                 icon: const Icon(Icons.delete_sweep_outlined, size: 19),
@@ -4857,7 +4783,7 @@ class _ConsoleArea extends StatelessWidget {
           ),
         ),
         Container(
-          height: 40,
+          height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: dark ? const Color(0xFF101824) : colors.surface,
@@ -4865,28 +4791,25 @@ class _ConsoleArea extends StatelessWidget {
               bottom: BorderSide(color: Theme.of(context).dividerColor),
             ),
           ),
-          child: TextField(
+          child: ToolTextField(
             key: const ValueKey<String>('console-search'),
             controller: searchController,
+            label: l10n.searchLogs,
+            hintText: l10n.searchLogs,
+            showLabel: false,
             onChanged: onSearchChanged,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            decoration: InputDecoration(
-              hintText: l10n.searchLogs,
-              prefixIcon: const Icon(Icons.search, size: 17),
-              suffixIcon: searchController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: l10n.clear,
-                      onPressed: () {
-                        searchController.clear();
-                        onSearchChanged('');
-                      },
-                      icon: const Icon(Icons.close, size: 16),
-                    ),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-              border: const OutlineInputBorder(),
-            ),
+            prefix: const Icon(Icons.search, size: 17),
+            suffix: searchController.text.isEmpty
+                ? null
+                : ToolIconButton(
+                    tooltip: l10n.clear,
+                    onPressed: () {
+                      searchController.clear();
+                      onSearchChanged('');
+                    },
+                    icon: const Icon(Icons.close, size: 16),
+                  ),
           ),
         ),
         Expanded(
@@ -4925,29 +4848,31 @@ class _ConsoleArea extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: <Widget>[
                       Expanded(
-                        child: TextField(
+                        child: ToolTextField(
                           key: const ValueKey<String>('console-input'),
                           controller: inputController,
+                          label: l10n.inputPlaceholder,
+                          hintText: l10n.inputPlaceholder,
+                          showLabel: false,
                           focusNode: inputFocusNode,
                           minLines: 1,
                           maxLines: 4,
                           onSubmitted: (_) => onSend(),
                           style: const TextStyle(fontFamily: 'monospace'),
-                          decoration: InputDecoration(
-                            hintText: l10n.inputPlaceholder,
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       SizedBox(
                         height: 40,
-                        child: FilledButton.icon(
+                        child: ToolButton.primary(
                           key: const ValueKey<String>('console-send-button'),
                           onPressed: effectiveCanSend ? onSend : null,
-                          icon: const Icon(Icons.send_outlined, size: 18),
-                          label: Text(l10n.sendData),
+                          leading: const Icon(Icons.send_outlined, size: 18),
+                          child: Text(
+                            l10n.sendData,
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
                         ),
                       ),
                     ],
@@ -5015,48 +4940,14 @@ class _ConsoleArea extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: <Widget>[
-                      SegmentedButton<bool>(
+                      ToolSegmentedControl<bool>(
                         key: const ValueKey<String>('console-mode-toggle'),
-                        showSelectedIcon: false,
-                        style: ButtonStyle(
-                          visualDensity: VisualDensity.compact,
-                          minimumSize: const WidgetStatePropertyAll<Size>(
-                            Size(0, 36),
-                          ),
-                          padding: const WidgetStatePropertyAll<EdgeInsets>(
-                            EdgeInsets.symmetric(horizontal: 10),
-                          ),
-                          shape: WidgetStatePropertyAll<OutlinedBorder>(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
-                          side: WidgetStatePropertyAll<BorderSide>(
-                            BorderSide(color: colors.outlineVariant),
-                          ),
-                          backgroundColor:
-                              WidgetStateProperty.resolveWith<Color?>((states) {
-                                return states.contains(WidgetState.selected)
-                                    ? colors.secondaryContainer
-                                    : colors.surface;
-                              }),
-                          foregroundColor:
-                              WidgetStateProperty.resolveWith<Color?>((states) {
-                                return states.contains(WidgetState.selected)
-                                    ? colors.onSecondaryContainer
-                                    : colors.onSurfaceVariant;
-                              }),
-                        ),
-                        segments: <ButtonSegment<bool>>[
-                          ButtonSegment(value: true, label: Text(l10n.hexMode)),
-                          ButtonSegment(
-                            value: false,
-                            label: Text(l10n.textMode),
-                          ),
+                        options: <ToolSegmentOption<bool>>[
+                          ToolSegmentOption(value: true, label: l10n.hexMode),
+                          ToolSegmentOption(value: false, label: l10n.textMode),
                         ],
-                        selected: <bool>{hexMode},
-                        onSelectionChanged: (Set<bool> value) =>
-                            onModeChanged(value.first),
+                        value: hexMode,
+                        onChanged: onModeChanged,
                       ),
                       const SizedBox(width: 12),
                       Text(
@@ -5064,30 +4955,16 @@ class _ConsoleArea extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(width: 4),
-                      Container(
+                      SizedBox(
                         key: const ValueKey<String>('console-line-ending'),
                         height: 36,
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          border: Border.all(color: colors.outlineVariant),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: DropdownButton<String>(
+                        width: 84,
+                        child: ToolSelect<String>(
                           value: 'none',
-                          isDense: true,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          borderRadius: BorderRadius.circular(6),
-                          underline: const SizedBox(),
-                          items: <DropdownMenuItem<String>>[
-                            DropdownMenuItem(
-                              value: 'none',
-                              child: Text(l10n.none),
-                            ),
-                            DropdownMenuItem(value: 'lf', child: Text(l10n.lf)),
-                            DropdownMenuItem(
-                              value: 'crlf',
-                              child: Text(l10n.crlf),
-                            ),
+                          options: <ToolSelectOption<String>>[
+                            ToolSelectOption(value: 'none', label: l10n.none),
+                            ToolSelectOption(value: 'lf', label: l10n.lf),
+                            ToolSelectOption(value: 'crlf', label: l10n.crlf),
                           ],
                           onChanged: (_) {},
                         ),
@@ -5240,26 +5117,22 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
             Row(
               children: <Widget>[
                 Expanded(
-                  child: TextField(
+                  child: SizedBox(
                     key: const ValueKey<String>('characteristic-filter'),
-                    controller: _filterController,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
+                    height: 36,
+                    child: ToolTextField(
+                      controller: _filterController,
+                      label: widget.l10n.filterCharacteristics,
                       hintText: widget.l10n.filterCharacteristics,
-                      hintStyle: const TextStyle(fontSize: 12),
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      prefixIconConstraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
+                      showLabel: false,
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 8,
-                        vertical: 6,
+                        vertical: 4,
                       ),
-                      border: const OutlineInputBorder(),
+                      onChanged: (_) => setState(() {}),
+                      prefix: const Icon(Icons.search, size: 18),
+                      style: const TextStyle(fontSize: 12),
                     ),
-                    style: const TextStyle(fontSize: 12),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -5582,8 +5455,9 @@ class _CommandTileState extends State<_CommandTile> {
                   ),
                 ),
                 const SizedBox(width: 4),
-                IconButton.filled(
+                ToolIconButton(
                   tooltip: '${widget.l10n.sendCommand} ${command.name}',
+                  variant: ToolButtonVariant.primary,
                   onPressed: sendEnabled ? _send : null,
                   icon: const Icon(Icons.send_outlined, size: 18),
                 ),
@@ -5693,59 +5567,36 @@ class _CommandTileState extends State<_CommandTile> {
             ),
             const SizedBox(height: 2),
             if (isChoice)
-              DropdownButtonFormField<String>(
-                initialValue:
+              ToolSelect<String>(
+                value:
                     parameter.options.any(
                       (CommandParameterOption option) =>
                           option.value == _controllers[parameter.key]!.text,
                     )
                     ? _controllers[parameter.key]!.text
-                    : null,
-                isDense: true,
-                decoration: const InputDecoration(
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 8,
-                  ),
-                ),
-                items: parameter.options
+                    : parameter.options.first.value,
+                options: parameter.options
                     .map(
                       (CommandParameterOption option) =>
-                          DropdownMenuItem<String>(
+                          ToolSelectOption<String>(
                             value: option.value,
-                            child: Text(
-                              option.label,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            label: option.label,
                           ),
                     )
                     .toList(growable: false),
-                onChanged: (String? value) {
-                  if (value != null) _controllers[parameter.key]!.text = value;
-                },
+                onChanged: (String value) =>
+                    _controllers[parameter.key]!.text = value,
               )
             else
-              Semantics(
+              ToolTextField(
+                controller: _controllers[parameter.key],
                 label: label,
-                textField: true,
-                child: TextField(
-                  controller: _controllers[parameter.key],
-                  keyboardType: _usesNumericKeyboard(parameter.type)
-                      ? TextInputType.number
-                      : TextInputType.text,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 9,
-                    ),
-                  ),
-                ),
+                showLabel: false,
+                keyboardType: _usesNumericKeyboard(parameter.type)
+                    ? TextInputType.number
+                    : TextInputType.text,
+                textAlign: TextAlign.center,
+                maxLines: 1,
               ),
           ],
         ),
@@ -6264,25 +6115,23 @@ class _LogLine extends StatelessWidget {
     final String timestamp = entry.timestamp.toIso8601String().split('T').last;
     final Widget? bookmarkButton = onToggleBookmark == null
         ? null
-        : IconButton(
+        : ToolIconButton(
             tooltip: entry.bookmarked ? '取消书签' : '添加书签',
             onPressed: () => onToggleBookmark!(entry),
             icon: Icon(
               entry.bookmarked ? Icons.bookmark : Icons.bookmark_outline,
               size: 19,
+              color: entry.bookmarked ? colors.primary : null,
             ),
-            color: entry.bookmarked ? colors.primary : null,
-            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            visualDensity: VisualDensity.compact,
+            touchSize: 44,
           );
     final Widget? detailsButton = onTap == null
         ? null
-        : IconButton(
+        : ToolIconButton(
             tooltip: l10n.viewLogDetails,
             onPressed: onTap,
             icon: const Icon(Icons.subject_outlined, size: 18),
-            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            visualDensity: VisualDensity.compact,
+            touchSize: 44,
           );
     return Semantics(
       label: '${entry.directionLabel(l10n)} $timestamp，$payload',
