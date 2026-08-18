@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'app/design/tool_alert_dialog.dart';
 import 'app/design/tool_text_field.dart';
@@ -58,6 +59,13 @@ class _BlexpertAppState extends State<BlexpertApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'BLExpert',
+      builder: (BuildContext context, Widget? child) {
+        final bool dark = Theme.of(context).brightness == Brightness.dark;
+        return shad.Theme(
+          data: dark ? const shad.ThemeData.dark() : const shad.ThemeData(),
+          child: child!,
+        );
+      },
       locale: _locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -689,7 +697,7 @@ class _HomeScreenState extends State<HomeScreen> {
       text: _webOptionalServices.join('\n'),
     );
     final AppLocalizations l10n = AppLocalizations.of(context)!;
-    final List<String>? services = await showDialog<List<String>>(
+    final List<String>? services = await showToolDialog<List<String>>(
       context: context,
       builder: (BuildContext context) {
         String? validationError;
@@ -758,7 +766,7 @@ class _HomeScreenState extends State<HomeScreen> {
       text: workspace.tags.join(', '),
     );
     final AppLocalizations l10n = AppLocalizations.of(context)!;
-    final Workspace? updated = await showDialog<Workspace>(
+    final Workspace? updated = await showToolDialog<Workspace>(
       context: context,
       builder: (BuildContext context) => ToolAlertDialog(
         icon: Icons.folder_outlined,
@@ -852,7 +860,7 @@ class _HomeScreenState extends State<HomeScreen> {
         workspace.scriptConfig.trustState ==
             ScriptTrustState.importedUntrusted) {
       final bool confirmed =
-          await showDialog<bool>(
+          await showToolDialog<bool>(
             context: context,
             builder: (BuildContext context) => ToolAlertDialog(
               icon: Icons.warning_amber_outlined,
@@ -904,7 +912,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final TextEditingController notesController = TextEditingController(
       text: existing?.notes ?? '',
     );
-    final CommandDefinition? command = await showDialog<CommandDefinition>(
+    final CommandDefinition? command = await showToolDialog<CommandDefinition>(
       context: context,
       builder: (BuildContext context) {
         CommandPayloadFormat format =
@@ -1206,7 +1214,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final TextEditingController commandController = TextEditingController(
       text: existing?.commandHex ?? '',
     );
-    final ResponseMapping? mapping = await showDialog<ResponseMapping>(
+    final ResponseMapping? mapping = await showToolDialog<ResponseMapping>(
       context: context,
       builder: (BuildContext context) {
         final List<DataField> fields = <DataField>[...?existing?.fields];
@@ -1656,7 +1664,8 @@ class _HomeScreenState extends State<HomeScreen> {
         )
         .toSet();
     bool requireWriteWithResponse = existing.requireWriteWithResponse;
-    final DeviceSafetyPolicy? updated = await showDialog<DeviceSafetyPolicy>(
+    final DeviceSafetyPolicy?
+    updated = await showToolDialog<DeviceSafetyPolicy>(
       context: context,
       builder: (BuildContext context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) =>
@@ -1968,7 +1977,7 @@ class _HomeScreenState extends State<HomeScreen> {
         )
         .toList(growable: false);
     final String? target = _currentWriteTargetUuid;
-    return await showDialog<bool>(
+    return await showToolDialog<bool>(
           context: context,
           builder: (BuildContext context) => ToolAlertDialog(
             icon: Icons.warning_amber_outlined,
@@ -2117,7 +2126,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _exportWorkspaces() {
     final jsonText = _workspaceManager.exportWorkspaces();
-    showDialog<void>(
+    showToolDialog<void>(
       context: context,
       builder: (BuildContext context) => ToolAlertDialog(
         icon: Icons.upload_file_outlined,
@@ -2164,7 +2173,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WorkspaceConflictPolicy conflictPolicy =
         WorkspaceConflictPolicy.replaceExisting;
     final _WorkspaceImportDecision?
-    decision = await showDialog<_WorkspaceImportDecision>(
+    decision = await showToolDialog<_WorkspaceImportDecision>(
       context: context,
       builder: (BuildContext context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) => ToolAlertDialog(
@@ -2340,7 +2349,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-    // showDialog completes before its exit animation disposes TextField.
+    // showToolDialog completes before its exit animation disposes TextField.
     unawaited(
       Future<void>.delayed(
         const Duration(milliseconds: 300),
@@ -2377,7 +2386,7 @@ class _HomeScreenState extends State<HomeScreen> {
               .map((SessionLogRecord record) => record.toJson())
               .toList(growable: false),
         });
-    showDialog<void>(
+    showToolDialog<void>(
       context: context,
       builder: (BuildContext context) => ToolAlertDialog(
         icon: Icons.download_outlined,
@@ -3644,7 +3653,7 @@ class _CommandLibraryPanel extends StatelessWidget {
     final Set<String> selectedIds = currentIds.isEmpty
         ? commands.map((CommandDefinition command) => command.id).toSet()
         : currentIds.toSet();
-    return showDialog<List<String>>(
+    return showToolDialog<List<String>>(
       context: context,
       builder: (BuildContext context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) =>

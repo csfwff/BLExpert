@@ -175,6 +175,9 @@ void main() {
       ),
       findsOneWidget,
     );
+    final Rect commandDialog = tester.getRect(find.byType(shad.AlertDialog));
+    expect(commandDialog.width, lessThan(700));
+    expect(commandDialog.center.dx, closeTo(720, 1));
 
     await tester.enterText(
       find.byKey(const ValueKey<String>('command-name-field')),

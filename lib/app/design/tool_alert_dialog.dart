@@ -1,6 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
+/// Presents a tool dialog with the layout route expected by shadcn_flutter.
+///
+/// Keeping this route behind the design boundary prevents callers from
+/// accidentally combining Material's full-screen dialog constraints with the
+/// shadcn surface layout.
+Future<T?> showToolDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+}) {
+  return shad
+      .showOverlay<T>(
+        context,
+        shad.DialogConfiguration<T>(
+          builder: builder,
+          barrierDismissible: barrierDismissible,
+        ),
+      )
+      .future;
+}
+
 /// Stable dialog contract for design-system migrations.
 ///
 /// Material actions stay supported while the dialog surface uses the selected
