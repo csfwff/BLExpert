@@ -126,6 +126,29 @@ class AppLocalizationsZh extends AppLocalizations {
   String get console => '控制台';
 
   @override
+  String get allFilter => '全部';
+
+  @override
+  String get txFilter => 'TX';
+
+  @override
+  String get rxFilter => 'RX';
+
+  @override
+  String get systemFilter => 'SYS';
+
+  @override
+  String get errorFilter => 'ERR';
+
+  @override
+  String get filterLogs => '筛选日志';
+
+  @override
+  String retainedLogs(int retained, int discarded) {
+    return '保留 $retained 条 / 已丢弃 $discarded 条';
+  }
+
+  @override
   String get clear => '清空';
 
   @override
@@ -135,7 +158,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sendData => '发送数据';
 
   @override
+  String sendUnavailable(String reason) {
+    return '暂不可发送：$reason';
+  }
+
+  @override
+  String get noWriteTargetSelected => '未选择可写特征';
+
+  @override
   String get inputPlaceholder => '输入要发送的数据...';
+
+  @override
+  String get emptyInput => '请输入要发送的数据';
+
+  @override
+  String get invalidHexInput => 'HEX 数据格式无效';
+
+  @override
+  String payloadLength(int length) {
+    return '业务载荷 $length 字节';
+  }
+
+  @override
+  String finalFramePreview(int length, String frame) {
+    return '最终帧 $length 字节：$frame';
+  }
+
+  @override
+  String get scriptPreviewUnavailable => '脚本模式：最终帧将在发送前生成';
 
   @override
   String get textMode => '文本';
@@ -196,6 +246,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noCharacteristics => '未发现 GATT 特征。';
 
   @override
+  String get filterCharacteristics => '筛选特征或 UUID';
+
+  @override
+  String get operableOnly => '仅显示可操作特征';
+
+  @override
+  String get noMatchingCharacteristics => '没有匹配的特征。';
+
+  @override
   String get service => '服务';
 
   @override
@@ -203,6 +262,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get writeTarget => '写入目标';
+
+  @override
+  String get selectedLog => '选中日志';
+
+  @override
+  String get viewLogDetails => '查看日志详情';
+
+  @override
+  String get source => '来源';
+
+  @override
+  String get length => '长度';
+
+  @override
+  String get transaction => '事务';
+
+  @override
+  String get noSource => '无来源';
 
   @override
   String get subscribe => '订阅';
@@ -337,6 +414,20 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get invalidCommandPayload => '请输入有效的数据内容。';
+
+  @override
+  String get configurationErrors => '请先修复以下问题：';
+
+  @override
+  String requiredField(String field) {
+    return '$field为必填项';
+  }
+
+  @override
+  String get invalidHexPayload => 'HEX 数据必须是完整字节。';
+
+  @override
+  String get invalidCommandParameters => '参数 key 必须存在，且占位符必须在数据内容中。';
 
   @override
   String get commandLibrary => '指令集';

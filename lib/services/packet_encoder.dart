@@ -15,6 +15,21 @@ class PacketEncoder {
   void resetSequence([int value = 0]) => _sequence = value & 0xFFFFFFFF;
 
   PacketEncoderResult encode(ProtocolDefinition protocol, List<int> payload) {
+    return _encode(protocol, payload, advanceSequence: true);
+  }
+
+  /// Encodes the current payload without consuming the next sequence number.
+  /// This is used by UI previews so opening/editing the send editor has no
+  /// effect on the actual send sequence.
+  PacketEncoderResult preview(ProtocolDefinition protocol, List<int> payload) {
+    return _encode(protocol, payload, advanceSequence: false);
+  }
+
+  PacketEncoderResult _encode(
+    ProtocolDefinition protocol,
+    List<int> payload, {
+    required bool advanceSequence,
+  }) {
     if (protocol.sendSegments.isEmpty) {
       throw const FormatException('Standard protocol has no send segments.');
     }
@@ -55,7 +70,8 @@ class PacketEncoder {
           parts.add(List<int>.filled(segment.byteLength!, 0));
         case ProtocolSegmentType.sequence:
           _validateNumericSegment(segment, 'Sequence');
-          sequenceValue ??= _sequence++;
+          sequenceValue ??= _sequence;
+          if (advanceSequence) _sequence++;
           final int sequenceMask = segment.byteLength == 4
               ? 0xFFFFFFFF
               : (1 << (segment.byteLength! * 8)) - 1;
@@ -123,7 +139,7 @@ class PacketEncoder {
       }
       offset += parts[index].length;
     }
-    _sequence &= 0xFFFFFFFF;
+    if (advanceSequence) _sequence &= 0xFFFFFFFF;
     return PacketEncoderResult(
       payload: payloadBytes,
       frame: List<int>.unmodifiable(frame),

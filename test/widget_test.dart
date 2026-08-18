@@ -58,6 +58,20 @@ void main() {
     expect(modeToggle.width, lessThan(140));
   });
 
+  testWidgets('未连接时发送区说明禁用原因', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    expect(find.text('暂不可发送：未连接'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey<String>('console-send-button')),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
+
   testWidgets('可从语言菜单切换至英文界面', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
@@ -272,6 +286,29 @@ void main() {
     expect(find.text('01'), findsOneWidget);
   });
 
+  testWidgets('命令编辑器按字段显示保存校验错误', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(find.text('配置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('指令'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('新建指令'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '保存').first)
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(shad.AlertDialog), findsOneWidget);
+    expect(find.textContaining('请先修复以下问题：'), findsOneWidget);
+    expect(find.textContaining('指令名称为必填项'), findsWidgets);
+    expect(find.textContaining('数据内容为必填项'), findsWidgets);
+  });
+
   testWidgets('工作区命令白名单会阻止未选中指令进入发送链路', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1;
@@ -362,7 +399,10 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '保存'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'AA BB');
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('console-input')),
+      'AA BB',
+    );
     await tester.tap(find.widgetWithText(FilledButton, '发送数据'));
     await tester.pumpAndSettle();
 
@@ -396,6 +436,25 @@ void main() {
     expect(find.text('0000FFF1-0000-1000-8000-00805F9B34FB'), findsOneWidget);
     expect(find.text('0000FFF2-0000-1000-8000-00805F9B34FB'), findsOneWidget);
 
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('characteristic-filter')),
+      'FFF1',
+    );
+    await tester.pump();
+    expect(find.text('0000FFF1-0000-1000-8000-00805F9B34FB'), findsOneWidget);
+    expect(find.text('0000FFF2-0000-1000-8000-00805F9B34FB'), findsNothing);
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('characteristic-filter')),
+      '',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilterChip, 'R/W'));
+    await tester.pump();
+    expect(find.text('0000FFF1-0000-1000-8000-00805F9B34FB'), findsOneWidget);
+    expect(find.text('0000FFF2-0000-1000-8000-00805F9B34FB'), findsNothing);
+    await tester.tap(find.widgetWithText(FilterChip, 'R/W'));
+    await tester.pump();
+
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilterChip, 'Notify').first);
@@ -410,12 +469,65 @@ void main() {
       isTrue,
     );
 
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('console-input')),
+      'AA',
+    );
+    await tester.pump();
+
     expect(
       tester
           .widget<FilledButton>(find.widgetWithText(FilledButton, '发送数据'))
           .onPressed,
       isNotNull,
     );
+  });
+
+  testWidgets('点击控制台日志后 Inspector 显示帧详情', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(find.byTooltip('连接设备'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ChoiceChip, '写入目标'), findsOneWidget);
+    await tester.tap(find.text('写入目标'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '写入目标'))
+          .selected,
+      isTrue,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('console-input')),
+      'AA BB',
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('console-send-disabled-reason')),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey<String>('console-send-button')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('console-send-button')));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const ValueKey<String>('console-log-list')),
+      const Offset(0, -1000),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder detailsButton = find.byTooltip('查看日志详情');
+    expect(detailsButton, findsWidgets);
+    await tester.tap(detailsButton.first);
+    await tester.pump();
+    expect(find.text('选中日志'), findsOneWidget);
+    expect(find.textContaining('AA BB'), findsWidgets);
   });
 
   testWidgets('仅支持无响应写入的特征可设为写入目标', (WidgetTester tester) async {
@@ -475,6 +587,15 @@ void main() {
 
     expect(find.text('确认受保护发送'), findsOneWidget);
     expect(find.byType(shad.AlertDialog), findsOneWidget);
+    final shad.Theme dialogTheme = tester.widget<shad.Theme>(
+      find
+          .ancestor(
+            of: find.byType(shad.AlertDialog),
+            matching: find.byType(shad.Theme),
+          )
+          .first,
+    );
+    expect(dialogTheme.data.radius, closeTo(0.25, 0.001));
     expect(find.textContaining('恢复出厂设置'), findsWidgets);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();

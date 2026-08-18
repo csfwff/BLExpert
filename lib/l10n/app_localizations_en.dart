@@ -127,6 +127,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get console => 'Console';
 
   @override
+  String get allFilter => 'All';
+
+  @override
+  String get txFilter => 'TX';
+
+  @override
+  String get rxFilter => 'RX';
+
+  @override
+  String get systemFilter => 'SYS';
+
+  @override
+  String get errorFilter => 'ERR';
+
+  @override
+  String get filterLogs => 'Filter logs';
+
+  @override
+  String retainedLogs(int retained, int discarded) {
+    return '$retained retained / $discarded discarded';
+  }
+
+  @override
   String get clear => 'Clear';
 
   @override
@@ -136,7 +159,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendData => 'Send data';
 
   @override
+  String sendUnavailable(String reason) {
+    return 'Sending unavailable: $reason';
+  }
+
+  @override
+  String get noWriteTargetSelected => 'No writable characteristic selected';
+
+  @override
   String get inputPlaceholder => 'Enter data to send...';
+
+  @override
+  String get emptyInput => 'Enter data to send';
+
+  @override
+  String get invalidHexInput => 'Invalid HEX data';
+
+  @override
+  String payloadLength(int length) {
+    return 'Payload $length bytes';
+  }
+
+  @override
+  String finalFramePreview(int length, String frame) {
+    return 'Final frame $length bytes: $frame';
+  }
+
+  @override
+  String get scriptPreviewUnavailable =>
+      'Script mode: final frame is generated before sending';
 
   @override
   String get textMode => 'TEXT';
@@ -198,6 +249,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noCharacteristics => 'No GATT characteristics were discovered.';
 
   @override
+  String get filterCharacteristics => 'Filter characteristic or UUID';
+
+  @override
+  String get operableOnly => 'Show operable characteristics only';
+
+  @override
+  String get noMatchingCharacteristics => 'No matching characteristics.';
+
+  @override
   String get service => 'Service';
 
   @override
@@ -205,6 +265,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get writeTarget => 'Write target';
+
+  @override
+  String get selectedLog => 'Selected log';
+
+  @override
+  String get viewLogDetails => 'View log details';
+
+  @override
+  String get source => 'Source';
+
+  @override
+  String get length => 'Length';
+
+  @override
+  String get transaction => 'Transaction';
+
+  @override
+  String get noSource => 'No source';
 
   @override
   String get subscribe => 'Subscribe';
@@ -340,6 +418,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get invalidCommandPayload => 'Enter valid payload data.';
+
+  @override
+  String get configurationErrors => 'Fix these issues before saving:';
+
+  @override
+  String requiredField(String field) {
+    return '$field is required';
+  }
+
+  @override
+  String get invalidHexPayload => 'HEX payload must contain complete bytes.';
+
+  @override
+  String get invalidCommandParameters =>
+      'Each parameter key must exist and be used in the payload.';
 
   @override
   String get commandLibrary => 'Commands';

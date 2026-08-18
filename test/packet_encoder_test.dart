@@ -112,4 +112,25 @@ void main() {
     expect(encoder.encode(protocol, <int>[1]).frame, <int>[255, 1]);
     expect(encoder.encode(protocol, <int>[1]).frame, <int>[0, 1]);
   });
+
+  test('preview does not consume the next sequence number', () {
+    final PacketEncoder encoder = PacketEncoder()..resetSequence(7);
+    final ProtocolDefinition protocol = ProtocolDefinition(
+      name: '',
+      description: '',
+      sendSegments: <ProtocolSegment>[
+        _segment(
+          ProtocolSegmentType.sequence,
+          byteLength: 1,
+          byteOrder: ProtocolByteOrder.bigEndian,
+        ),
+        _segment(ProtocolSegmentType.payload),
+      ],
+      receiveSegments: const <ProtocolSegment>[],
+    );
+
+    expect(encoder.preview(protocol, <int>[1]).frame, <int>[7, 1]);
+    expect(encoder.encode(protocol, <int>[1]).frame, <int>[7, 1]);
+    expect(encoder.encode(protocol, <int>[1]).frame, <int>[8, 1]);
+  });
 }

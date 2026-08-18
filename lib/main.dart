@@ -272,11 +272,15 @@ class _HomeScreenState extends State<HomeScreen> {
   _serviceEventSubscription;
   StreamSubscription<BluetoothIncomingData>? _dataSubscription;
   final TextEditingController _inputController = TextEditingController();
+  final FocusNode _inputFocusNode = FocusNode(debugLabel: 'console-input');
 
   List<BluetoothDeviceInfo> _devices = <BluetoothDeviceInfo>[];
   List<BluetoothCharacteristicInfo> _characteristics =
       <BluetoothCharacteristicInfo>[];
   final List<SessionLogRecord> _logs = <SessionLogRecord>[];
+  SessionLogRecord? _selectedLog;
+  int _discardedLogCount = 0;
+  _ConsoleLogFilter _consoleLogFilter = _ConsoleLogFilter.all;
   final Map<String, _MonitoredFieldValue> _monitoredValues =
       <String, _MonitoredFieldValue>{};
   String? _selectedDeviceId;
@@ -339,6 +343,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _serviceEventSubscription.cancel();
     _dataSubscription?.cancel();
     _inputController.dispose();
+    _inputFocusNode.dispose();
     _scriptEngine.dispose();
     unawaited(_bluetoothService.dispose());
     super.dispose();
@@ -387,11 +392,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _clearLogs() {
-    setState(_logs.clear);
+    setState(() {
+      _logs.clear();
+      _selectedLog = null;
+      _discardedLogCount = 0;
+    });
     _saveSessionLogsChain = _saveSessionLogsChain
         .then((_) => _sessionLogStore.clear())
         .catchError((Object error) => debugPrint('会话记录清除失败：$error'));
   }
+
+  List<SessionLogRecord> get _visibleConsoleLogs =>
+      _consoleLogFilter == _ConsoleLogFilter.all
+      ? _logs
+      : _logs
+            .where(
+              (SessionLogRecord entry) => switch (_consoleLogFilter) {
+                _ConsoleLogFilter.all => true,
+                _ConsoleLogFilter.tx => entry.kind == SessionLogKind.sent,
+                _ConsoleLogFilter.rx => entry.kind == SessionLogKind.received,
+                _ConsoleLogFilter.system => entry.kind == SessionLogKind.system,
+                _ConsoleLogFilter.error => entry.kind == SessionLogKind.error,
+              },
+            )
+            .toList(growable: false);
 
   void _toggleSessionLogBookmark(SessionLogRecord record) {
     final int index = _logs.indexOf(record);
@@ -936,6 +960,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ...?existing?.parameters,
         ];
         String? validationError;
+        String? nameError;
+        String? payloadError;
+        String? parameterError;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) =>
               ToolAlertDialog(
@@ -947,11 +974,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
+                        if (validationError != null)
+                          Semantics(
+                            liveRegion: true,
+                            container: true,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  '${l10n.configurationErrors}\n$validationError',
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ToolTextField(
                           key: const ValueKey<String>('command-name-field'),
                           controller: nameController,
                           autofocus: true,
                           label: l10n.commandName,
+                          errorText: nameError,
                         ),
                         ToolTextField(
                           key: const ValueKey<String>('command-group-field'),
@@ -984,7 +1029,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           minLines: 2,
                           maxLines: 4,
                           label: l10n.commandPayload,
-                          errorText: validationError,
+                          errorText: payloadError,
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -1058,18 +1103,35 @@ class _HomeScreenState extends State<HomeScreen> {
                         RegExp(r'\{\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\}'),
                         '00',
                       );
-                      if (name.isEmpty ||
+                      final bool invalidName = name.isEmpty;
+                      final bool invalidPayload =
                           payload.isEmpty ||
                           (format == CommandPayloadFormat.hex &&
-                              _parseHex(validationPayload) == null) ||
-                          parameters.any(
-                            (CommandParameter parameter) =>
-                                parameter.key.trim().isEmpty ||
-                                !payload.contains('{{${parameter.key.trim()}}'),
-                          )) {
-                        setDialogState(
-                          () => validationError = l10n.invalidCommandPayload,
-                        );
+                              _parseHex(validationPayload) == null);
+                      final bool invalidParameters = parameters.any(
+                        (CommandParameter parameter) =>
+                            parameter.key.trim().isEmpty ||
+                            !payload.contains('{{${parameter.key.trim()}}'),
+                      );
+                      if (invalidName || invalidPayload || invalidParameters) {
+                        setDialogState(() {
+                          nameError = invalidName
+                              ? l10n.requiredField(l10n.commandName)
+                              : null;
+                          payloadError = invalidPayload
+                              ? (payload.isEmpty
+                                    ? l10n.requiredField(l10n.commandPayload)
+                                    : l10n.invalidHexPayload)
+                              : null;
+                          parameterError = invalidParameters
+                              ? l10n.invalidCommandParameters
+                              : null;
+                          validationError = <String>[
+                            if (nameError != null) nameError!,
+                            if (payloadError != null) payloadError!,
+                            if (parameterError != null) parameterError!,
+                          ].join('\n');
+                        });
                         return;
                       }
                       Navigator.of(context).pop(
@@ -2111,6 +2173,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _trimLogs() {
     if (_logs.length > _maxConsoleLogs) {
+      _discardedLogCount += _logs.length - _maxConsoleLogs;
       _logs.removeRange(_maxConsoleLogs, _logs.length);
     }
     _persistSessionLogs();
@@ -2127,6 +2190,53 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _hasWriteTarget => _characteristics.any(
     (BluetoothCharacteristicInfo item) => item.isWriteTarget,
   );
+
+  String? _consoleSendDisabledReason(AppLocalizations l10n) {
+    if (_selectedDevice == null) return l10n.noDevice;
+    if (_selectedDevice?.connected != true) return l10n.disconnected;
+    if (!_hasWriteTarget) return l10n.noWriteTargetSelected;
+    return null;
+  }
+
+  _ConsoleSendPreview _previewConsoleSend(
+    String input,
+    bool hexMode,
+    AppLocalizations l10n,
+  ) {
+    final String value = input.trim();
+    if (value.isEmpty) {
+      return _ConsoleSendPreview(error: l10n.emptyInput);
+    }
+    final List<int>? bytes = hexMode ? _parseHex(value) : utf8.encode(value);
+    if (bytes == null) {
+      return _ConsoleSendPreview(error: l10n.invalidHexInput);
+    }
+    final Workspace workspace = _workspaceManager.activeWorkspace;
+    if (workspace.scriptConfig.enabled) {
+      return _ConsoleSendPreview(
+        payloadLength: bytes.length,
+        scriptPending: true,
+      );
+    }
+    if (workspace.protocol.sendSegments.isEmpty) {
+      return _ConsoleSendPreview(
+        payloadLength: bytes.length,
+        finalFrame: bytes,
+      );
+    }
+    try {
+      final PacketEncoderResult encoded = _packetEncoder.preview(
+        workspace.protocol,
+        bytes,
+      );
+      return _ConsoleSendPreview(
+        payloadLength: bytes.length,
+        finalFrame: encoded.frame,
+      );
+    } on FormatException catch (error) {
+      return _ConsoleSendPreview(error: error.message);
+    }
+  }
 
   void _sendInput() {
     final value = _inputController.text.trim();
@@ -2430,121 +2540,158 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final workspace = _workspaceManager.activeWorkspace;
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 56,
-        titleSpacing: 12,
-        title: _AppIdentity(workspace: workspace),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1),
-        ),
-        actions: <Widget>[
-          _WorkspaceSelector(
-            workspace: workspace,
-            workspaces: _workspaceManager.workspaces,
-            onSelected: (String workspaceId) {
-              setState(() {
-                _packetDecoder.reset();
-                _scriptSendRateLimiter.reset();
-                _pendingReceiveEvents.clear();
-                _workspaceManager.setActiveWorkspace(workspaceId);
-                _persistWorkspaces();
-              });
-            },
-            l10n: l10n,
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyL, control: true): () =>
+            _inputFocusNode.requestFocus(),
+        const SingleActivator(LogicalKeyboardKey.enter, control: true):
+            _sendInput,
+        const SingleActivator(
+          LogicalKeyboardKey.keyK,
+          control: true,
+          shift: true,
+        ): _clearLogs,
+        const SingleActivator(
+          LogicalKeyboardKey.keyI,
+          control: true,
+          shift: true,
+        ): () =>
+            setState(() => _inspectorOpen = !_inspectorOpen),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          appBar: AppBar(
+            toolbarHeight: 56,
+            titleSpacing: 12,
+            title: _AppIdentity(workspace: workspace),
+            bottom: const PreferredSize(
+              preferredSize: Size.fromHeight(1),
+              child: Divider(height: 1),
+            ),
+            actions: <Widget>[
+              _WorkspaceSelector(
+                workspace: workspace,
+                workspaces: _workspaceManager.workspaces,
+                onSelected: (String workspaceId) {
+                  setState(() {
+                    _packetDecoder.reset();
+                    _scriptSendRateLimiter.reset();
+                    _pendingReceiveEvents.clear();
+                    _workspaceManager.setActiveWorkspace(workspaceId);
+                    _persistWorkspaces();
+                  });
+                },
+                l10n: l10n,
+              ),
+              const SizedBox(width: 8),
+              _ConnectionSelector(
+                devices: _devices,
+                selectedId: _selectedDeviceId,
+                connected: _selectedDevice?.connected ?? false,
+                connecting: _connecting,
+                onSelected: _selectDevice,
+                onToggleConnection: _toggleConnection,
+                l10n: l10n,
+              ),
+              IconButton(
+                tooltip: _scanning ? l10n.stopScan : l10n.startScan,
+                onPressed: _toggleScan,
+                icon: Icon(
+                  _scanning ? Icons.stop_circle_outlined : Icons.radar,
+                ),
+              ),
+              _AppOverflowMenu(
+                themeMode: widget.themeMode,
+                locale: widget.locale,
+                onThemeModeChanged: widget.onThemeModeChanged,
+                onLocaleChanged: widget.onLocaleChanged,
+                onConfigureWebServices: kIsWeb ? _configureWebServices : null,
+                onExportWorkspaces: _exportWorkspaces,
+                onImportWorkspaces: _importWorkspaces,
+                l10n: l10n,
+              ),
+              const SizedBox(width: 4),
+            ],
           ),
-          const SizedBox(width: 8),
-          _ConnectionSelector(
-            devices: _devices,
-            selectedId: _selectedDeviceId,
-            connected: _selectedDevice?.connected ?? false,
-            connecting: _connecting,
-            onSelected: _selectDevice,
-            onToggleConnection: _toggleConnection,
-            l10n: l10n,
+          body: _AppWorkspaceShell(
+            mode: _mode,
+            onModeChanged: (mode) => setState(() => _mode = mode),
+            inspectorOpen: _inspectorOpen,
+            onInspectorVisibilityChanged: (value) =>
+                setState(() => _inspectorOpen = value),
+            debugPane: _ConsoleArea(
+              logs: _visibleConsoleLogs,
+              discardedLogCount: _discardedLogCount,
+              autoScroll: _autoScroll,
+              onClear: _clearLogs,
+              onAutoScrollChanged: (value) =>
+                  setState(() => _autoScroll = value),
+              inputController: _inputController,
+              inputFocusNode: _inputFocusNode,
+              hexMode: _hexMode,
+              onModeChanged: (value) => setState(() => _hexMode = value),
+              onSend: _sendInput,
+              canSend: _selectedDevice?.connected == true && _hasWriteTarget,
+              sendDisabledReason: _consoleSendDisabledReason(l10n),
+              sendPreview: (String input, bool hexMode) =>
+                  _previewConsoleSend(input, hexMode, l10n),
+              writeTarget: _characteristics
+                  .where((item) => item.isWriteTarget)
+                  .map((item) => item.characteristicId)
+                  .firstOrNull,
+              l10n: l10n,
+              selectedLog: _selectedLog,
+              onLogSelected: (SessionLogRecord record) =>
+                  setState(() => _selectedLog = record),
+              logFilter: _consoleLogFilter,
+              onLogFilterChanged: (value) =>
+                  setState(() => _consoleLogFilter = value),
+            ),
+            devicePane: _DeviceToolsPanel(
+              characteristics: _characteristics,
+              connected: _selectedDevice?.connected == true,
+              safetyPolicy: _selectedDeviceSafetyPolicy,
+              onSelectWrite: _setWriteCharacteristic,
+              onSubscriptionChanged: _setSubscription,
+              onRead: _readCharacteristic,
+              onEditSafetyPolicy: _editSelectedDeviceSafetyPolicy,
+              l10n: l10n,
+            ),
+            inspectorPane: _InspectorPanel(
+              characteristics: _characteristics,
+              canSend: _hasWriteTarget,
+              onSendCommand: _sendCommandDefinition,
+              commands: workspace.commands,
+              responseMappings: workspace.responseMappings,
+              monitoredValues: _monitoredValues,
+              selectedLog: _selectedLog,
+              l10n: l10n,
+            ),
+            configurationPane: _ConfigurationWorkspace(
+              workspace: workspace,
+              runtimeAvailable: _scriptEngine.isRuntimeAvailable,
+              onEditWorkspace: _editActiveWorkspace,
+              onProtocolChanged: _updateProtocol,
+              onScriptConfigChanged: _updateScriptConfig,
+              onNewCommand: () => _editCommand(),
+              onEditCommand: _editCommand,
+              onDeleteCommand: _deleteCommand,
+              onCommandEnabledChanged: _setCommandEnabled,
+              onCommandQuickAccessChanged: _setCommandQuickAccess,
+              onCommandWhitelistChanged: _setCommandWhitelist,
+              onNewResponseMapping: () => _editResponseMapping(),
+              onEditResponseMapping: _editResponseMapping,
+              onDeleteResponseMapping: _deleteResponseMapping,
+              l10n: l10n,
+            ),
+            recordPane: _RecordWorkspace(
+              logs: _logs,
+              l10n: l10n,
+              onExport: _exportSessionLogs,
+              onToggleBookmark: _toggleSessionLogBookmark,
+            ),
           ),
-          IconButton(
-            tooltip: _scanning ? l10n.stopScan : l10n.startScan,
-            onPressed: _toggleScan,
-            icon: Icon(_scanning ? Icons.stop_circle_outlined : Icons.radar),
-          ),
-          _AppOverflowMenu(
-            themeMode: widget.themeMode,
-            locale: widget.locale,
-            onThemeModeChanged: widget.onThemeModeChanged,
-            onLocaleChanged: widget.onLocaleChanged,
-            onConfigureWebServices: kIsWeb ? _configureWebServices : null,
-            onExportWorkspaces: _exportWorkspaces,
-            onImportWorkspaces: _importWorkspaces,
-            l10n: l10n,
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: _AppWorkspaceShell(
-        mode: _mode,
-        onModeChanged: (mode) => setState(() => _mode = mode),
-        inspectorOpen: _inspectorOpen,
-        onInspectorVisibilityChanged: (value) =>
-            setState(() => _inspectorOpen = value),
-        debugPane: _ConsoleArea(
-          logs: _logs,
-          autoScroll: _autoScroll,
-          onClear: _clearLogs,
-          onAutoScrollChanged: (value) => setState(() => _autoScroll = value),
-          inputController: _inputController,
-          hexMode: _hexMode,
-          onModeChanged: (value) => setState(() => _hexMode = value),
-          onSend: _sendInput,
-          canSend: _selectedDevice?.connected == true && _hasWriteTarget,
-          writeTarget: _characteristics
-              .where((item) => item.isWriteTarget)
-              .map((item) => item.characteristicId)
-              .firstOrNull,
-          l10n: l10n,
-        ),
-        devicePane: _DeviceToolsPanel(
-          characteristics: _characteristics,
-          connected: _selectedDevice?.connected == true,
-          safetyPolicy: _selectedDeviceSafetyPolicy,
-          onSelectWrite: _setWriteCharacteristic,
-          onSubscriptionChanged: _setSubscription,
-          onRead: _readCharacteristic,
-          onEditSafetyPolicy: _editSelectedDeviceSafetyPolicy,
-          l10n: l10n,
-        ),
-        inspectorPane: _InspectorPanel(
-          characteristics: _characteristics,
-          canSend: _hasWriteTarget,
-          onSendCommand: _sendCommandDefinition,
-          commands: workspace.commands,
-          responseMappings: workspace.responseMappings,
-          monitoredValues: _monitoredValues,
-          l10n: l10n,
-        ),
-        configurationPane: _ConfigurationWorkspace(
-          workspace: workspace,
-          runtimeAvailable: _scriptEngine.isRuntimeAvailable,
-          onEditWorkspace: _editActiveWorkspace,
-          onProtocolChanged: _updateProtocol,
-          onScriptConfigChanged: _updateScriptConfig,
-          onNewCommand: () => _editCommand(),
-          onEditCommand: _editCommand,
-          onDeleteCommand: _deleteCommand,
-          onCommandEnabledChanged: _setCommandEnabled,
-          onCommandQuickAccessChanged: _setCommandQuickAccess,
-          onCommandWhitelistChanged: _setCommandWhitelist,
-          onNewResponseMapping: () => _editResponseMapping(),
-          onEditResponseMapping: _editResponseMapping,
-          onDeleteResponseMapping: _deleteResponseMapping,
-          l10n: l10n,
-        ),
-        recordPane: _RecordWorkspace(
-          logs: _logs,
-          l10n: l10n,
-          onExport: _exportSessionLogs,
-          onToggleBookmark: _toggleSessionLogBookmark,
         ),
       ),
     );
@@ -2664,6 +2811,8 @@ class _ConnectionSelector extends StatelessWidget {
 }
 
 enum _ConnectionStatus { disconnected, connecting, connected }
+
+enum _ConsoleLogFilter { all, tx, rx, system, error }
 
 class _ConnectionStatusBadge extends StatelessWidget {
   const _ConnectionStatusBadge({required this.status, required this.l10n});
@@ -4317,31 +4466,140 @@ String _commandParameterTypeLabel(CommandParameterType type) => switch (type) {
   CommandParameterType.currentSecond => '当前秒',
 };
 
+class _ConsoleSendPreview {
+  const _ConsoleSendPreview({
+    this.payloadLength,
+    this.finalFrame,
+    this.error,
+    this.scriptPending = false,
+  });
+
+  final int? payloadLength;
+  final List<int>? finalFrame;
+  final String? error;
+  final bool scriptPending;
+}
+
+class _ConsoleLogView extends StatefulWidget {
+  const _ConsoleLogView({
+    required this.logs,
+    required this.autoScroll,
+    required this.selectedLog,
+    required this.onLogSelected,
+    required this.l10n,
+  });
+
+  final List<SessionLogRecord> logs;
+  final bool autoScroll;
+  final SessionLogRecord? selectedLog;
+  final ValueChanged<SessionLogRecord> onLogSelected;
+  final AppLocalizations l10n;
+
+  @override
+  State<_ConsoleLogView> createState() => _ConsoleLogViewState();
+}
+
+class _ConsoleLogViewState extends State<_ConsoleLogView> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
+  }
+
+  @override
+  void didUpdateWidget(covariant _ConsoleLogView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.autoScroll && widget.logs.length > oldWidget.logs.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
+    }
+  }
+
+  void _scrollToLatest() {
+    if (!mounted || !_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      color: dark
+          ? const Color(0xFF0A111B)
+          : Theme.of(context).colorScheme.surface,
+      child: ListView.builder(
+        key: const ValueKey<String>('console-log-list'),
+        controller: _scrollController,
+        reverse: false,
+        padding: const EdgeInsets.all(14),
+        itemCount: widget.logs.length,
+        itemBuilder: (_, index) {
+          final SessionLogRecord entry =
+              widget.logs[widget.logs.length - index - 1];
+          return _LogLine(
+            entry: entry,
+            l10n: widget.l10n,
+            selected: identical(entry, widget.selectedLog),
+            onTap: () => widget.onLogSelected(entry),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _ConsoleArea extends StatelessWidget {
   const _ConsoleArea({
     required this.logs,
+    required this.discardedLogCount,
     required this.autoScroll,
     required this.onClear,
     required this.onAutoScrollChanged,
     required this.inputController,
+    required this.inputFocusNode,
     required this.hexMode,
     required this.onModeChanged,
     required this.onSend,
     required this.canSend,
+    required this.sendDisabledReason,
+    required this.sendPreview,
     required this.writeTarget,
     required this.l10n,
+    required this.selectedLog,
+    required this.onLogSelected,
+    required this.logFilter,
+    required this.onLogFilterChanged,
   });
   final List<SessionLogRecord> logs;
+  final int discardedLogCount;
   final bool autoScroll;
   final VoidCallback onClear;
   final ValueChanged<bool> onAutoScrollChanged;
   final TextEditingController inputController;
+  final FocusNode inputFocusNode;
   final bool hexMode;
   final ValueChanged<bool> onModeChanged;
   final VoidCallback onSend;
   final bool canSend;
+  final String? sendDisabledReason;
+  final _ConsoleSendPreview Function(String input, bool hexMode) sendPreview;
   final String? writeTarget;
   final AppLocalizations l10n;
+  final SessionLogRecord? selectedLog;
+  final ValueChanged<SessionLogRecord> onLogSelected;
+  final _ConsoleLogFilter logFilter;
+  final ValueChanged<_ConsoleLogFilter> onLogFilterChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -4368,6 +4626,50 @@ class _ConsoleArea extends StatelessWidget {
                 style: Theme.of(
                   context,
                 ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(width: 8),
+              PopupMenuButton<_ConsoleLogFilter>(
+                tooltip: l10n.filterLogs,
+                initialValue: logFilter,
+                onSelected: onLogFilterChanged,
+                itemBuilder: (BuildContext context) =>
+                    <PopupMenuEntry<_ConsoleLogFilter>>[
+                      _logFilterItem(
+                        _ConsoleLogFilter.all,
+                        l10n.allFilter,
+                        logFilter,
+                      ),
+                      _logFilterItem(
+                        _ConsoleLogFilter.tx,
+                        l10n.txFilter,
+                        logFilter,
+                      ),
+                      _logFilterItem(
+                        _ConsoleLogFilter.rx,
+                        l10n.rxFilter,
+                        logFilter,
+                      ),
+                      _logFilterItem(
+                        _ConsoleLogFilter.system,
+                        l10n.systemFilter,
+                        logFilter,
+                      ),
+                      _logFilterItem(
+                        _ConsoleLogFilter.error,
+                        l10n.errorFilter,
+                        logFilter,
+                      ),
+                    ],
+                icon: const Icon(Icons.filter_list_outlined, size: 18),
+              ),
+              const SizedBox(width: 2),
+              Flexible(
+                child: Text(
+                  l10n.retainedLogs(logs.length, discardedLogCount),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
               ),
               const SizedBox(width: 12),
               Icon(
@@ -4411,138 +4713,236 @@ class _ConsoleArea extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: Container(
-            color: dark ? const Color(0xFF0A111B) : colors.surface,
-            child: ListView.builder(
-              reverse: false,
-              padding: const EdgeInsets.all(14),
-              itemCount: logs.length,
-              itemBuilder: (_, index) {
-                final entry = logs[logs.length - index - 1];
-                return _LogLine(entry: entry, l10n: l10n);
-              },
-            ),
+          child: _ConsoleLogView(
+            logs: logs,
+            autoScroll: autoScroll,
+            selectedLog: selectedLog,
+            onLogSelected: onLogSelected,
+            l10n: l10n,
           ),
         ),
-        Container(
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-          decoration: BoxDecoration(
-            color: dark ? const Color(0xFF101824) : colors.surface,
-            border: Border(
-              top: BorderSide(color: Theme.of(context).dividerColor),
-            ),
-          ),
-          child: Column(
-            children: <Widget>[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: <Widget>[
-                  Expanded(
-                    child: TextField(
-                      controller: inputController,
-                      minLines: 1,
-                      maxLines: 4,
-                      onSubmitted: (_) => onSend(),
-                      style: const TextStyle(fontFamily: 'monospace'),
-                      decoration: InputDecoration(
-                        hintText: l10n.inputPlaceholder,
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    height: 40,
-                    child: FilledButton.icon(
-                      onPressed: canSend ? onSend : null,
-                      icon: const Icon(Icons.send_outlined, size: 18),
-                      label: Text(l10n.sendData),
-                    ),
-                  ),
-                ],
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: inputController,
+          builder: (BuildContext context, TextEditingValue input, _) {
+            final _ConsoleSendPreview preview = sendPreview(
+              input.text,
+              hexMode,
+            );
+            final String? inputReason =
+                preview.error ??
+                (input.text.trim().isEmpty ? l10n.emptyInput : null);
+            final String? disabledReason = sendDisabledReason ?? inputReason;
+            final bool effectiveCanSend = canSend && inputReason == null;
+            return Container(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              decoration: BoxDecoration(
+                color: dark ? const Color(0xFF101824) : colors.surface,
+                border: Border(
+                  top: BorderSide(color: Theme.of(context).dividerColor),
+                ),
               ),
-              const SizedBox(height: 8),
-              Row(
+              child: Column(
                 children: <Widget>[
-                  SegmentedButton<bool>(
-                    key: const ValueKey<String>('console-mode-toggle'),
-                    showSelectedIcon: false,
-                    style: ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                      minimumSize: const WidgetStatePropertyAll<Size>(
-                        Size(0, 36),
-                      ),
-                      padding: const WidgetStatePropertyAll<EdgeInsets>(
-                        EdgeInsets.symmetric(horizontal: 10),
-                      ),
-                      shape: WidgetStatePropertyAll<OutlinedBorder>(
-                        RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: <Widget>[
+                      Expanded(
+                        child: TextField(
+                          key: const ValueKey<String>('console-input'),
+                          controller: inputController,
+                          focusNode: inputFocusNode,
+                          minLines: 1,
+                          maxLines: 4,
+                          onSubmitted: (_) => onSend(),
+                          style: const TextStyle(fontFamily: 'monospace'),
+                          decoration: InputDecoration(
+                            hintText: l10n.inputPlaceholder,
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                          ),
                         ),
                       ),
-                      side: WidgetStatePropertyAll<BorderSide>(
-                        BorderSide(color: colors.outlineVariant),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        height: 40,
+                        child: FilledButton.icon(
+                          key: const ValueKey<String>('console-send-button'),
+                          onPressed: effectiveCanSend ? onSend : null,
+                          icon: const Icon(Icons.send_outlined, size: 18),
+                          label: Text(l10n.sendData),
+                        ),
                       ),
-                      backgroundColor: WidgetStateProperty.resolveWith<Color?>((
-                        states,
-                      ) {
-                        return states.contains(WidgetState.selected)
-                            ? colors.secondaryContainer
-                            : colors.surface;
-                      }),
-                      foregroundColor: WidgetStateProperty.resolveWith<Color?>((
-                        states,
-                      ) {
-                        return states.contains(WidgetState.selected)
-                            ? colors.onSecondaryContainer
-                            : colors.onSurfaceVariant;
-                      }),
-                    ),
-                    segments: <ButtonSegment<bool>>[
-                      ButtonSegment(value: true, label: Text(l10n.hexMode)),
-                      ButtonSegment(value: false, label: Text(l10n.textMode)),
                     ],
-                    selected: <bool>{hexMode},
-                    onSelectionChanged: (Set<bool> value) =>
-                        onModeChanged(value.first),
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    l10n.lineEnding,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(width: 4),
-                  Container(
-                    key: const ValueKey<String>('console-line-ending'),
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      border: Border.all(color: colors.outlineVariant),
-                      borderRadius: BorderRadius.circular(6),
+                  if (disabledReason != null) ...<Widget>[
+                    const SizedBox(height: 5),
+                    Semantics(
+                      liveRegion: true,
+                      container: true,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          children: <Widget>[
+                            Icon(
+                              Icons.info_outline,
+                              size: 15,
+                              color: colors.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                l10n.sendUnavailable(disabledReason),
+                                key: const ValueKey<String>(
+                                  'console-send-disabled-reason',
+                                ),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: colors.onSurfaceVariant),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: DropdownButton<String>(
-                      value: 'none',
-                      isDense: true,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      borderRadius: BorderRadius.circular(6),
-                      underline: const SizedBox(),
-                      items: <DropdownMenuItem<String>>[
-                        DropdownMenuItem(value: 'none', child: Text(l10n.none)),
-                        DropdownMenuItem(value: 'lf', child: Text(l10n.lf)),
-                        DropdownMenuItem(value: 'crlf', child: Text(l10n.crlf)),
-                      ],
-                      onChanged: (_) {},
+                  ],
+                  if (preview.error == null &&
+                      preview.payloadLength != null) ...<Widget>[
+                    const SizedBox(height: 5),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 12,
+                        runSpacing: 3,
+                        children: <Widget>[
+                          Text(
+                            l10n.payloadLength(preview.payloadLength!),
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                          Text(
+                            preview.scriptPending
+                                ? l10n.scriptPreviewUnavailable
+                                : l10n.finalFramePreview(
+                                    preview.finalFrame!.length,
+                                    _toHex(preview.finalFrame!),
+                                  ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  fontFamily: 'monospace',
+                                  color: colors.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
+                  ],
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      SegmentedButton<bool>(
+                        key: const ValueKey<String>('console-mode-toggle'),
+                        showSelectedIcon: false,
+                        style: ButtonStyle(
+                          visualDensity: VisualDensity.compact,
+                          minimumSize: const WidgetStatePropertyAll<Size>(
+                            Size(0, 36),
+                          ),
+                          padding: const WidgetStatePropertyAll<EdgeInsets>(
+                            EdgeInsets.symmetric(horizontal: 10),
+                          ),
+                          shape: WidgetStatePropertyAll<OutlinedBorder>(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          side: WidgetStatePropertyAll<BorderSide>(
+                            BorderSide(color: colors.outlineVariant),
+                          ),
+                          backgroundColor:
+                              WidgetStateProperty.resolveWith<Color?>((states) {
+                                return states.contains(WidgetState.selected)
+                                    ? colors.secondaryContainer
+                                    : colors.surface;
+                              }),
+                          foregroundColor:
+                              WidgetStateProperty.resolveWith<Color?>((states) {
+                                return states.contains(WidgetState.selected)
+                                    ? colors.onSecondaryContainer
+                                    : colors.onSurfaceVariant;
+                              }),
+                        ),
+                        segments: <ButtonSegment<bool>>[
+                          ButtonSegment(value: true, label: Text(l10n.hexMode)),
+                          ButtonSegment(
+                            value: false,
+                            label: Text(l10n.textMode),
+                          ),
+                        ],
+                        selected: <bool>{hexMode},
+                        onSelectionChanged: (Set<bool> value) =>
+                            onModeChanged(value.first),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        l10n.lineEnding,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        key: const ValueKey<String>('console-line-ending'),
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          border: Border.all(color: colors.outlineVariant),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: DropdownButton<String>(
+                          value: 'none',
+                          isDense: true,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          borderRadius: BorderRadius.circular(6),
+                          underline: const SizedBox(),
+                          items: <DropdownMenuItem<String>>[
+                            DropdownMenuItem(
+                              value: 'none',
+                              child: Text(l10n.none),
+                            ),
+                            DropdownMenuItem(value: 'lf', child: Text(l10n.lf)),
+                            DropdownMenuItem(
+                              value: 'crlf',
+                              child: Text(l10n.crlf),
+                            ),
+                          ],
+                          onChanged: (_) {},
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ],
     );
   }
+}
+
+PopupMenuItem<_ConsoleLogFilter> _logFilterItem(
+  _ConsoleLogFilter value,
+  String label,
+  _ConsoleLogFilter selected,
+) {
+  return PopupMenuItem<_ConsoleLogFilter>(
+    value: value,
+    child: Row(
+      children: <Widget>[
+        SizedBox(
+          width: 22,
+          child: value == selected ? const Icon(Icons.check, size: 16) : null,
+        ),
+        Text(label),
+      ],
+    ),
+  );
 }
 
 String _serviceTitle(String serviceId, AppLocalizations l10n) {
@@ -4563,7 +4963,7 @@ String? _characteristicTitle(String characteristicId, AppLocalizations l10n) {
   };
 }
 
-class _DeviceToolsPanel extends StatelessWidget {
+class _DeviceToolsPanel extends StatefulWidget {
   const _DeviceToolsPanel({
     required this.characteristics,
     required this.connected,
@@ -4590,10 +4990,27 @@ class _DeviceToolsPanel extends StatelessWidget {
   final AppLocalizations l10n;
 
   @override
+  State<_DeviceToolsPanel> createState() => _DeviceToolsPanelState();
+}
+
+class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
+  final TextEditingController _filterController = TextEditingController();
+  bool _operableOnly = false;
+
+  @override
+  void dispose() {
+    _filterController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final List<BluetoothCharacteristicInfo> filteredCharacteristics =
+        _filteredCharacteristics(widget.characteristics, widget.l10n);
     final Map<String, List<BluetoothCharacteristicInfo>> byService =
         <String, List<BluetoothCharacteristicInfo>>{};
-    for (final BluetoothCharacteristicInfo characteristic in characteristics) {
+    for (final BluetoothCharacteristicInfo characteristic
+        in filteredCharacteristics) {
       byService
           .putIfAbsent(
             characteristic.serviceId,
@@ -4610,7 +5027,7 @@ class _DeviceToolsPanel extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  l10n.characteristics,
+                  widget.l10n.characteristics,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -4620,7 +5037,9 @@ class _DeviceToolsPanel extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                connected ? l10n.connected : l10n.disconnected,
+                widget.connected
+                    ? widget.l10n.connected
+                    : widget.l10n.disconnected,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.end,
@@ -4628,13 +5047,13 @@ class _DeviceToolsPanel extends StatelessWidget {
               ),
               IconButton(
                 tooltip: '设备发送策略',
-                onPressed: connected && characteristics.isNotEmpty
-                    ? onEditSafetyPolicy
+                onPressed: widget.connected && widget.characteristics.isNotEmpty
+                    ? widget.onEditSafetyPolicy
                     : null,
                 icon: Icon(
-                  safetyPolicy.allowedWriteTargetKeys.isNotEmpty ||
-                          safetyPolicy.maxFinalFrameBytes != null ||
-                          safetyPolicy.requireWriteWithResponse
+                  widget.safetyPolicy.allowedWriteTargetKeys.isNotEmpty ||
+                          widget.safetyPolicy.maxFinalFrameBytes != null ||
+                          widget.safetyPolicy.requireWriteWithResponse
                       ? Icons.shield
                       : Icons.shield_outlined,
                   size: 19,
@@ -4643,39 +5062,98 @@ class _DeviceToolsPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          if (!connected)
+          if (!widget.connected)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(l10n.connectToDiscoverCharacteristics),
+              child: Text(widget.l10n.connectToDiscoverCharacteristics),
             )
-          else if (characteristics.isEmpty)
+          else if (widget.characteristics.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(l10n.noCharacteristics),
+              child: Text(widget.l10n.noCharacteristics),
             )
-          else
-            ...byService.entries.expand(
-              (MapEntry<String, List<BluetoothCharacteristicInfo>> entry) =>
-                  <Widget>[
-                    _ServiceTreeHeader(
-                      serviceId: entry.key,
-                      title: _serviceTitle(entry.key, l10n),
+          else ...<Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey<String>('characteristic-filter'),
+                    controller: _filterController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: widget.l10n.filterCharacteristics,
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      isDense: true,
+                      border: const OutlineInputBorder(),
                     ),
-                    ...entry.value.map(
-                      (BluetoothCharacteristicInfo characteristic) =>
-                          _CharacteristicTile(
-                            characteristic: characteristic,
-                            onSelectWrite: onSelectWrite,
-                            onSubscriptionChanged: onSubscriptionChanged,
-                            onRead: onRead,
-                            l10n: l10n,
-                          ),
-                    ),
-                  ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: widget.l10n.operableOnly,
+                  child: FilterChip(
+                    label: const Text('R/W'),
+                    selected: _operableOnly,
+                    onSelected: (bool value) =>
+                        setState(() => _operableOnly = value),
+                  ),
+                ),
+              ],
             ),
+            if (filteredCharacteristics.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(widget.l10n.noMatchingCharacteristics),
+              )
+            else
+              ...byService.entries.expand(
+                (
+                  MapEntry<String, List<BluetoothCharacteristicInfo>> entry,
+                ) => <Widget>[
+                  _ServiceTreeHeader(
+                    serviceId: entry.key,
+                    title: _serviceTitle(entry.key, widget.l10n),
+                  ),
+                  ...entry.value.map(
+                    (BluetoothCharacteristicInfo characteristic) =>
+                        _CharacteristicTile(
+                          characteristic: characteristic,
+                          onSelectWrite: widget.onSelectWrite,
+                          onSubscriptionChanged: widget.onSubscriptionChanged,
+                          onRead: widget.onRead,
+                          l10n: widget.l10n,
+                        ),
+                  ),
+                ],
+              ),
+          ],
         ],
       ),
     );
+  }
+
+  List<BluetoothCharacteristicInfo> _filteredCharacteristics(
+    List<BluetoothCharacteristicInfo> source,
+    AppLocalizations l10n,
+  ) {
+    final String query = _filterController.text.trim().toLowerCase();
+    return source
+        .where((BluetoothCharacteristicInfo characteristic) {
+          final bool operable =
+              characteristic.canRead ||
+              characteristic.canWrite ||
+              characteristic.canWriteWithoutResponse;
+          if (_operableOnly && !operable) return false;
+          if (query.isEmpty) return true;
+          final String title =
+              _characteristicTitle(characteristic.characteristicId, l10n) ?? '';
+          return <String>[
+            characteristic.serviceId,
+            characteristic.characteristicId,
+            title,
+          ].any((String value) => value.toLowerCase().contains(query));
+        })
+        .toList(growable: false);
   }
 }
 
@@ -5442,13 +5920,15 @@ class _CharacteristicTile extends StatelessWidget {
             runSpacing: 4,
             children: <Widget>[
               if (characteristic.canWrite)
-                _CapabilityChip(label: l10n.writeWithResponse),
+                _CapabilityChip(code: 'W', label: l10n.writeWithResponse),
               if (characteristic.canWriteWithoutResponse)
-                _CapabilityChip(label: l10n.writeWithoutResponse),
-              if (characteristic.canRead) _CapabilityChip(label: l10n.read),
-              if (characteristic.canNotify) _CapabilityChip(label: l10n.notify),
+                _CapabilityChip(code: 'NR', label: l10n.writeWithoutResponse),
+              if (characteristic.canRead)
+                _CapabilityChip(code: 'R', label: l10n.read),
+              if (characteristic.canNotify)
+                _CapabilityChip(code: 'N', label: l10n.notify),
               if (characteristic.canIndicate)
-                _CapabilityChip(label: l10n.indicate),
+                _CapabilityChip(code: 'I', label: l10n.indicate),
             ],
           ),
           if (characteristic.canRead ||
@@ -5510,18 +5990,25 @@ class _CharacteristicTile extends StatelessWidget {
 }
 
 class _CapabilityChip extends StatelessWidget {
-  const _CapabilityChip({required this.label});
+  const _CapabilityChip({required this.code, required this.label});
+  final String code;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(3),
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        label: label,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Text(code, style: Theme.of(context).textTheme.labelSmall),
+        ),
       ),
-      child: Text(label, style: Theme.of(context).textTheme.labelSmall),
     );
   }
 }
@@ -5530,10 +6017,14 @@ class _LogLine extends StatelessWidget {
   const _LogLine({
     required this.entry,
     required this.l10n,
+    this.selected = false,
+    this.onTap,
     this.onToggleBookmark,
   });
   final SessionLogRecord entry;
   final AppLocalizations l10n;
+  final bool selected;
+  final VoidCallback? onTap;
   final ValueChanged<SessionLogRecord>? onToggleBookmark;
 
   @override
@@ -5560,108 +6051,159 @@ class _LogLine extends StatelessWidget {
             constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             visualDensity: VisualDensity.compact,
           );
+    final Widget? detailsButton = onTap == null
+        ? null
+        : IconButton(
+            tooltip: l10n.viewLogDetails,
+            onPressed: onTap,
+            icon: const Icon(Icons.subject_outlined, size: 18),
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            visualDensity: VisualDensity.compact,
+          );
     return Semantics(
       label: '${entry.directionLabel(l10n)} $timestamp，$payload',
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
-        decoration: BoxDecoration(
-          border: Border(left: BorderSide(color: color, width: 2)),
-        ),
-        child: LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-            final bool compact = constraints.maxWidth < 520;
-            final Widget direction = Container(
-              width: 34,
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.13),
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: Text(
-                entry.shortDirection,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
+      child: GestureDetector(
+        key: ValueKey<String>('console-log-${entry.kind.name}'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+          decoration: BoxDecoration(
+            color: selected
+                ? colors.primaryContainer.withValues(alpha: 0.45)
+                : null,
+            border: Border(left: BorderSide(color: color, width: 2)),
+          ),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final bool compact = constraints.maxWidth < 520;
+              final Widget direction = Container(
+                width: 34,
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(3),
                 ),
-              ),
-            );
-            final Widget content = SelectableText(
-              payload,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                height: 1.45,
-                color: entry.kind == SessionLogKind.error ? color : null,
-              ),
-            );
-            if (compact) {
-              return Column(
+                child: Text(
+                  entry.shortDirection,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              );
+              final Widget content = SelectableText(
+                payload,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  height: 1.45,
+                  color: entry.kind == SessionLogKind.error ? color : null,
+                ),
+              );
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Text(
+                          timestamp,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            color: colors.outline,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        direction,
+                        if (entry.characteristicId != null) ...<Widget>[
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              _shortUuid(entry.characteristicId!),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (entry.data.isNotEmpty) ...<Widget>[
+                          const SizedBox(width: 8),
+                          Text(
+                            '${entry.data.length} B',
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
+                        if (bookmarkButton != null) ...<Widget>[
+                          const Spacer(),
+                          ?detailsButton,
+                          bookmarkButton,
+                        ] else if (detailsButton != null) ...<Widget>[
+                          const Spacer(),
+                          detailsButton,
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    content,
+                  ],
+                );
+              }
+              return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Text(
-                        timestamp,
-                        style: TextStyle(
+                  SizedBox(
+                    width: 90,
+                    child: Text(
+                      timestamp,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                        color: colors.outline,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  direction,
+                  if (entry.characteristicId != null) ...<Widget>[
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 66,
+                      child: Text(
+                        _shortUuid(entry.characteristicId!),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
                           fontFamily: 'monospace',
-                          fontSize: 11,
-                          color: colors.outline,
+                          fontSize: 10,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      direction,
-                      if (entry.data.isNotEmpty) ...<Widget>[
-                        const SizedBox(width: 8),
-                        Text(
-                          '${entry.data.length} B',
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                      ],
-                      if (bookmarkButton != null) ...<Widget>[
-                        const Spacer(),
-                        bookmarkButton,
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  content,
+                    ),
+                  ],
+                  if (entry.data.isNotEmpty) ...<Widget>[
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 32,
+                      child: Text(
+                        '${entry.data.length} B',
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 10),
+                  Expanded(child: content),
+                  ?detailsButton,
+                  ?bookmarkButton,
                 ],
               );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                SizedBox(
-                  width: 90,
-                  child: Text(
-                    timestamp,
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      color: colors.outline,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                direction,
-                if (entry.data.isNotEmpty) ...<Widget>[
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 32,
-                    child: Text(
-                      '${entry.data.length} B',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ),
-                ],
-                const SizedBox(width: 10),
-                Expanded(child: content),
-                ?bookmarkButton,
-              ],
-            );
-          },
+            },
+          ),
         ),
       ),
     );

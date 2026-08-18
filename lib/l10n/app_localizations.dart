@@ -308,6 +308,48 @@ abstract class AppLocalizations {
   /// **'Console'**
   String get console;
 
+  /// No description provided for @allFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get allFilter;
+
+  /// No description provided for @txFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'TX'**
+  String get txFilter;
+
+  /// No description provided for @rxFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'RX'**
+  String get rxFilter;
+
+  /// No description provided for @systemFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'SYS'**
+  String get systemFilter;
+
+  /// No description provided for @errorFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'ERR'**
+  String get errorFilter;
+
+  /// No description provided for @filterLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter logs'**
+  String get filterLogs;
+
+  /// No description provided for @retainedLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'{retained} retained / {discarded} discarded'**
+  String retainedLogs(int retained, int discarded);
+
   /// No description provided for @clear.
   ///
   /// In en, this message translates to:
@@ -326,11 +368,53 @@ abstract class AppLocalizations {
   /// **'Send data'**
   String get sendData;
 
+  /// No description provided for @sendUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending unavailable: {reason}'**
+  String sendUnavailable(String reason);
+
+  /// No description provided for @noWriteTargetSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'No writable characteristic selected'**
+  String get noWriteTargetSelected;
+
   /// No description provided for @inputPlaceholder.
   ///
   /// In en, this message translates to:
   /// **'Enter data to send...'**
   String get inputPlaceholder;
+
+  /// No description provided for @emptyInput.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter data to send'**
+  String get emptyInput;
+
+  /// No description provided for @invalidHexInput.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid HEX data'**
+  String get invalidHexInput;
+
+  /// No description provided for @payloadLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Payload {length} bytes'**
+  String payloadLength(int length);
+
+  /// No description provided for @finalFramePreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Final frame {length} bytes: {frame}'**
+  String finalFramePreview(int length, String frame);
+
+  /// No description provided for @scriptPreviewUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Script mode: final frame is generated before sending'**
+  String get scriptPreviewUnavailable;
 
   /// No description provided for @textMode.
   ///
@@ -440,6 +524,24 @@ abstract class AppLocalizations {
   /// **'No GATT characteristics were discovered.'**
   String get noCharacteristics;
 
+  /// No description provided for @filterCharacteristics.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter characteristic or UUID'**
+  String get filterCharacteristics;
+
+  /// No description provided for @operableOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Show operable characteristics only'**
+  String get operableOnly;
+
+  /// No description provided for @noMatchingCharacteristics.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching characteristics.'**
+  String get noMatchingCharacteristics;
+
   /// No description provided for @service.
   ///
   /// In en, this message translates to:
@@ -457,6 +559,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Write target'**
   String get writeTarget;
+
+  /// No description provided for @selectedLog.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected log'**
+  String get selectedLog;
+
+  /// No description provided for @viewLogDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'View log details'**
+  String get viewLogDetails;
+
+  /// No description provided for @source.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get source;
+
+  /// No description provided for @length.
+  ///
+  /// In en, this message translates to:
+  /// **'Length'**
+  String get length;
+
+  /// No description provided for @transaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction'**
+  String get transaction;
+
+  /// No description provided for @noSource.
+  ///
+  /// In en, this message translates to:
+  /// **'No source'**
+  String get noSource;
 
   /// No description provided for @subscribe.
   ///
@@ -709,6 +847,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter valid payload data.'**
   String get invalidCommandPayload;
+
+  /// No description provided for @configurationErrors.
+  ///
+  /// In en, this message translates to:
+  /// **'Fix these issues before saving:'**
+  String get configurationErrors;
+
+  /// No description provided for @requiredField.
+  ///
+  /// In en, this message translates to:
+  /// **'{field} is required'**
+  String requiredField(String field);
+
+  /// No description provided for @invalidHexPayload.
+  ///
+  /// In en, this message translates to:
+  /// **'HEX payload must contain complete bytes.'**
+  String get invalidHexPayload;
+
+  /// No description provided for @invalidCommandParameters.
+  ///
+  /// In en, this message translates to:
+  /// **'Each parameter key must exist and be used in the payload.'**
+  String get invalidCommandParameters;
 
   /// No description provided for @commandLibrary.
   ///
