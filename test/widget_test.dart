@@ -32,6 +32,28 @@ void main() {
     expect(find.text('调试'), findsOneWidget);
   });
 
+  testWidgets('扫描和连接按钮显示当前动作与连接状态', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    expect(find.text('开始扫描'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('scan-button')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('connection-action-button')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('连接设备'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('connection-action-button')),
+        matching: find.text('已连接 · 断开设备'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('窄屏调试工作区保留搜索和底部模式导航', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(375, 812);
     tester.view.devicePixelRatio = 1;
@@ -94,22 +116,79 @@ void main() {
     );
   });
 
-  testWidgets('可从语言菜单切换至英文界面', (WidgetTester tester) async {
+  testWidgets('可从设置工作区切换至英文界面', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('更多操作'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationRail),
+        matching: find.text('设置'),
+      ),
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('英文'));
+    await tester.tap(find.byKey(const ValueKey<String>('language-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('英文').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationRail),
+        matching: find.text('Debug'),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Console'), findsOneWidget);
     expect(find.text('Current context'), findsOneWidget);
   });
 
+  testWidgets('主题和语言统一收纳在设置工作区', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    expect(find.byTooltip('主题模式'), findsNothing);
+    expect(find.byTooltip('语言'), findsNothing);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationRail),
+        matching: find.text('设置'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('theme-mode-selector')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('language-selector')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('暗色模式'));
+    await tester.pumpAndSettle();
+    expect(
+      Theme.of(
+        tester.element(
+          find.byKey(const ValueKey<String>('theme-mode-selector')),
+        ),
+      ).brightness,
+      Brightness.dark,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('language-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('英文').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Settings'), findsNWidgets(2));
+  });
+
   testWidgets('工作区可导出、预览并确认替换导入', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('更多操作'));
+    await tester.tap(find.byTooltip('选择工作区'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('导出工作区'));
     await tester.pumpAndSettle();
@@ -118,7 +197,7 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, '关闭'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('更多操作'));
+    await tester.tap(find.byTooltip('选择工作区'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('导入工作区'));
     await tester.pumpAndSettle();
@@ -154,7 +233,7 @@ void main() {
     await pumpDesktopApp(tester);
 
     Future<void> importAndConfirm(String jsonText) async {
-      await tester.tap(find.byTooltip('更多操作'));
+      await tester.tap(find.byTooltip('选择工作区'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('导入工作区'));
       await tester.pumpAndSettle();
@@ -171,7 +250,7 @@ void main() {
     );
     expect(find.text('原始工作区'), findsWidgets);
 
-    await tester.tap(find.byTooltip('更多操作'));
+    await tester.tap(find.byTooltip('选择工作区'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('导入工作区'));
     await tester.pumpAndSettle();
@@ -207,9 +286,34 @@ void main() {
     await tester.tap(find.text('配置'));
     await tester.pumpAndSettle();
 
-    expect(find.text('工作区'), findsOneWidget);
+    expect(find.text('工作区'), findsWidgets);
     expect(find.text('设备型号'), findsOneWidget);
-    expect(find.byTooltip('编辑工作区'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('workspace-name-field')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('新建工作区直接进入配置表单', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(find.byTooltip('选择工作区'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建工作区'));
+    await tester.pumpAndSettle();
+
+    final Finder nameField = find.byKey(
+      const ValueKey<String>('workspace-name-field'),
+    );
+    expect(nameField, findsOneWidget);
+    expect(find.byType(Form), findsOneWidget);
+
+    await tester.enterText(nameField, '温度计工作区');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('温度计工作区'), findsWidgets);
+    expect(find.text('工作区已保存。'), findsOneWidget);
   });
 
   testWidgets('工作区指令可选择显示在右侧快捷区', (WidgetTester tester) async {
@@ -370,8 +474,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '写入目标'))
-          .selected,
+          .widget<shad.SelectedButton>(
+            find.widgetWithText(shad.SelectedButton, '写入目标'),
+          )
+          .value,
       isTrue,
     );
     await tester.tap(find.text('配置'));
@@ -476,24 +582,28 @@ void main() {
       '',
     );
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilterChip, 'R/W'));
+    await tester.tap(find.widgetWithText(shad.SelectedButton, 'R/W'));
     await tester.pump();
     expect(find.text('0000FFF1-0000-1000-8000-00805F9B34FB'), findsOneWidget);
     expect(find.text('0000FFF2-0000-1000-8000-00805F9B34FB'), findsNothing);
-    await tester.tap(find.widgetWithText(FilterChip, 'R/W'));
+    await tester.tap(find.widgetWithText(shad.SelectedButton, 'R/W'));
     await tester.pump();
 
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilterChip, 'Notify').first);
+    await tester.tap(find.widgetWithText(shad.SelectedButton, 'Notify').first);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilterChip, 'Indicate').first);
+    await tester.tap(
+      find.widgetWithText(shad.SelectedButton, 'Indicate').first,
+    );
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<FilterChip>(find.widgetWithText(FilterChip, 'Indicate').first)
-          .selected,
+          .widget<shad.SelectedButton>(
+            find.widgetWithText(shad.SelectedButton, 'Indicate').first,
+          )
+          .value,
       isTrue,
     );
 
@@ -511,18 +621,60 @@ void main() {
     );
   });
 
+  testWidgets('桌面特征面板使用紧凑筛选与操作控件', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(find.byTooltip('连接设备'));
+    await tester.pumpAndSettle();
+
+    final Finder filter = find.byKey(
+      const ValueKey<String>('characteristic-filter'),
+    );
+    final TextField filterField = tester.widget<TextField>(filter);
+    expect(filterField.style?.fontSize, 12);
+    expect(filterField.decoration?.hintStyle?.fontSize, 12);
+    expect(tester.getSize(filter).height, lessThanOrEqualTo(36));
+
+    final shad.Button scanButton = tester.widget<shad.Button>(
+      find.byKey(const ValueKey<String>('scan-button')),
+    );
+    final shad.Button connectionButton = tester.widget<shad.Button>(
+      find.byKey(const ValueKey<String>('connection-action-button')),
+    );
+    expect(scanButton.style, isA<shad.ButtonStyle>());
+    expect(connectionButton.style, isA<shad.ButtonStyle>());
+
+    final shad.SelectedButton operableOnly = tester.widget<shad.SelectedButton>(
+      find.widgetWithText(shad.SelectedButton, 'R/W'),
+    );
+    expect(operableOnly.style, isA<shad.ButtonStyle>());
+    expect(operableOnly.selectedStyle, isA<shad.ButtonStyle>());
+    final shad.ButtonStyle operableStyle =
+        operableOnly.style as shad.ButtonStyle;
+    expect(operableStyle.size, shad.ButtonSize.small);
+    expect(operableStyle.density, shad.ButtonDensity.dense);
+
+    final shad.SelectedButton writeTarget = tester.widget<shad.SelectedButton>(
+      find.widgetWithText(shad.SelectedButton, '写入目标'),
+    );
+    expect(writeTarget.style, isA<shad.ButtonStyle>());
+    expect(writeTarget.selectedStyle, isA<shad.ButtonStyle>());
+  });
+
   testWidgets('点击控制台日志后 Inspector 显示帧详情', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
     await tester.tap(find.byTooltip('连接设备'));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(ChoiceChip, '写入目标'), findsOneWidget);
+    expect(find.widgetWithText(shad.SelectedButton, '写入目标'), findsOneWidget);
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '写入目标'))
-          .selected,
+          .widget<shad.SelectedButton>(
+            find.widgetWithText(shad.SelectedButton, '写入目标'),
+          )
+          .value,
       isTrue,
     );
     await tester.enterText(
@@ -567,8 +719,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '写入目标'))
-          .selected,
+          .widget<shad.SelectedButton>(
+            find.widgetWithText(shad.SelectedButton, '写入目标'),
+          )
+          .value,
       isTrue,
     );
     await tester.enterText(
@@ -622,8 +776,10 @@ void main() {
 
     expect(
       tester
-          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '写入目标'))
-          .selected,
+          .widget<shad.SelectedButton>(
+            find.widgetWithText(shad.SelectedButton, '写入目标'),
+          )
+          .value,
       isTrue,
     );
   });

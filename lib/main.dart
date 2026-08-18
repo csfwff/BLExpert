@@ -676,92 +676,68 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _webOptionalServices = services);
   }
 
-  Future<void> _editActiveWorkspace() async {
-    final Workspace workspace = _workspaceManager.activeWorkspace;
-    final TextEditingController nameController = TextEditingController(
-      text: workspace.name,
-    );
-    final TextEditingController modelController = TextEditingController(
-      text: workspace.deviceModel,
-    );
-    final TextEditingController descriptionController = TextEditingController(
-      text: workspace.description,
-    );
-    final TextEditingController tagsController = TextEditingController(
-      text: workspace.tags.join(', '),
-    );
+  void _createWorkspace() {
     final AppLocalizations l10n = AppLocalizations.of(context)!;
-    final Workspace? updated = await showToolDialog<Workspace>(
-      context: context,
-      builder: (BuildContext context) => ToolAlertDialog(
-        icon: Icons.folder_outlined,
-        title: l10n.editWorkspace,
-        content: SizedBox(
-          width: 440,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                TextField(
-                  controller: nameController,
-                  autofocus: true,
-                  decoration: InputDecoration(labelText: l10n.workspace),
+    setState(() {
+      _workspaceManager.createWorkspace(
+        name: '${l10n.newWorkspace} ${_workspaceManager.workspaces.length + 1}',
+      );
+      _packetDecoder.reset();
+      _scriptSendRateLimiter.reset();
+      _pendingReceiveEvents.clear();
+      _monitoredValues.clear();
+      _mode = _AppMode.configure;
+    });
+    _persistWorkspaces();
+  }
+
+  Future<void> _deleteActiveWorkspace() async {
+    final AppLocalizations l10n = AppLocalizations.of(context)!;
+    if (_workspaceManager.workspaces.length <= 1) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.deleteWorkspaceLast)));
+      return;
+    }
+    final Workspace workspace = _workspaceManager.activeWorkspace;
+    final bool confirmed =
+        await showToolDialog<bool>(
+          context: context,
+          builder: (BuildContext context) => ToolAlertDialog(
+            icon: Icons.delete_outline,
+            title: l10n.deleteWorkspace,
+            content: Text(l10n.deleteWorkspaceConfirm(workspace.name)),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(l10n.cancel),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: modelController,
-                  decoration: InputDecoration(labelText: l10n.deviceModel),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descriptionController,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: InputDecoration(labelText: l10n.description),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: tagsController,
-                  decoration: InputDecoration(labelText: l10n.tags),
-                ),
-              ],
-            ),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(l10n.deleteWorkspace),
+              ),
+            ],
           ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              final String name = nameController.text.trim();
-              Navigator.of(context).pop(
-                workspace.copyWith(
-                  name: name.isEmpty ? workspace.name : name,
-                  deviceModel: modelController.text.trim(),
-                  description: descriptionController.text.trim(),
-                  tags: tagsController.text
-                      .split(',')
-                      .map((String tag) => tag.trim())
-                      .where((String tag) => tag.isNotEmpty)
-                      .toSet()
-                      .toList(growable: false),
-                  updatedAt: DateTime.now(),
-                ),
-              );
-            },
-            child: Text(l10n.save),
-          ),
-        ],
-      ),
-    );
-    nameController.dispose();
-    modelController.dispose();
-    descriptionController.dispose();
-    tagsController.dispose();
-    if (updated == null || !mounted) return;
-    setState(() => _upsertWorkspace(updated));
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+    setState(() {
+      _workspaceManager.removeWorkspace(workspace.id);
+      _packetDecoder.reset();
+      _scriptSendRateLimiter.reset();
+      _pendingReceiveEvents.clear();
+      _monitoredValues.clear();
+    });
+    _persistWorkspaces();
+  }
+
+  void _saveWorkspaceDetails(Workspace workspace) {
+    if (workspace.id != _workspaceManager.activeWorkspace.id) return;
+    setState(() => _upsertWorkspace(workspace));
   }
 
   void _updateProtocol(ProtocolDefinition protocol) {
@@ -2450,21 +2426,27 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Divider(height: 1),
             ),
             actions: <Widget>[
+              _WorkspaceSelector(
+                workspace: workspace,
+                workspaces: _workspaceManager.workspaces,
+                compact: compactToolbar,
+                onSelected: (String workspaceId) {
+                  setState(() {
+                    _packetDecoder.reset();
+                    _scriptSendRateLimiter.reset();
+                    _pendingReceiveEvents.clear();
+                    _monitoredValues.clear();
+                    _workspaceManager.setActiveWorkspace(workspaceId);
+                    _persistWorkspaces();
+                  });
+                },
+                onNew: _createWorkspace,
+                onDelete: _deleteActiveWorkspace,
+                onExport: _exportWorkspaces,
+                onImport: _importWorkspaces,
+                l10n: l10n,
+              ),
               if (!compactToolbar) ...<Widget>[
-                _WorkspaceSelector(
-                  workspace: workspace,
-                  workspaces: _workspaceManager.workspaces,
-                  onSelected: (String workspaceId) {
-                    setState(() {
-                      _packetDecoder.reset();
-                      _scriptSendRateLimiter.reset();
-                      _pendingReceiveEvents.clear();
-                      _workspaceManager.setActiveWorkspace(workspaceId);
-                      _persistWorkspaces();
-                    });
-                  },
-                  l10n: l10n,
-                ),
                 const SizedBox(width: 8),
                 _ConnectionSelector(
                   devices: _devices,
@@ -2475,44 +2457,73 @@ class _HomeScreenState extends State<HomeScreen> {
                   onToggleConnection: _toggleConnection,
                   l10n: l10n,
                 ),
+                const SizedBox(width: 12),
               ],
               if (compactToolbar)
-                IconButton(
-                  tooltip: _selectedDevice?.connected == true
-                      ? l10n.disconnectDevice
+                Tooltip(
+                  message: _selectedDevice == null
+                      ? l10n.selectDeviceFirst
+                      : _selectedDevice?.connected == true
+                      ? '${l10n.connected} · ${l10n.disconnectDevice}'
                       : l10n.connectDevice,
-                  onPressed: _selectedDevice == null || _connecting
-                      ? null
-                      : _toggleConnection,
-                  icon: Icon(
-                    _selectedDevice?.connected == true
-                        ? Icons.link_off_outlined
-                        : Icons.bluetooth_outlined,
+                  child: shad.IconButton(
+                    key: const ValueKey<String>('connection-action-button'),
+                    variance: _selectedDevice?.connected == true
+                        ? shad.ButtonVariance.secondary
+                        : shad.ButtonVariance.primary,
+                    density: shad.ButtonDensity.iconDense,
+                    size: shad.ButtonSize.small,
+                    onPressed: _selectedDevice == null || _connecting
+                        ? null
+                        : _toggleConnection,
+                    icon: Icon(
+                      _connecting
+                          ? Icons.sync_outlined
+                          : _selectedDevice?.connected == true
+                          ? Icons.link_off_outlined
+                          : Icons.bluetooth_outlined,
+                    ),
                   ),
                 ),
-              IconButton(
-                tooltip: _scanning ? l10n.stopScan : l10n.startScan,
-                onPressed: _toggleScan,
-                icon: Icon(
-                  _scanning ? Icons.stop_circle_outlined : Icons.radar,
+              if (compactToolbar) const SizedBox(width: 4),
+              if (compactToolbar)
+                Tooltip(
+                  message: _scanning ? l10n.stopScan : l10n.startScan,
+                  child: shad.IconButton(
+                    key: const ValueKey<String>('scan-button'),
+                    variance: _scanning
+                        ? shad.ButtonVariance.outline
+                        : shad.ButtonVariance.primary,
+                    density: shad.ButtonDensity.iconDense,
+                    size: shad.ButtonSize.small,
+                    onPressed: _toggleScan,
+                    icon: Icon(
+                      _scanning ? Icons.stop_circle_outlined : Icons.radar,
+                    ),
+                  ),
+                )
+              else
+                _ScanButton(
+                  scanning: _scanning,
+                  onPressed: _toggleScan,
+                  l10n: l10n,
                 ),
-              ),
-              _AppOverflowMenu(
-                themeMode: widget.themeMode,
-                locale: widget.locale,
-                onThemeModeChanged: widget.onThemeModeChanged,
-                onLocaleChanged: widget.onLocaleChanged,
-                onConfigureWebServices: kIsWeb ? _configureWebServices : null,
-                onExportWorkspaces: _exportWorkspaces,
-                onImportWorkspaces: _importWorkspaces,
-                l10n: l10n,
-              ),
+              if (compactToolbar || kIsWeb)
+                _AppOverflowMenu(
+                  themeMode: widget.themeMode,
+                  onThemeModeChanged: widget.onThemeModeChanged,
+                  onLocaleChanged: widget.onLocaleChanged,
+                  includeAppearance: compactToolbar,
+                  onConfigureWebServices: kIsWeb ? _configureWebServices : null,
+                  l10n: l10n,
+                ),
               const SizedBox(width: 4),
             ],
           ),
           body: _AppWorkspaceShell(
             mode: _mode,
             onModeChanged: (mode) => setState(() => _mode = mode),
+            l10n: l10n,
             inspectorOpen: _inspectorOpen,
             onInspectorVisibilityChanged: (value) =>
                 setState(() => _inspectorOpen = value),
@@ -2570,7 +2581,7 @@ class _HomeScreenState extends State<HomeScreen> {
             configurationPane: _ConfigurationWorkspace(
               workspace: workspace,
               runtimeAvailable: _scriptEngine.isRuntimeAvailable,
-              onEditWorkspace: _editActiveWorkspace,
+              onWorkspaceChanged: _saveWorkspaceDetails,
               onProtocolChanged: _updateProtocol,
               onScriptConfigChanged: _updateScriptConfig,
               onNewCommand: () => _editCommand(),
@@ -2590,6 +2601,13 @@ class _HomeScreenState extends State<HomeScreen> {
               onExport: _exportSessionLogs,
               onToggleBookmark: _toggleSessionLogBookmark,
             ),
+            settingsPane: _SettingsWorkspace(
+              themeMode: widget.themeMode,
+              locale: widget.locale,
+              onThemeModeChanged: widget.onThemeModeChanged,
+              onLocaleChanged: widget.onLocaleChanged,
+              l10n: l10n,
+            ),
           ),
         ),
       ),
@@ -2601,40 +2619,146 @@ class _WorkspaceSelector extends StatelessWidget {
   const _WorkspaceSelector({
     required this.workspace,
     required this.workspaces,
+    required this.compact,
     required this.onSelected,
+    required this.onNew,
+    required this.onDelete,
+    required this.onExport,
+    required this.onImport,
     required this.l10n,
   });
   final Workspace workspace;
   final List<Workspace> workspaces;
+  final bool compact;
   final ValueChanged<String> onSelected;
+  final VoidCallback onNew;
+  final VoidCallback onDelete;
+  final VoidCallback onExport;
+  final VoidCallback onImport;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
+    return PopupMenuButton<Object>(
       tooltip: l10n.selectWorkspace,
-      onSelected: onSelected,
-      itemBuilder: (_) => workspaces
-          .map((item) => PopupMenuItem(value: item.id, child: Text(item.name)))
-          .toList(),
-      child: SizedBox(
-        width: 180,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  workspace.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const Icon(Icons.expand_more, size: 18),
-            ],
+      onSelected: (Object value) {
+        if (value is String) {
+          onSelected(value);
+          return;
+        }
+        switch (value) {
+          case _WorkspaceMenuAction.newWorkspace:
+            onNew();
+          case _WorkspaceMenuAction.deleteWorkspace:
+            onDelete();
+          case _WorkspaceMenuAction.exportWorkspaces:
+            onExport();
+          case _WorkspaceMenuAction.importWorkspaces:
+            onImport();
+        }
+      },
+      itemBuilder: (_) => <PopupMenuEntry<Object>>[
+        ...workspaces.map(
+          (Workspace item) => CheckedPopupMenuItem<Object>(
+            value: item.id,
+            checked: item.id == workspace.id,
+            child: Text(item.name),
           ),
         ),
-      ),
+        const PopupMenuDivider(),
+        PopupMenuItem<Object>(
+          value: _WorkspaceMenuAction.newWorkspace,
+          child: ListTile(
+            leading: const Icon(Icons.create_new_folder_outlined),
+            title: Text(l10n.newWorkspace),
+          ),
+        ),
+        PopupMenuItem<Object>(
+          value: _WorkspaceMenuAction.deleteWorkspace,
+          enabled: workspaces.length > 1,
+          child: ListTile(
+            leading: const Icon(Icons.delete_outline),
+            title: Text(l10n.deleteWorkspace),
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<Object>(
+          value: _WorkspaceMenuAction.importWorkspaces,
+          child: ListTile(
+            leading: const Icon(Icons.download_outlined),
+            title: Text(l10n.importWorkspace),
+          ),
+        ),
+        PopupMenuItem<Object>(
+          value: _WorkspaceMenuAction.exportWorkspaces,
+          child: ListTile(
+            leading: const Icon(Icons.upload_file_outlined),
+            title: Text(l10n.exportWorkspace),
+          ),
+        ),
+      ],
+      child: compact
+          ? const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Icon(Icons.folder_outlined),
+            )
+          : SizedBox(
+              width: 180,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        workspace.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.expand_more, size: 18),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+enum _WorkspaceMenuAction {
+  newWorkspace,
+  deleteWorkspace,
+  exportWorkspaces,
+  importWorkspaces,
+}
+
+class _ScanButton extends StatelessWidget {
+  const _ScanButton({
+    required this.scanning,
+    required this.onPressed,
+    required this.l10n,
+  });
+
+  final bool scanning;
+  final VoidCallback onPressed;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final String label = scanning ? l10n.stopScan : l10n.startScan;
+    return shad.Button(
+      key: const ValueKey<String>('scan-button'),
+      style: scanning
+          ? const shad.ButtonStyle.outline(
+              size: shad.ButtonSize.small,
+              density: shad.ButtonDensity.dense,
+            )
+          : const shad.ButtonStyle.primary(
+              size: shad.ButtonSize.small,
+              density: shad.ButtonDensity.dense,
+            ),
+      onPressed: onPressed,
+      leading: Icon(scanning ? Icons.stop_circle_outlined : Icons.radar),
+      child: Text(label),
     );
   }
 }
@@ -2660,148 +2784,245 @@ class _ConnectionSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final device = devices.where((item) => item.id == selectedId).firstOrNull;
-    final _ConnectionStatus status = connecting
-        ? _ConnectionStatus.connecting
+    final String actionLabel = connecting
+        ? l10n.connecting
+        : device == null
+        ? l10n.selectDeviceFirst
         : connected
-        ? _ConnectionStatus.connected
-        : _ConnectionStatus.disconnected;
+        ? '${l10n.connected} · ${l10n.disconnectDevice}'
+        : l10n.connectDevice;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: device?.id,
-            hint: Text(l10n.noDevice),
-            items: devices
-                .map(
-                  (item) => DropdownMenuItem(
-                    value: item.id,
-                    child: SizedBox(
-                      width: 150,
-                      child: Text(item.name, overflow: TextOverflow.ellipsis),
+        Semantics(
+          label: l10n.connection,
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: device?.id,
+              hint: Text(l10n.noDevice),
+              items: devices
+                  .map(
+                    (item) => DropdownMenuItem(
+                      value: item.id,
+                      child: SizedBox(
+                        width: 150,
+                        child: Text(item.name, overflow: TextOverflow.ellipsis),
+                      ),
                     ),
-                  ),
-                )
-                .toList(),
-            onChanged: onSelected,
+                  )
+                  .toList(),
+              onChanged: onSelected,
+            ),
           ),
         ),
-        const SizedBox(width: 4),
-        _ConnectionStatusBadge(status: status, l10n: l10n),
-        const SizedBox(width: 4),
-        IconButton.filled(
-          tooltip: connecting
-              ? l10n.connecting
-              : connected
-              ? l10n.disconnectDevice
-              : l10n.connectDevice,
-          onPressed: device == null || connecting ? null : onToggleConnection,
-          icon: connecting
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(connected ? Icons.link_off : Icons.play_arrow),
+        const SizedBox(width: 8),
+        Tooltip(
+          message: actionLabel,
+          child: shad.Button(
+            key: const ValueKey<String>('connection-action-button'),
+            style: connected
+                ? const shad.ButtonStyle.secondary(
+                    size: shad.ButtonSize.small,
+                    density: shad.ButtonDensity.dense,
+                  )
+                : const shad.ButtonStyle.primary(
+                    size: shad.ButtonSize.small,
+                    density: shad.ButtonDensity.dense,
+                  ),
+            onPressed: device == null || connecting ? null : onToggleConnection,
+            leading: connecting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    connected
+                        ? Icons.link_off_outlined
+                        : Icons.bluetooth_connected_outlined,
+                  ),
+            child: Text(actionLabel),
+          ),
         ),
       ],
     );
   }
 }
 
-enum _ConnectionStatus { disconnected, connecting, connected }
-
-class _ConnectionStatusBadge extends StatelessWidget {
-  const _ConnectionStatusBadge({required this.status, required this.l10n});
-
-  final _ConnectionStatus status;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color color = switch (status) {
-      _ConnectionStatus.connected => Theme.of(context).colorScheme.tertiary,
-      _ConnectionStatus.connecting => const Color(0xFFD97706),
-      _ConnectionStatus.disconnected => Theme.of(context).colorScheme.outline,
-    };
-    final String label = switch (status) {
-      _ConnectionStatus.connected => l10n.connected,
-      _ConnectionStatus.connecting => l10n.connecting,
-      _ConnectionStatus.disconnected => l10n.disconnected,
-    };
-    return Semantics(
-      label: '蓝牙连接状态：$label',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (status == _ConnectionStatus.connecting)
-              SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(color: color, strokeWidth: 2),
-              )
-            else
-              Icon(
-                status == _ConnectionStatus.connected
-                    ? Icons.check_circle_outline
-                    : Icons.circle_outlined,
-                size: 14,
-                color: color,
-              ),
-            const SizedBox(width: 5),
-            Text(label, style: TextStyle(fontSize: 12, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WorkspaceOverview extends StatelessWidget {
+class _WorkspaceOverview extends StatefulWidget {
   const _WorkspaceOverview({
     required this.workspace,
-    required this.onEdit,
+    required this.onChanged,
     required this.l10n,
   });
 
   final Workspace workspace;
-  final VoidCallback onEdit;
+  final ValueChanged<Workspace> onChanged;
   final AppLocalizations l10n;
 
   @override
+  State<_WorkspaceOverview> createState() => _WorkspaceOverviewState();
+}
+
+class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _deviceModelController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _tagsController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _deviceModelController = TextEditingController();
+    _descriptionController = TextEditingController();
+    _tagsController = TextEditingController();
+    _syncControllers();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WorkspaceOverview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.workspace.id != widget.workspace.id ||
+        oldWidget.workspace.updatedAt != widget.workspace.updatedAt) {
+      _syncControllers();
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _deviceModelController.dispose();
+    _descriptionController.dispose();
+    _tagsController.dispose();
+    super.dispose();
+  }
+
+  void _syncControllers() {
+    _nameController.text = widget.workspace.name;
+    _deviceModelController.text = widget.workspace.deviceModel;
+    _descriptionController.text = widget.workspace.description;
+    _tagsController.text = widget.workspace.tags.join(', ');
+  }
+
+  void _save() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final Workspace updated = widget.workspace.copyWith(
+      name: _nameController.text.trim(),
+      deviceModel: _deviceModelController.text.trim(),
+      description: _descriptionController.text.trim(),
+      tags: _tagsController.text
+          .split(',')
+          .map((String tag) => tag.trim())
+          .where((String tag) => tag.isNotEmpty)
+          .toSet()
+          .toList(growable: false),
+      updatedAt: DateTime.now(),
+    );
+    widget.onChanged(updated);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(widget.l10n.workspaceSaved)));
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
     return ListView(
       padding: const EdgeInsets.all(18),
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                workspace.name,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-              ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Icon(Icons.folder_outlined, color: colors.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        widget.l10n.workspaceSettings,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  key: const ValueKey<String>('workspace-name-field'),
+                  controller: _nameController,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(labelText: widget.l10n.workspace),
+                  validator: (String? value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return widget.l10n.requiredField(widget.l10n.workspace);
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  key: const ValueKey<String>('workspace-device-model-field'),
+                  controller: _deviceModelController,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: widget.l10n.deviceModel,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  key: const ValueKey<String>('workspace-description-field'),
+                  controller: _descriptionController,
+                  minLines: 3,
+                  maxLines: 5,
+                  decoration: InputDecoration(
+                    labelText: widget.l10n.description,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  key: const ValueKey<String>('workspace-tags-field'),
+                  controller: _tagsController,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(labelText: widget.l10n.tags),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.devices_other_outlined,
+                      size: 20,
+                      color: colors.secondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(widget.l10n.workspaceDevices),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${widget.workspace.devices.length}',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: _save,
+                    icon: const Icon(Icons.save_outlined),
+                    label: Text(widget.l10n.save),
+                  ),
+                ),
+              ],
             ),
-            IconButton(
-              tooltip: l10n.editWorkspace,
-              onPressed: onEdit,
-              icon: const Icon(Icons.edit_outlined),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _WorkspaceField(label: l10n.deviceModel, value: workspace.deviceModel),
-        _WorkspaceField(label: l10n.description, value: workspace.description),
-        _WorkspaceField(
-          label: l10n.tags,
-          value: workspace.tags.isEmpty ? l10n.none : workspace.tags.join(', '),
-        ),
-        _WorkspaceField(
-          label: l10n.workspaceDevices,
-          value: '${workspace.devices.length}',
+          ),
         ),
       ],
     );
@@ -2810,6 +3031,7 @@ class _WorkspaceOverview extends StatelessWidget {
 
 class _WorkspaceField extends StatelessWidget {
   const _WorkspaceField({required this.label, required this.value});
+
   final String label;
   final String value;
 
@@ -4942,6 +5164,7 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final bool dense = MediaQuery.sizeOf(context).width >= 680;
     final List<BluetoothCharacteristicInfo> filteredCharacteristics =
         _filteredCharacteristics(widget.characteristics, widget.l10n);
     final Map<String, List<BluetoothCharacteristicInfo>> byService =
@@ -4956,7 +5179,7 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
           .add(characteristic);
     }
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
       color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: ListView(
         children: <Widget>[
@@ -4967,12 +5190,12 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
                   widget.l10n.characteristics,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
                 widget.connected
                     ? widget.l10n.connected
@@ -4982,31 +5205,35 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
                 textAlign: TextAlign.end,
                 style: Theme.of(context).textTheme.labelSmall,
               ),
-              IconButton(
-                tooltip: '设备发送策略',
-                onPressed: widget.connected && widget.characteristics.isNotEmpty
-                    ? widget.onEditSafetyPolicy
-                    : null,
-                icon: Icon(
-                  widget.safetyPolicy.allowedWriteTargetKeys.isNotEmpty ||
-                          widget.safetyPolicy.maxFinalFrameBytes != null ||
-                          widget.safetyPolicy.requireWriteWithResponse
-                      ? Icons.shield
-                      : Icons.shield_outlined,
-                  size: 19,
+              Tooltip(
+                message: '设备发送策略',
+                child: shad.IconButton.ghost(
+                  icon: Icon(
+                    widget.safetyPolicy.allowedWriteTargetKeys.isNotEmpty ||
+                            widget.safetyPolicy.maxFinalFrameBytes != null ||
+                            widget.safetyPolicy.requireWriteWithResponse
+                        ? Icons.shield
+                        : Icons.shield_outlined,
+                    size: 19,
+                  ),
+                  size: dense ? shad.ButtonSize.small : shad.ButtonSize.normal,
+                  onPressed:
+                      widget.connected && widget.characteristics.isNotEmpty
+                      ? widget.onEditSafetyPolicy
+                      : null,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           if (!widget.connected)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(widget.l10n.connectToDiscoverCharacteristics),
             )
           else if (widget.characteristics.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(widget.l10n.noCharacteristics),
             )
           else ...<Widget>[
@@ -5019,27 +5246,52 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
                       hintText: widget.l10n.filterCharacteristics,
+                      hintStyle: const TextStyle(fontSize: 12),
                       prefixIcon: const Icon(Icons.search, size: 18),
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
                       isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       border: const OutlineInputBorder(),
                     ),
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ),
                 const SizedBox(width: 6),
                 Tooltip(
                   message: widget.l10n.operableOnly,
-                  child: FilterChip(
-                    label: const Text('R/W'),
-                    selected: _operableOnly,
-                    onSelected: (bool value) =>
+                  child: shad.SelectedButton(
+                    key: const ValueKey<String>(
+                      'operable-characteristics-filter',
+                    ),
+                    value: _operableOnly,
+                    style: dense
+                        ? const shad.ButtonStyle.ghost(
+                            size: shad.ButtonSize.small,
+                            density: shad.ButtonDensity.dense,
+                          )
+                        : const shad.ButtonStyle.ghost(),
+                    selectedStyle: dense
+                        ? const shad.ButtonStyle.secondary(
+                            size: shad.ButtonSize.small,
+                            density: shad.ButtonDensity.dense,
+                          )
+                        : const shad.ButtonStyle.secondary(),
+                    onChanged: (bool value) =>
                         setState(() => _operableOnly = value),
+                    child: const Text('R/W'),
                   ),
                 ),
               ],
             ),
             if (filteredCharacteristics.isEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(widget.l10n.noMatchingCharacteristics),
               )
             else
@@ -5103,8 +5355,8 @@ class _ServiceTreeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 6),
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: Theme.of(context).dividerColor),
@@ -5114,10 +5366,10 @@ class _ServiceTreeHeader extends StatelessWidget {
         children: <Widget>[
           Icon(
             Icons.account_tree_outlined,
-            size: 16,
+            size: 15,
             color: Theme.of(context).colorScheme.secondary,
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
           Expanded(
             child: Text(
               title,
@@ -5125,7 +5377,7 @@ class _ServiceTreeHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontFamily: 'monospace',
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -5808,9 +6060,22 @@ class _CharacteristicTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool dense = MediaQuery.sizeOf(context).width >= 680;
+    final shad.AbstractButtonStyle actionStyle = dense
+        ? const shad.ButtonStyle.ghost(
+            size: shad.ButtonSize.small,
+            density: shad.ButtonDensity.dense,
+          )
+        : const shad.ButtonStyle.ghost();
+    final shad.AbstractButtonStyle selectedActionStyle = dense
+        ? const shad.ButtonStyle.secondary(
+            size: shad.ButtonSize.small,
+            density: shad.ButtonDensity.dense,
+          )
+        : const shad.ButtonStyle.secondary();
     return Container(
-      margin: const EdgeInsets.only(left: 8),
-      padding: const EdgeInsets.fromLTRB(8, 9, 4, 9),
+      margin: const EdgeInsets.only(left: 6),
+      padding: const EdgeInsets.fromLTRB(6, 6, 4, 6),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: Theme.of(context).dividerColor),
@@ -5830,7 +6095,7 @@ class _CharacteristicTile extends StatelessWidget {
                     ? Theme.of(context).colorScheme.tertiary
                     : Theme.of(context).colorScheme.outline,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   _characteristicTitle(characteristic.characteristicId, l10n) ??
@@ -5839,7 +6104,7 @@ class _CharacteristicTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 13,
+                    fontSize: 12,
                   ),
                 ),
               ),
@@ -5849,9 +6114,9 @@ class _CharacteristicTile extends StatelessWidget {
             characteristic.characteristicId,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 10),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 4),
           Wrap(
             spacing: 4,
             runSpacing: 4,
@@ -5873,49 +6138,72 @@ class _CharacteristicTile extends StatelessWidget {
               characteristic.canWriteWithoutResponse ||
               characteristic.canSubscribe)
             Padding(
-              padding: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.only(top: 4),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 4,
                 children: <Widget>[
                   if (characteristic.canRead)
-                    IconButton(
-                      tooltip: l10n.readValue,
-                      onPressed: () => onRead(characteristic),
-                      icon: const Icon(Icons.download_outlined, size: 18),
+                    Tooltip(
+                      message: l10n.readValue,
+                      child: shad.IconButton.ghost(
+                        key: ValueKey<String>(
+                          'characteristic-read-${characteristic.key}',
+                        ),
+                        icon: const Icon(Icons.download_outlined, size: 18),
+                        size: dense
+                            ? shad.ButtonSize.small
+                            : shad.ButtonSize.normal,
+                        onPressed: () => onRead(characteristic),
+                      ),
                     ),
                   if (characteristic.canWrite ||
                       characteristic.canWriteWithoutResponse)
-                    ChoiceChip(
-                      label: Text(l10n.writeTarget),
-                      selected: characteristic.isWriteTarget,
-                      onSelected: (_) => onSelectWrite(characteristic),
+                    shad.SelectedButton(
+                      key: ValueKey<String>(
+                        'characteristic-write-target-${characteristic.key}',
+                      ),
+                      value: characteristic.isWriteTarget,
+                      style: actionStyle,
+                      selectedStyle: selectedActionStyle,
+                      onChanged: (_) => onSelectWrite(characteristic),
+                      child: Text(l10n.writeTarget),
                     ),
                   if (characteristic.canNotify)
-                    FilterChip(
-                      label: Text(l10n.notify),
-                      selected:
+                    shad.SelectedButton(
+                      key: ValueKey<String>(
+                        'characteristic-notify-${characteristic.key}',
+                      ),
+                      value:
                           characteristic.isSubscribed &&
                           characteristic.subscriptionMode ==
                               BluetoothSubscriptionMode.notify,
-                      onSelected: (bool selected) => onSubscriptionChanged(
+                      style: actionStyle,
+                      selectedStyle: selectedActionStyle,
+                      onChanged: (bool selected) => onSubscriptionChanged(
                         characteristic,
                         BluetoothSubscriptionMode.notify,
                         selected,
                       ),
+                      child: Text(l10n.notify),
                     ),
                   if (characteristic.canIndicate)
-                    FilterChip(
-                      label: Text(l10n.indicate),
-                      selected:
+                    shad.SelectedButton(
+                      key: ValueKey<String>(
+                        'characteristic-indicate-${characteristic.key}',
+                      ),
+                      value:
                           characteristic.isSubscribed &&
                           characteristic.subscriptionMode ==
                               BluetoothSubscriptionMode.indicate,
-                      onSelected: (bool selected) => onSubscriptionChanged(
+                      style: actionStyle,
+                      selectedStyle: selectedActionStyle,
+                      onChanged: (bool selected) => onSubscriptionChanged(
                         characteristic,
                         BluetoothSubscriptionMode.indicate,
                         selected,
                       ),
+                      child: Text(l10n.indicate),
                     ),
                 ],
               ),
@@ -5937,13 +6225,12 @@ class _CapabilityChip extends StatelessWidget {
       message: label,
       child: Semantics(
         label: label,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(3),
+        child: shad.SecondaryBadge(
+          style: const shad.ButtonStyle.secondary(
+            size: shad.ButtonSize.xSmall,
+            density: shad.ButtonDensity.dense,
           ),
-          child: Text(code, style: Theme.of(context).textTheme.labelSmall),
+          child: Text(code, style: const TextStyle(fontSize: 10)),
         ),
       ),
     );

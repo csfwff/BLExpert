@@ -1,6 +1,8 @@
 part of '../main.dart';
 
-enum _AppMode { debug, configure, records }
+enum _AppMode { debug, configure, records, settings }
+
+enum _LanguagePreference { system, chinese, english }
 
 class _AppIdentity extends StatelessWidget {
   const _AppIdentity({required this.workspace});
@@ -64,22 +66,18 @@ class _AppIdentity extends StatelessWidget {
 class _AppOverflowMenu extends StatelessWidget {
   const _AppOverflowMenu({
     required this.themeMode,
-    required this.locale,
     required this.onThemeModeChanged,
     required this.onLocaleChanged,
+    required this.includeAppearance,
     required this.onConfigureWebServices,
-    required this.onExportWorkspaces,
-    required this.onImportWorkspaces,
     required this.l10n,
   });
 
   final ThemeMode themeMode;
-  final Locale? locale;
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final ValueChanged<Locale?> onLocaleChanged;
+  final bool includeAppearance;
   final VoidCallback? onConfigureWebServices;
-  final VoidCallback onExportWorkspaces;
-  final VoidCallback onImportWorkspaces;
   final AppLocalizations l10n;
 
   @override
@@ -89,10 +87,6 @@ class _AppOverflowMenu extends StatelessWidget {
       icon: const Icon(Icons.more_vert),
       onSelected: (_ToolbarAction action) {
         switch (action) {
-          case _ToolbarAction.exportWorkspaces:
-            onExportWorkspaces();
-          case _ToolbarAction.importWorkspaces:
-            onImportWorkspaces();
           case _ToolbarAction.webServices:
             onConfigureWebServices?.call();
           case _ToolbarAction.light:
@@ -110,20 +104,6 @@ class _AppOverflowMenu extends StatelessWidget {
         }
       },
       itemBuilder: (BuildContext context) => <PopupMenuEntry<_ToolbarAction>>[
-        PopupMenuItem(
-          value: _ToolbarAction.exportWorkspaces,
-          child: ListTile(
-            leading: const Icon(Icons.upload_file_outlined),
-            title: const Text('导出工作区'),
-          ),
-        ),
-        PopupMenuItem(
-          value: _ToolbarAction.importWorkspaces,
-          child: const ListTile(
-            leading: Icon(Icons.download_outlined),
-            title: Text('导入工作区'),
-          ),
-        ),
         if (onConfigureWebServices != null)
           PopupMenuItem(
             value: _ToolbarAction.webServices,
@@ -132,43 +112,49 @@ class _AppOverflowMenu extends StatelessWidget {
               title: Text(l10n.webServiceUuids),
             ),
           ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          value: _ToolbarAction.systemTheme,
-          child: ListTile(
-            leading: Icon(_themeModeIcon(themeMode)),
-            title: Text(l10n.followSystem),
+        if (includeAppearance) ...<PopupMenuEntry<_ToolbarAction>>[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            value: _ToolbarAction.systemTheme,
+            child: ListTile(
+              leading: Icon(_themeModeIcon(themeMode)),
+              title: Text(l10n.followSystem),
+            ),
           ),
-        ),
-        PopupMenuItem(
-          value: _ToolbarAction.light,
-          child: ListTile(
-            leading: const Icon(Icons.light_mode_outlined),
-            title: Text(l10n.lightMode),
+          PopupMenuItem(
+            value: _ToolbarAction.light,
+            child: ListTile(
+              leading: const Icon(Icons.light_mode_outlined),
+              title: Text(l10n.lightMode),
+            ),
           ),
-        ),
-        PopupMenuItem(
-          value: _ToolbarAction.dark,
-          child: ListTile(
-            leading: const Icon(Icons.dark_mode_outlined),
-            title: Text(l10n.darkMode),
+          PopupMenuItem(
+            value: _ToolbarAction.dark,
+            child: ListTile(
+              leading: const Icon(Icons.dark_mode_outlined),
+              title: Text(l10n.darkMode),
+            ),
           ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          value: _ToolbarAction.systemLanguage,
-          child: Text(l10n.followSystem),
-        ),
-        PopupMenuItem(value: _ToolbarAction.chinese, child: Text(l10n.chinese)),
-        PopupMenuItem(value: _ToolbarAction.english, child: Text(l10n.english)),
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            value: _ToolbarAction.systemLanguage,
+            child: Text(l10n.followSystem),
+          ),
+          PopupMenuItem(
+            value: _ToolbarAction.chinese,
+            child: Text(l10n.chinese),
+          ),
+          PopupMenuItem(
+            value: _ToolbarAction.english,
+            child: Text(l10n.english),
+          ),
+        ],
       ],
     );
   }
 }
 
 enum _ToolbarAction {
-  exportWorkspaces,
-  importWorkspaces,
   webServices,
   light,
   dark,
@@ -182,6 +168,7 @@ class _AppWorkspaceShell extends StatelessWidget {
   const _AppWorkspaceShell({
     required this.mode,
     required this.onModeChanged,
+    required this.l10n,
     required this.inspectorOpen,
     required this.onInspectorVisibilityChanged,
     required this.debugPane,
@@ -189,10 +176,12 @@ class _AppWorkspaceShell extends StatelessWidget {
     required this.inspectorPane,
     required this.configurationPane,
     required this.recordPane,
+    required this.settingsPane,
   });
 
   final _AppMode mode;
   final ValueChanged<_AppMode> onModeChanged;
+  final AppLocalizations l10n;
   final bool inspectorOpen;
   final ValueChanged<bool> onInspectorVisibilityChanged;
   final Widget debugPane;
@@ -200,6 +189,7 @@ class _AppWorkspaceShell extends StatelessWidget {
   final Widget inspectorPane;
   final Widget configurationPane;
   final Widget recordPane;
+  final Widget settingsPane;
 
   @override
   Widget build(BuildContext context) {
@@ -216,11 +206,12 @@ class _AppWorkspaceShell extends StatelessWidget {
           ),
           _AppMode.configure => configurationPane,
           _AppMode.records => recordPane,
+          _AppMode.settings => settingsPane,
         };
         if (desktop) {
           return Row(
             children: <Widget>[
-              _ModeRail(value: mode, onChanged: onModeChanged),
+              _ModeRail(value: mode, onChanged: onModeChanged, l10n: l10n),
               const VerticalDivider(width: 1),
               Expanded(child: content),
             ],
@@ -234,18 +225,22 @@ class _AppWorkspaceShell extends StatelessWidget {
               selectedIndex: mode.index,
               onDestinationSelected: (int index) =>
                   onModeChanged(_AppMode.values[index]),
-              destinations: const <Widget>[
+              destinations: <Widget>[
                 NavigationDestination(
                   icon: Icon(Icons.terminal_outlined),
-                  label: '调试',
+                  label: l10n.debug,
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.tune_outlined),
-                  label: '配置',
+                  label: l10n.configure,
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.history_outlined),
-                  label: '记录',
+                  label: l10n.records,
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  label: l10n.settings,
                 ),
               ],
             ),
@@ -257,10 +252,15 @@ class _AppWorkspaceShell extends StatelessWidget {
 }
 
 class _ModeRail extends StatelessWidget {
-  const _ModeRail({required this.value, required this.onChanged});
+  const _ModeRail({
+    required this.value,
+    required this.onChanged,
+    required this.l10n,
+  });
 
   final _AppMode value;
   final ValueChanged<_AppMode> onChanged;
+  final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
@@ -268,24 +268,189 @@ class _ModeRail extends StatelessWidget {
       selectedIndex: value.index,
       labelType: NavigationRailLabelType.all,
       minWidth: 76,
-      destinations: const <NavigationRailDestination>[
+      destinations: <NavigationRailDestination>[
         NavigationRailDestination(
           icon: Icon(Icons.terminal_outlined),
           selectedIcon: Icon(Icons.terminal),
-          label: Text('调试'),
+          label: Text(l10n.debug),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.tune_outlined),
           selectedIcon: Icon(Icons.tune),
-          label: Text('配置'),
+          label: Text(l10n.configure),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.history_outlined),
           selectedIcon: Icon(Icons.history),
-          label: Text('记录'),
+          label: Text(l10n.records),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings),
+          label: Text(l10n.settings),
         ),
       ],
       onDestinationSelected: (int index) => onChanged(_AppMode.values[index]),
+    );
+  }
+}
+
+class _SettingsWorkspace extends StatelessWidget {
+  const _SettingsWorkspace({
+    required this.themeMode,
+    required this.locale,
+    required this.onThemeModeChanged,
+    required this.onLocaleChanged,
+    required this.l10n,
+  });
+
+  final ThemeMode themeMode;
+  final Locale? locale;
+  final ValueChanged<ThemeMode> onThemeModeChanged;
+  final ValueChanged<Locale?> onLocaleChanged;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool narrow = MediaQuery.sizeOf(context).width < 680;
+    final _LanguagePreference language = switch (locale?.languageCode) {
+      'zh' => _LanguagePreference.chinese,
+      'en' => _LanguagePreference.english,
+      _ => _LanguagePreference.system,
+    };
+    return ListView(
+      padding: EdgeInsets.symmetric(
+        horizontal: narrow ? 16 : 32,
+        vertical: narrow ? 20 : 28,
+      ),
+      children: <Widget>[
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.settings_outlined,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      l10n.settings,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                _SettingsSection(
+                  icon: Icons.contrast_outlined,
+                  title: l10n.themeMode,
+                  child: SegmentedButton<ThemeMode>(
+                    key: const ValueKey<String>('theme-mode-selector'),
+                    showSelectedIcon: false,
+                    segments: <ButtonSegment<ThemeMode>>[
+                      ButtonSegment<ThemeMode>(
+                        value: ThemeMode.system,
+                        icon: const Icon(Icons.brightness_auto_outlined),
+                        label: Text(l10n.followSystem),
+                      ),
+                      ButtonSegment<ThemeMode>(
+                        value: ThemeMode.light,
+                        icon: const Icon(Icons.light_mode_outlined),
+                        label: Text(l10n.lightMode),
+                      ),
+                      ButtonSegment<ThemeMode>(
+                        value: ThemeMode.dark,
+                        icon: const Icon(Icons.dark_mode_outlined),
+                        label: Text(l10n.darkMode),
+                      ),
+                    ],
+                    selected: <ThemeMode>{themeMode},
+                    onSelectionChanged: (Set<ThemeMode> selected) =>
+                        onThemeModeChanged(selected.single),
+                  ),
+                ),
+                const Divider(height: 40),
+                _SettingsSection(
+                  icon: Icons.language_outlined,
+                  title: l10n.language,
+                  child: DropdownButtonFormField<_LanguagePreference>(
+                    key: const ValueKey<String>('language-selector'),
+                    initialValue: language,
+                    isExpanded: true,
+                    decoration: const InputDecoration(),
+                    items: <DropdownMenuItem<_LanguagePreference>>[
+                      DropdownMenuItem<_LanguagePreference>(
+                        value: _LanguagePreference.system,
+                        child: Text(l10n.followSystem),
+                      ),
+                      DropdownMenuItem<_LanguagePreference>(
+                        value: _LanguagePreference.chinese,
+                        child: Text(l10n.chinese),
+                      ),
+                      DropdownMenuItem<_LanguagePreference>(
+                        value: _LanguagePreference.english,
+                        child: Text(l10n.english),
+                      ),
+                    ],
+                    onChanged: (_LanguagePreference? value) {
+                      if (value == null) return;
+                      onLocaleChanged(switch (value) {
+                        _LanguagePreference.system => null,
+                        _LanguagePreference.chinese => const Locale('zh'),
+                        _LanguagePreference.english => const Locale('en'),
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({
+    required this.icon,
+    required this.title,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Icon(
+              icon,
+              size: 20,
+              color: Theme.of(context).colorScheme.secondary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        child,
+      ],
     );
   }
 }

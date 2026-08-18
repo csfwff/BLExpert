@@ -21,7 +21,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get exportWorkspacePreview => '导出工作区预览';
 
   @override
+  String get newWorkspace => '新建工作区';
+
+  @override
+  String get deleteWorkspace => '删除工作区';
+
+  @override
+  String deleteWorkspaceConfirm(String name) {
+    return '确定删除“$name”？此操作不可撤销。';
+  }
+
+  @override
+  String get deleteWorkspaceLast => '至少需要保留一个工作区。';
+
+  @override
+  String get workspaceSaved => '工作区已保存。';
+
+  @override
+  String get importWorkspace => '导入工作区';
+
+  @override
+  String get exportWorkspace => '导出工作区';
+
+  @override
   String get themeMode => '主题模式';
+
+  @override
+  String get settings => '设置';
+
+  @override
+  String get debug => '调试';
+
+  @override
+  String get configure => '配置';
+
+  @override
+  String get records => '记录';
 
   @override
   String get language => '语言';
@@ -51,6 +86,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceScan => '设备扫描';
+
+  @override
+  String get selectDeviceFirst => '请先选择设备';
 
   @override
   String get connect => '连接';

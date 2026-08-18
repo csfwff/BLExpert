@@ -21,7 +21,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportWorkspacePreview => 'Export workspace preview';
 
   @override
+  String get newWorkspace => 'New workspace';
+
+  @override
+  String get deleteWorkspace => 'Delete workspace';
+
+  @override
+  String deleteWorkspaceConfirm(String name) {
+    return 'Delete “$name”? This cannot be undone.';
+  }
+
+  @override
+  String get deleteWorkspaceLast => 'At least one workspace must remain.';
+
+  @override
+  String get workspaceSaved => 'Workspace saved.';
+
+  @override
+  String get importWorkspace => 'Import workspace';
+
+  @override
+  String get exportWorkspace => 'Export workspace';
+
+  @override
   String get themeMode => 'Theme mode';
+
+  @override
+  String get settings => 'Settings';
+
+  @override
+  String get debug => 'Debug';
+
+  @override
+  String get configure => 'Configure';
+
+  @override
+  String get records => 'Records';
 
   @override
   String get language => 'Language';
@@ -51,6 +86,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceScan => 'Device scan';
+
+  @override
+  String get selectDeviceFirst => 'Select a device first';
 
   @override
   String get connect => 'Connect';

@@ -122,11 +122,77 @@ abstract class AppLocalizations {
   /// **'Export workspace preview'**
   String get exportWorkspacePreview;
 
+  /// No description provided for @newWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'New workspace'**
+  String get newWorkspace;
+
+  /// No description provided for @deleteWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete workspace'**
+  String get deleteWorkspace;
+
+  /// No description provided for @deleteWorkspaceConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete “{name}”? This cannot be undone.'**
+  String deleteWorkspaceConfirm(String name);
+
+  /// No description provided for @deleteWorkspaceLast.
+  ///
+  /// In en, this message translates to:
+  /// **'At least one workspace must remain.'**
+  String get deleteWorkspaceLast;
+
+  /// No description provided for @workspaceSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspace saved.'**
+  String get workspaceSaved;
+
+  /// No description provided for @importWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Import workspace'**
+  String get importWorkspace;
+
+  /// No description provided for @exportWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Export workspace'**
+  String get exportWorkspace;
+
   /// No description provided for @themeMode.
   ///
   /// In en, this message translates to:
   /// **'Theme mode'**
   String get themeMode;
+
+  /// No description provided for @settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settings;
+
+  /// No description provided for @debug.
+  ///
+  /// In en, this message translates to:
+  /// **'Debug'**
+  String get debug;
+
+  /// No description provided for @configure.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure'**
+  String get configure;
+
+  /// No description provided for @records.
+  ///
+  /// In en, this message translates to:
+  /// **'Records'**
+  String get records;
 
   /// No description provided for @language.
   ///
@@ -181,6 +247,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Device scan'**
   String get deviceScan;
+
+  /// No description provided for @selectDeviceFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a device first'**
+  String get selectDeviceFirst;
 
   /// No description provided for @connect.
   ///

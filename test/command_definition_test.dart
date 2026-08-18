@@ -429,6 +429,33 @@ void main() {
     expect(manager.activeWorkspace.scriptConfig.source, 'imported JSON');
   });
 
+  test(
+    'created workspaces get unique IDs and deleting restores another active workspace',
+    () {
+      final WorkspaceManager manager = WorkspaceManager();
+
+      final Workspace first = manager.createWorkspace(
+        name: 'Meter A',
+        deviceModel: 'M-100',
+        description: 'Primary test device',
+        tags: const <String>['meter', 'lab'],
+      );
+      final Workspace second = manager.createWorkspace(name: 'Meter B');
+
+      expect(first.id, isNot('workspace-default'));
+      expect(second.id, isNot(first.id));
+      expect(manager.workspaces, hasLength(3));
+      expect(manager.activeWorkspace.id, second.id);
+      expect(first.deviceModel, 'M-100');
+      expect(first.tags, <String>['meter', 'lab']);
+
+      manager.removeWorkspace(second.id);
+
+      expect(manager.workspaces, hasLength(2));
+      expect(manager.activeWorkspace.id, 'workspace-default');
+    },
+  );
+
   test('import preview reports conflicts and scripts without mutating state', () {
     final Workspace current = Workspace.empty().copyWith(name: '当前工作区');
     final Workspace imported = Workspace.empty().copyWith(

@@ -83,6 +83,29 @@ class WorkspaceManager {
     _activeWorkspaceId = workspace.id;
   }
 
+  /// Creates a new blank workspace and makes it active.
+  Workspace createWorkspace({
+    required String name,
+    String deviceModel = '',
+    String description = '',
+    List<String> tags = const <String>[],
+  }) {
+    final DateTime now = DateTime.now();
+    final String id = _nextWorkspaceId(now);
+    final Workspace workspace = Workspace.empty().copyWith(
+      id: id,
+      name: name.trim().isEmpty ? '新建工作区' : name.trim(),
+      deviceModel: deviceModel.trim(),
+      description: description.trim(),
+      tags: List<String>.unmodifiable(tags),
+      createdAt: now,
+      updatedAt: now,
+    );
+    _workspaces = <Workspace>[..._workspaces, workspace];
+    _activeWorkspaceId = workspace.id;
+    return workspace;
+  }
+
   void removeWorkspace(String workspaceId) {
     if (_workspaces.length == 1 && _workspaces.first.id == workspaceId) {
       return;
@@ -293,5 +316,19 @@ class WorkspaceManager {
         _workspaces.any((Workspace workspace) => workspace.id == candidateId)
         ? candidateId
         : _workspaces.first.id;
+  }
+
+  String _nextWorkspaceId(DateTime now) {
+    final String prefix =
+        'workspace-${now.microsecondsSinceEpoch.toRadixString(36)}';
+    String candidate = prefix;
+    int suffix = 1;
+    while (_workspaces.any(
+      (Workspace workspace) => workspace.id == candidate,
+    )) {
+      candidate = '$prefix-$suffix';
+      suffix += 1;
+    }
+    return candidate;
   }
 }

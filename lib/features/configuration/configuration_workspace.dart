@@ -4,7 +4,7 @@ class _ConfigurationWorkspace extends StatefulWidget {
   const _ConfigurationWorkspace({
     required this.workspace,
     required this.runtimeAvailable,
-    required this.onEditWorkspace,
+    required this.onWorkspaceChanged,
     required this.onProtocolChanged,
     required this.onScriptConfigChanged,
     required this.onNewCommand,
@@ -21,7 +21,7 @@ class _ConfigurationWorkspace extends StatefulWidget {
 
   final Workspace workspace;
   final bool runtimeAvailable;
-  final VoidCallback onEditWorkspace;
+  final ValueChanged<Workspace> onWorkspaceChanged;
   final ValueChanged<ProtocolDefinition> onProtocolChanged;
   final ValueChanged<ScriptConfig> onScriptConfigChanged;
   final VoidCallback onNewCommand;
@@ -48,7 +48,7 @@ class _ConfigurationWorkspaceState extends State<_ConfigurationWorkspace> {
     final List<Widget> pages = <Widget>[
       _WorkspaceOverview(
         workspace: widget.workspace,
-        onEdit: widget.onEditWorkspace,
+        onChanged: widget.onWorkspaceChanged,
         l10n: widget.l10n,
       ),
       _ProtocolConfigurationPanel(
