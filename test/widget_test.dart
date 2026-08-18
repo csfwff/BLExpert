@@ -168,9 +168,26 @@ void main() {
     await tester.tap(find.byTooltip('新建指令'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).at(0), '查询状态');
-    await tester.enterText(find.byType(TextField).at(1), '查询');
-    await tester.enterText(find.byType(TextField).at(2), 'AA 55 01');
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('command-name-field')),
+        matching: find.byType(shad.TextField),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-name-field')),
+      '查询状态',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-group-field')),
+      '查询',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-payload-field')),
+      'AA 55 01',
+    );
     await tester.tap(find.widgetWithText(FilledButton, '保存').first);
     await tester.pumpAndSettle();
 
@@ -205,9 +222,18 @@ void main() {
     Future<void> addCommand(String name, String payload) async {
       await tester.tap(find.byTooltip('新建指令'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(0), name);
-      await tester.enterText(find.byType(TextField).at(1), '测试');
-      await tester.enterText(find.byType(TextField).at(2), payload);
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('command-name-field')),
+        name,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('command-group-field')),
+        '测试',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('command-payload-field')),
+        payload,
+      );
       await tester.tap(find.widgetWithText(FilledButton, '保存').first);
       await tester.pumpAndSettle();
     }
@@ -358,9 +384,18 @@ void main() {
     await tester.tap(find.byTooltip('新建指令'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).at(0), '恢复出厂设置');
-    await tester.enterText(find.byType(TextField).at(1), '维护');
-    await tester.enterText(find.byType(TextField).at(2), 'AA 55');
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-name-field')),
+      '恢复出厂设置',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-group-field')),
+      '维护',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-payload-field')),
+      'AA 55',
+    );
     await tester.tap(find.widgetWithText(FilledButton, '保存').first);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('快捷入口'));
@@ -393,9 +428,18 @@ void main() {
     await tester.tap(find.byTooltip('新建指令'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).at(0), '安全动作');
-    await tester.enterText(find.byType(TextField).at(1), '维护');
-    await tester.enterText(find.byType(TextField).at(2), 'AA 55');
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-name-field')),
+      '安全动作',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-group-field')),
+      '维护',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-payload-field')),
+      'AA 55',
+    );
     await tester.tap(find.widgetWithText(SwitchListTile, '发送前始终确认'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '保存').first);
@@ -488,9 +532,18 @@ void main() {
     await tester.tap(find.byTooltip('新建指令'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).at(0), '诊断命令');
-    await tester.enterText(find.byType(TextField).at(1), '诊断');
-    await tester.enterText(find.byType(TextField).at(2), 'AA 55');
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-name-field')),
+      '诊断命令',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-group-field')),
+      '诊断',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-payload-field')),
+      'AA 55',
+    );
     await tester.tap(find.widgetWithText(FilledButton, '保存').first);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('快捷入口'));

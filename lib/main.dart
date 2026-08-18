@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app/design/tool_alert_dialog.dart';
+import 'app/design/tool_text_field.dart';
 import 'l10n/app_localizations.dart';
 import 'models/workspace.dart';
 import 'models/command_definition.dart';
@@ -926,18 +927,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        TextField(
+                        ToolTextField(
+                          key: const ValueKey<String>('command-name-field'),
                           controller: nameController,
                           autofocus: true,
-                          decoration: InputDecoration(
-                            labelText: l10n.commandName,
-                          ),
+                          label: l10n.commandName,
                         ),
-                        TextField(
+                        ToolTextField(
+                          key: const ValueKey<String>('command-group-field'),
                           controller: groupController,
-                          decoration: InputDecoration(
-                            labelText: l10n.commandGroup,
-                          ),
+                          label: l10n.commandGroup,
                         ),
                         const SizedBox(height: 12),
                         SegmentedButton<CommandPayloadFormat>(
@@ -958,14 +957,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               },
                         ),
                         const SizedBox(height: 8),
-                        TextField(
+                        ToolTextField(
+                          key: const ValueKey<String>('command-payload-field'),
                           controller: payloadController,
                           minLines: 2,
                           maxLines: 4,
-                          decoration: InputDecoration(
-                            labelText: l10n.commandPayload,
-                            errorText: validationError,
-                          ),
+                          label: l10n.commandPayload,
+                          errorText: validationError,
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -991,13 +989,12 @@ class _HomeScreenState extends State<HomeScreen> {
                               () => parameters.removeAt(index),
                             ),
                           ),
-                        TextField(
+                        ToolTextField(
+                          key: const ValueKey<String>('command-notes-field'),
                           controller: notesController,
                           minLines: 1,
                           maxLines: 3,
-                          decoration: InputDecoration(
-                            labelText: l10n.commandNotes,
-                          ),
+                          label: l10n.commandNotes,
                         ),
                         SwitchListTile.adaptive(
                           contentPadding: EdgeInsets.zero,
