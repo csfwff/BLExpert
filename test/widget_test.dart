@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'package:blexpert/main.dart';
+import 'package:blexpert/models/command_definition.dart';
 import 'package:blexpert/services/bluetooth_service.dart';
 
 void main() {
@@ -15,6 +16,7 @@ void main() {
       BlexpertApp(
         locale: const Locale('zh'),
         bluetoothService: MockBluetoothService(),
+        shadcnPlatform: TargetPlatform.linux,
       ),
     );
     await tester.pump();
@@ -175,9 +177,55 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey<String>('command-format-select')),
+      findsOneWidget,
+    );
+    expect(find.byType(shad.Select<CommandPayloadFormat>), findsOneWidget);
     final Rect commandDialog = tester.getRect(find.byType(shad.AlertDialog));
     expect(commandDialog.width, lessThan(700));
     expect(commandDialog.center.dx, closeTo(720, 1));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('command-format-select')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(
+      find.byType(shad.SelectItemButton<CommandPayloadFormat>),
+      findsNWidgets(2),
+    );
+    await tester.tap(
+      find.byType(shad.SelectItemButton<CommandPayloadFormat>).last,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(
+      tester
+          .widget<shad.Select<CommandPayloadFormat>>(
+            find.byType(shad.Select<CommandPayloadFormat>),
+          )
+          .value,
+      CommandPayloadFormat.text,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('command-format-select')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(
+      find.byType(shad.SelectItemButton<CommandPayloadFormat>).first,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(
+      tester
+          .widget<shad.Select<CommandPayloadFormat>>(
+            find.byType(shad.Select<CommandPayloadFormat>),
+          )
+          .value,
+      CommandPayloadFormat.hex,
+    );
 
     await tester.enterText(
       find.byKey(const ValueKey<String>('command-name-field')),

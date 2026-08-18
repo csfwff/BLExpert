@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'app/design/tool_alert_dialog.dart';
+import 'app/design/tool_select.dart';
 import 'app/design/tool_text_field.dart';
 import 'l10n/app_localizations.dart';
 import 'models/workspace.dart';
@@ -35,10 +36,16 @@ part 'widgets/app_workspace_shell.dart';
 void main() => runApp(const BlexpertApp());
 
 class BlexpertApp extends StatefulWidget {
-  const BlexpertApp({super.key, this.locale, this.bluetoothService});
+  const BlexpertApp({
+    super.key,
+    this.locale,
+    this.bluetoothService,
+    this.shadcnPlatform,
+  });
 
   final Locale? locale;
   final BluetoothService? bluetoothService;
+  final TargetPlatform? shadcnPlatform;
 
   @override
   State<BlexpertApp> createState() => _BlexpertAppState();
@@ -60,10 +67,15 @@ class _BlexpertAppState extends State<BlexpertApp> {
       debugShowCheckedModeBanner: false,
       title: 'BLExpert',
       builder: (BuildContext context, Widget? child) {
-        final bool dark = Theme.of(context).brightness == Brightness.dark;
-        return shad.Theme(
-          data: dark ? const shad.ThemeData.dark() : const shad.ThemeData(),
-          child: child!,
+        return shad.ShadcnLayer(
+          theme: shad.ThemeData(platform: widget.shadcnPlatform),
+          darkTheme: shad.ThemeData.dark(platform: widget.shadcnPlatform),
+          themeMode: switch (_themeMode) {
+            ThemeMode.light => shad.ThemeMode.light,
+            ThemeMode.dark => shad.ThemeMode.dark,
+            ThemeMode.system => shad.ThemeMode.system,
+          },
+          child: shad.DrawerOverlay(child: child!),
         );
       },
       locale: _locale,
@@ -947,22 +959,23 @@ class _HomeScreenState extends State<HomeScreen> {
                           label: l10n.commandGroup,
                         ),
                         const SizedBox(height: 12),
-                        SegmentedButton<CommandPayloadFormat>(
-                          segments: <ButtonSegment<CommandPayloadFormat>>[
-                            ButtonSegment(
+                        ToolSelect<CommandPayloadFormat>(
+                          key: const ValueKey<String>('command-format-select'),
+                          value: format,
+                          label: l10n.commandFormat,
+                          options: <ToolSelectOption<CommandPayloadFormat>>[
+                            ToolSelectOption(
                               value: CommandPayloadFormat.hex,
-                              label: Text(l10n.commandHex),
+                              label: l10n.commandHex,
                             ),
-                            ButtonSegment(
+                            ToolSelectOption(
                               value: CommandPayloadFormat.text,
-                              label: Text(l10n.commandText),
+                              label: l10n.commandText,
                             ),
                           ],
-                          selected: <CommandPayloadFormat>{format},
-                          onSelectionChanged:
-                              (Set<CommandPayloadFormat> values) {
-                                setDialogState(() => format = values.first);
-                              },
+                          onChanged: (CommandPayloadFormat value) {
+                            setDialogState(() => format = value);
+                          },
                         ),
                         const SizedBox(height: 8),
                         ToolTextField(

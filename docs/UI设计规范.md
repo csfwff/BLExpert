@@ -97,8 +97,8 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 - 不混用两套完整 UI 体系，也不一次性重写 Material 3 界面。
 - 新增 `app/design` 适配层封装候选库，业务界面不直接依赖第三方组件 API；主题颜色、间距、圆角、等宽数据文本和语义约束继续由本项目令牌定义。
 - 首个 spike 限定为配置页命令编辑器、设备发送策略确认框和发送编辑器；不得修改 BLE 服务、领域模型、工作区导入导出格式或安全发送策略。
-- 当前已完成 `lib/app/design` 的对话框与输入框适配边界。受保护发送、工作区导入和设备策略等现有工具对话框统一走 `ToolAlertDialog`；它实际使用 `shadcn_flutter.AlertDialog`，并必须通过 `showToolDialog` 的 shadcn `DialogConfiguration` 打开，避免 Material `showDialog` 将 `ModalBackdrop` 按全屏布局。内部仍用透明 Material 容器维持 `ListTile`、按钮和未迁移内容的既有语义与墨水反馈。配置页命令编辑器的名称、分组、载荷和备注统一走 `ToolTextField`，实际使用 `shadcn_flutter.TextField`；可见标签、错误文本与 `Semantics` 仍由应用维护，避免验证和无障碍契约耦合第三方 decoration API。
-- `ToolTextField` 的调用方必须提供稳定 Key、应用拥有的标签和控制器；多行高度由 `minLines` / `maxLines` 固定，错误文本使用 live region。选择、开关、参数编辑和操作按钮仍保持 Material，需在独立 spike 覆盖焦点、错误态、暗色主题和 Widget 回归后才可迁移。
+- 当前已完成 `lib/app/design` 的对话框、输入框与基础选择器适配边界。受保护发送、工作区导入和设备策略等现有工具对话框统一走 `ToolAlertDialog`；它实际使用 `shadcn_flutter.AlertDialog`，并必须通过 `showToolDialog` 的 shadcn `DialogConfiguration` 打开，避免 Material `showDialog` 将 `ModalBackdrop` 按全屏布局。内部仍用透明 Material 容器维持 `ListTile`、按钮和未迁移内容的既有语义与墨水反馈。配置页命令编辑器的名称、分组、载荷和备注统一走 `ToolTextField`，实际使用 `shadcn_flutter.TextField`；可见标签、错误文本与 `Semantics` 仍由应用维护，避免验证和无障碍契约耦合第三方 decoration API。载荷格式统一走 `ToolSelect`，实际使用 `shadcn_flutter.Select`，选项和标签继续由应用拥有。
+- `MaterialApp.builder` 必须提供 `ShadcnLayer` 和 `DrawerOverlay`，为 Dialog、Select 等 shadcn 弹层提供主题、popover 与移动端 drawer 宿主。`ToolTextField` 的调用方必须提供稳定 Key、应用拥有的标签和控制器；多行高度由 `minLines` / `maxLines` 固定，错误文本使用 live region。`ToolSelect` 在工具对话框中向上展开，并限制菜单高度以避免视口外选项；开关、参数编辑和操作按钮仍保持 Material，需在独立 spike 覆盖焦点、错误态、暗色主题和 Widget 回归后才可迁移。
 - 通过 Linux 与 Web、窄屏与宽屏、亮暗主题、键盘焦点/屏幕阅读器语义、文本溢出和 Widget 回归后，再迁移 Button、Dialog、Input、Select、Tabs 与列表组件。
 - `shadcn_flutter` 当前仍为 `0.0.x`，锁定版本并在升级前审查破坏性变更、依赖体积和测试结果。
 

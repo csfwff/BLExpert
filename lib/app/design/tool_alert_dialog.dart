@@ -44,24 +44,20 @@ class ToolAlertDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme colors = Theme.of(context).colorScheme;
-    final bool dark = Theme.of(context).brightness == Brightness.dark;
-    return shad.Theme(
-      data: dark ? const shad.ThemeData.dark() : const shad.ThemeData(),
-      child: Material(
-        type: MaterialType.transparency,
-        child: shad.AlertDialog(
-          leading: ExcludeSemantics(
-            child: Icon(icon, size: 19, color: colors.secondary),
-          ),
-          title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-          content: Material(type: MaterialType.transparency, child: content),
-          actions: actions
-              .map(
-                (Widget action) =>
-                    Material(type: MaterialType.transparency, child: action),
-              )
-              .toList(growable: false),
+    return Material(
+      type: MaterialType.transparency,
+      child: shad.AlertDialog(
+        leading: ExcludeSemantics(
+          child: Icon(icon, size: 19, color: colors.secondary),
         ),
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        content: Material(type: MaterialType.transparency, child: content),
+        actions: actions
+            .map(
+              (Widget action) =>
+                  Material(type: MaterialType.transparency, child: action),
+            )
+            .toList(growable: false),
       ),
     );
   }
