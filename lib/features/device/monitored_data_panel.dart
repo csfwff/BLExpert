@@ -1,0 +1,186 @@
+part of '../home/home_screen.dart';
+
+class _MonitoredFieldDefinition {
+  const _MonitoredFieldDefinition({required this.mapping, required this.field});
+  final ResponseMapping mapping;
+  final DataField field;
+}
+
+class _MonitoredFieldValue {
+  const _MonitoredFieldValue({
+    required this.responseName,
+    required this.commandHex,
+    required this.value,
+    required this.timestamp,
+  });
+  final String responseName;
+  final String commandHex;
+  final ParsedDataValue value;
+  final DateTime timestamp;
+}
+
+String _monitorFieldId(ResponseMapping mapping, String fieldKey) =>
+    '${mapping.id}:$fieldKey';
+
+String _formatCommandSendLog(
+  CommandDefinition command,
+  Map<String, String> values,
+  AppLocalizations l10n,
+) {
+  final String parameters = command.parameters
+      .map((CommandParameter parameter) {
+        final String label = parameter.label.isEmpty
+            ? parameter.key
+            : parameter.label;
+        final String value = values[parameter.key] ?? parameter.defaultValue;
+        return '$label=$value';
+      })
+      .join(', ');
+  return l10n.commandLog(command.name, parameters.isEmpty ? '--' : parameters);
+}
+
+String _formatParsedResponseLog(
+  ParsedResponse response,
+  AppLocalizations l10n,
+) {
+  final String values = response.values
+      .map(
+        (ParsedDataValue value) =>
+            '${value.label}=${value.displayValue}${value.unit.isEmpty ? '' : value.unit}',
+      )
+      .join(', ');
+  return l10n.responseLog(
+    response.mapping.name,
+    response.commandHex,
+    values.isEmpty ? '--' : values,
+  );
+}
+
+class _CommandsAndDataPanel extends StatelessWidget {
+  const _CommandsAndDataPanel({
+    required this.canSend,
+    required this.onSend,
+    required this.commands,
+    required this.responseMappings,
+    required this.monitoredValues,
+    required this.l10n,
+  });
+  final bool canSend;
+  final Future<void> Function(CommandDefinition, Map<String, String>) onSend;
+  final List<CommandDefinition> commands;
+  final List<ResponseMapping> responseMappings;
+  final Map<String, _MonitoredFieldValue> monitoredValues;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Expanded(
+          flex: 5,
+          child: _QuickCommandsPanel(
+            canSend: canSend,
+            onSend: onSend,
+            commands: commands,
+            l10n: l10n,
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          flex: 4,
+          child: _MappedDataPanel(
+            mappings: responseMappings,
+            monitoredValues: monitoredValues,
+            l10n: l10n,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MappedDataPanel extends StatelessWidget {
+  const _MappedDataPanel({
+    required this.mappings,
+    required this.monitoredValues,
+    required this.l10n,
+  });
+  final List<ResponseMapping> mappings;
+  final Map<String, _MonitoredFieldValue> monitoredValues;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<_MonitoredFieldDefinition> fields = <_MonitoredFieldDefinition>[
+      for (final ResponseMapping mapping in mappings)
+        for (final DataField field in mapping.fields)
+          if (field.visibleInDataPanel)
+            _MonitoredFieldDefinition(mapping: mapping, field: field),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(14),
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            l10n.mappedData,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          if (fields.isEmpty)
+            Expanded(child: Center(child: Text(l10n.noMappedFields)))
+          else
+            Expanded(
+              child: ListView.separated(
+                itemCount: fields.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (BuildContext context, int index) {
+                  final _MonitoredFieldDefinition definition = fields[index];
+                  final _MonitoredFieldValue? latest =
+                      monitoredValues[_monitorFieldId(
+                        definition.mapping,
+                        definition.field.key,
+                      )];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                definition.field.label.isEmpty
+                                    ? definition.field.key
+                                    : definition.field.label,
+                              ),
+                              Text(
+                                '${definition.mapping.name} | CMD ${definition.mapping.commandHex}',
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          latest == null
+                              ? '--'
+                              : '${latest.value.displayValue}${latest.value.unit.isEmpty ? '' : ' ${latest.value.unit}'}',
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

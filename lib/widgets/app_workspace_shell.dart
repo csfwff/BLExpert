@@ -1,4 +1,4 @@
-part of '../main.dart';
+part of '../features/home/home_screen.dart';
 
 enum _AppMode { debug, configure, records, settings }
 

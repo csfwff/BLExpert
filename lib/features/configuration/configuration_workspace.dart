@@ -1,4 +1,4 @@
-part of '../../main.dart';
+part of '../home/home_screen.dart';
 
 class _ConfigurationWorkspace extends StatefulWidget {
   const _ConfigurationWorkspace({

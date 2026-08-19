@@ -1,4 +1,4 @@
-part of '../main.dart';
+part of 'home_screen.dart';
 
 Map<ShortcutActivator, VoidCallback> _appShortcutBindings({
   required FocusNode inputFocusNode,

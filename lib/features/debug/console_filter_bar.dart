@@ -1,4 +1,4 @@
-part of '../../main.dart';
+part of '../home/home_screen.dart';
 
 enum _ConsoleLogFilter { all, tx, rx, system, error }
 

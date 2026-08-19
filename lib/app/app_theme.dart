@@ -1,6 +1,6 @@
-part of '../main.dart';
+import 'package:flutter/material.dart';
 
-ThemeData _buildTheme(Brightness brightness) {
+ThemeData buildAppTheme(Brightness brightness) {
   final bool dark = brightness == Brightness.dark;
   final ColorScheme scheme =
       ColorScheme.fromSeed(

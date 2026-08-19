@@ -1,4 +1,4 @@
-part of '../../main.dart';
+part of '../home/home_screen.dart';
 
 class _RecordWorkspace extends StatefulWidget {
   const _RecordWorkspace({
