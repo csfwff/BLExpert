@@ -188,6 +188,8 @@ class _AppWorkspaceShell extends StatelessWidget {
           _AppMode.records => recordPane,
           _AppMode.settings => settingsPane,
         };
+        final List<({IconData icon, String label})> mobileItems =
+            _mobileModeItems(l10n);
         return Row(
           children: <Widget>[
             if (desktop) ...<Widget>[
@@ -237,15 +239,12 @@ class _AppWorkspaceShell extends StatelessWidget {
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: <Widget>[
-                                      Icon(
-                                        _mobileModeItems(l10n)[index].icon,
-                                        size: 20,
-                                      ),
+                                      Icon(mobileItems[index].icon, size: 20),
                                       const SizedBox(height: 4),
                                       FittedBox(
                                         fit: BoxFit.scaleDown,
                                         child: Text(
-                                          _mobileModeItems(l10n)[index].label,
+                                          mobileItems[index].label,
                                           maxLines: 1,
                                           softWrap: false,
                                           style: AppTheme.textStylesOf(

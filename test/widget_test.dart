@@ -585,6 +585,65 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('主导航跨越桌面断点时保持调试工作区状态', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+    await tester.tap(findToolTooltip('连接设备'));
+    await tester.pumpAndSettle();
+
+    tester.view.physicalSize = const Size(920, 900);
+    await tester.pump();
+
+    final Finder contentShell = find.byKey(
+      const ValueKey<String>('app-workspace-content-shell'),
+    );
+    final Finder debugTabs = find.byKey(
+      const ValueKey<String>('debug-workspace-tabs'),
+    );
+    final Element contentElement = tester.element(contentShell);
+    expect(
+      find.byKey(const ValueKey<String>('app-mode-navigation')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.descendant(of: debugTabs, matching: find.text('设备')));
+    await tester.pump();
+    final Finder characteristicFilter = find.byKey(
+      const ValueKey<String>('characteristic-filter'),
+    );
+    await tester.enterText(characteristicFilter, 'fff');
+    await tester.pump();
+    expect(tester.widget<shad.Tabs>(debugTabs).index, 1);
+
+    tester.view.physicalSize = const Size(880, 900);
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('app-mode-navigation-mobile')),
+      findsOneWidget,
+    );
+    expect(tester.element(contentShell), same(contentElement));
+    expect(tester.widget<shad.Tabs>(debugTabs).index, 1);
+    final ToolTextField filterAfterResize = tester.widget<ToolTextField>(
+      find.descendant(
+        of: characteristicFilter,
+        matching: find.byType(ToolTextField),
+      ),
+    );
+    expect(filterAfterResize.controller?.text, 'fff');
+    expect(tester.takeException(), isNull);
+
+    tester.view.physicalSize = const Size(920, 900);
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('app-mode-navigation')),
+      findsOneWidget,
+    );
+    expect(tester.element(contentShell), same(contentElement));
+    expect(tester.widget<shad.Tabs>(debugTabs).index, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('控制台右侧操作与 Inspector 开关保持对齐和稳定边距', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
