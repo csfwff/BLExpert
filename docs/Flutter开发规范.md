@@ -54,6 +54,21 @@ services -> models/utils
 - 平台差异使用条件导入/导出和 `*_io.dart`、`*_web.dart`、`*_stub.dart` 适配文件隔离。
 - `app/design/` 是业务界面接入 `shadcn_flutter` 的稳定边界。能由 `ToolButton`、`ToolTextField`、`ToolSelect`、`ToolToggle` 或 `showToolDialog` 表达的控件，不直接依赖第三方 API。
 
+## 组件库迁移策略
+
+`shadcn_flutter` 是 BLExpert 的目标组件体系，但迁移仍在持续进行，不视为已经全面完成。
+
+- 采用渐进式迁移。每个批次围绕一个完整交互区域或一种通用控件展开，不做全项目一次性替换。
+- 新增通用按钮、输入、选择、开关、复选框和工具对话框时，优先扩展或复用 `app/design/` 适配层，再由 feature 使用项目拥有的 API。
+- 已经直接使用 `shadcn_flutter` 的业务组件，在后续重构触及对应区域时逐步收敛到适配层；不要仅为消除 import 发起无行为收益的大范围改写。
+- 迁移期间允许 `shadcn_flutter` 与 Material 共存。窄屏导航、SafeArea、Scaffold 及具有明确平台语义的控件可以继续使用 Flutter Material 实现。
+- 同一功能区域内不得随意混用两套外观和交互语义。组件选择由现有适配边界、平台行为和回归结果决定。
+- 每一批迁移必须保留现有业务 Key、可见文案、键盘焦点、语义标签、禁用态和异步状态，不得借组件替换修改 BLE、协议、工作区或安全发送逻辑。
+- 每一批迁移至少覆盖相关 Widget 回归，并检查 375px 窄屏、桌面宽屏、亮暗主题和弹层边界。
+- `shadcn_flutter` 当前为 `0.0.x` 版本，继续锁定依赖版本；升级前审查 API 变化、弹层行为、主题兼容性和测试结果。
+
+组件迁移完成度以 [UI 设计规范](UI设计规范.md) 的迁移记录为准。目录拆分完成不代表组件库迁移完成，两项工作分别验收。
+
 ## Dart Library 与文件边界
 
 - 默认使用普通 `import` 暴露 feature 的公共入口。
