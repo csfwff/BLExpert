@@ -320,6 +320,12 @@ abstract class AppLocalizations {
   /// **'Connecting'**
   String get connecting;
 
+  /// No description provided for @disconnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnecting'**
+  String get disconnecting;
+
   /// No description provided for @connectingDevice.
   ///
   /// In en, this message translates to:

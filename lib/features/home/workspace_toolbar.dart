@@ -23,12 +23,16 @@ class _WorkspaceSelector extends StatelessWidget {
   final AppLocalizations l10n;
 
   static const double _toolbarControlHeight = 36;
+  static const double _toolbarControlWidth = 136;
+  static const double _toolbarControlGap = 8;
 
   void _showWorkspaceMenu(BuildContext context) {
     shad
         .showDropdown<void>(
           context: context,
-          widthConstraint: shad.PopoverConstraint.flexible,
+          widthConstraint: compact
+              ? shad.PopoverConstraint.flexible
+              : shad.PopoverConstraint.anchorFixedSize,
           showDuration: AppMotion.overlay,
           dismissDuration: AppMotion.overlay,
           builder: (BuildContext context) => shad.DropdownMenu(
@@ -96,7 +100,7 @@ class _WorkspaceSelector extends StatelessWidget {
               onPressed: () => _showWorkspaceMenu(context),
             )
           : SizedBox(
-              width: 190,
+              width: _toolbarControlWidth,
               child: shad.Button(
                 key: const ValueKey<String>('workspace-selector'),
                 style: const shad.ButtonStyle.outline(
@@ -119,7 +123,11 @@ class _WorkspaceSelector extends StatelessWidget {
       button: true,
       label: l10n.selectWorkspace,
       value: workspace.name,
-      child: ToolTooltip(message: l10n.selectWorkspace, child: trigger),
+      child: ToolTooltip(
+        message: l10n.selectWorkspace,
+        showVisual: compact,
+        child: trigger,
+      ),
     );
   }
 }
@@ -139,7 +147,7 @@ class _ScanButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final String label = scanning ? l10n.stopScan : l10n.startScan;
     return SizedBox(
-      width: 108,
+      width: _WorkspaceSelector._toolbarControlWidth,
       height: _WorkspaceSelector._toolbarControlHeight,
       child: shad.Button(
         key: const ValueKey<String>('scan-button'),
@@ -158,7 +166,10 @@ class _ScanButton extends StatelessWidget {
           scanning ? AppIcons.stopCircle : AppIcons.radar,
           size: 18,
         ),
-        child: Text(label),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(label, maxLines: 1, softWrap: false),
+        ),
       ),
     );
   }
@@ -169,7 +180,7 @@ class _ConnectionSelector extends StatelessWidget {
     required this.devices,
     required this.selectedId,
     required this.connected,
-    required this.connecting,
+    required this.operation,
     required this.onSelected,
     required this.onToggleConnection,
     required this.l10n,
@@ -177,7 +188,7 @@ class _ConnectionSelector extends StatelessWidget {
   final List<BluetoothDeviceInfo> devices;
   final String? selectedId;
   final bool connected;
-  final bool connecting;
+  final _ConnectionOperation? operation;
   final ValueChanged<String?> onSelected;
   final VoidCallback onToggleConnection;
   final AppLocalizations l10n;
@@ -185,25 +196,61 @@ class _ConnectionSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final device = devices.where((item) => item.id == selectedId).firstOrNull;
-    final String actionLabel = connecting
+    final TextStyle deviceTextStyle = AppTheme.of(context).typography.xSmall;
+    final bool busy = operation != null;
+    final bool useConnectedStyle =
+        operation == _ConnectionOperation.disconnect ||
+        operation == null && connected;
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
+    final String buttonLabel = operation == _ConnectionOperation.disconnect
+        ? l10n.disconnecting
+        : operation == _ConnectionOperation.connect
         ? l10n.connecting
-        : device == null
-        ? l10n.selectDeviceFirst
         : connected
-        ? '${l10n.connected} · ${l10n.disconnectDevice}'
+        ? l10n.disconnectDevice
         : l10n.connectDevice;
+    final shad.AbstractButtonStyle baseButtonStyle = useConnectedStyle
+        ? const shad.ButtonStyle.secondary(
+            size: shad.ButtonSize.small,
+            density: shad.ButtonDensity.dense,
+          )
+        : const shad.ButtonStyle.primary(
+            size: shad.ButtonSize.small,
+            density: shad.ButtonDensity.dense,
+          );
+    final shad.AbstractButtonStyle buttonStyle = busy
+        ? baseButtonStyle
+              .withBackgroundColor(
+                disabledColor: useConnectedStyle
+                    ? colors.secondary
+                    : colors.primary,
+              )
+              .withForegroundColor(
+                disabledColor: useConnectedStyle
+                    ? colors.secondaryForeground
+                    : colors.primaryForeground,
+              )
+              .withBorder(
+                disabledBorder: useConnectedStyle
+                    ? Border.all(color: colors.secondaryForeground)
+                    : null,
+              )
+        : baseButtonStyle;
+    final String actionLabel = device == null
+        ? l10n.selectDeviceFirst
+        : buttonLabel;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Semantics(
           label: l10n.connection,
           child: SizedBox(
-            width: 174,
+            width: _WorkspaceSelector._toolbarControlWidth,
             child: shad.Select<String>(
               key: const ValueKey<String>('bluetooth-device-selector'),
               value: device?.id,
               enabled: devices.isNotEmpty,
-              placeholder: Text(l10n.noDevice),
+              placeholder: Text(l10n.noDevice, style: deviceTextStyle),
               constraints: const BoxConstraints.tightFor(
                 height: _WorkspaceSelector._toolbarControlHeight,
               ),
@@ -216,6 +263,7 @@ class _ConnectionSelector extends StatelessWidget {
                 );
                 return Text(
                   item.name,
+                  style: deviceTextStyle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 );
@@ -230,6 +278,7 @@ class _ConnectionSelector extends StatelessWidget {
                               value: item.id,
                               child: Text(
                                 item.name,
+                                style: deviceTextStyle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -241,28 +290,19 @@ class _ConnectionSelector extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: _WorkspaceSelector._toolbarControlGap),
         ToolTooltip(
           message: actionLabel,
+          showVisual: false,
           child: SizedBox(
-            width: 160,
+            width: _WorkspaceSelector._toolbarControlWidth,
             height: _WorkspaceSelector._toolbarControlHeight,
             child: shad.Button(
               key: const ValueKey<String>('connection-action-button'),
-              style: connected
-                  ? const shad.ButtonStyle.secondary(
-                      size: shad.ButtonSize.small,
-                      density: shad.ButtonDensity.dense,
-                    )
-                  : const shad.ButtonStyle.primary(
-                      size: shad.ButtonSize.small,
-                      density: shad.ButtonDensity.dense,
-                    ),
-              onPressed: device == null || connecting
-                  ? null
-                  : onToggleConnection,
+              style: buttonStyle,
+              onPressed: device == null || busy ? null : onToggleConnection,
               alignment: Alignment.center,
-              leading: connecting
+              leading: busy
                   ? const ToolLoadingIcon()
                   : Icon(
                       connected
@@ -270,7 +310,10 @@ class _ConnectionSelector extends StatelessWidget {
                           : AppIcons.bluetoothConnectedOutlined,
                       size: 18,
                     ),
-              child: Text(actionLabel),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(buttonLabel, maxLines: 1, softWrap: false),
+              ),
             ),
           ),
         ),

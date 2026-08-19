@@ -21,6 +21,8 @@ class ToolButton extends StatelessWidget {
     this.trailing,
     this.compact = false,
     this.alignment = Alignment.center,
+    this.height,
+    this.padding,
   });
 
   const ToolButton.primary({
@@ -31,6 +33,8 @@ class ToolButton extends StatelessWidget {
     this.trailing,
     this.compact = false,
     this.alignment = Alignment.center,
+    this.height,
+    this.padding,
   }) : variant = ToolButtonVariant.primary;
 
   const ToolButton.secondary({
@@ -41,6 +45,8 @@ class ToolButton extends StatelessWidget {
     this.trailing,
     this.compact = false,
     this.alignment = Alignment.center,
+    this.height,
+    this.padding,
   }) : variant = ToolButtonVariant.secondary;
 
   const ToolButton.outline({
@@ -51,6 +57,8 @@ class ToolButton extends StatelessWidget {
     this.trailing,
     this.compact = false,
     this.alignment = Alignment.center,
+    this.height,
+    this.padding,
   }) : variant = ToolButtonVariant.outline;
 
   const ToolButton.ghost({
@@ -61,6 +69,8 @@ class ToolButton extends StatelessWidget {
     this.trailing,
     this.compact = false,
     this.alignment = Alignment.center,
+    this.height,
+    this.padding,
   }) : variant = ToolButtonVariant.ghost;
 
   const ToolButton.destructive({
@@ -71,6 +81,8 @@ class ToolButton extends StatelessWidget {
     this.trailing,
     this.compact = false,
     this.alignment = Alignment.center,
+    this.height,
+    this.padding,
   }) : variant = ToolButtonVariant.destructive;
 
   final Widget child;
@@ -80,6 +92,8 @@ class ToolButton extends StatelessWidget {
   final Widget? trailing;
   final bool compact;
   final AlignmentGeometry alignment;
+  final double? height;
+  final EdgeInsetsGeometry? padding;
 
   shad.ButtonStyle get _style => switch (variant) {
     ToolButtonVariant.primary => shad.ButtonStyle.primary(
@@ -106,10 +120,13 @@ class ToolButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shad.AbstractButtonStyle style = padding == null
+        ? _style
+        : _style.withPadding(padding: padding);
     return SizedBox(
-      height: compact ? 36 : 40,
+      height: height ?? (compact ? 36 : 40),
       child: shad.Button(
-        style: _style,
+        style: style,
         alignment: alignment,
         leading: leading,
         trailing: trailing,

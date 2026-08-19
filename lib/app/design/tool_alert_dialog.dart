@@ -36,16 +36,34 @@ class ToolAlertDialog extends StatelessWidget {
     required this.title,
     required this.content,
     required this.actions,
+    this.centerTitleIcon = false,
   });
 
   final IconData icon;
   final String title;
   final Widget content;
   final List<Widget> actions;
+  final bool centerTitleIcon;
 
   @override
   Widget build(BuildContext context) {
     final shad.ColorScheme colors = AppTheme.colorsOf(context);
+    Widget buildTitleIcon({double verticalOffset = 0}) => ExcludeSemantics(
+      child: Transform.translate(
+        offset: Offset(0, verticalOffset),
+        child: Icon(
+          icon,
+          key: const ValueKey<String>('tool-alert-dialog-icon'),
+          size: 19,
+          color: colors.secondaryForeground,
+        ),
+      ),
+    );
+    final Widget titleText = Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
     // Keep modal surfaces aligned with the app's compact 4-6px radius scale.
     // This override is scoped to the dialog so other shadcn components keep
     // their default theme behavior.
@@ -55,10 +73,19 @@ class ToolAlertDialog extends StatelessWidget {
     return shad.Theme(
       data: dialogTheme,
       child: shad.AlertDialog(
-        leading: ExcludeSemantics(
-          child: Icon(icon, size: 19, color: colors.secondaryForeground),
-        ),
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        leading: centerTitleIcon ? null : buildTitleIcon(),
+        title: centerTitleIcon
+            ? Row(
+                key: const ValueKey<String>('tool-alert-dialog-title-row'),
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  buildTitleIcon(verticalOffset: 1),
+                  const SizedBox(width: 8),
+                  titleText,
+                ],
+              )
+            : titleText,
         content: content,
         actions: actions,
       ),

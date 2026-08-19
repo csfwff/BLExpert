@@ -43,6 +43,8 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
   @override
   Widget build(BuildContext context) {
     final bool dense = MediaQuery.sizeOf(context).width >= 680;
+    final TextStyle hintStyle = AppTheme.textStylesOf(context).bodySmall;
+    final TextStyle actionTextStyle = AppTheme.of(context).typography.xSmall;
     final List<BluetoothCharacteristicInfo> filteredCharacteristics =
         _filteredCharacteristics(widget.characteristics, widget.l10n);
     final Map<String, List<BluetoothCharacteristicInfo>> byService =
@@ -74,14 +76,34 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
                 ),
               ),
               const SizedBox(width: 6),
-              Text(
-                widget.connected
-                    ? widget.l10n.connected
-                    : widget.l10n.disconnected,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: AppTheme.textStylesOf(context).labelSmall,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  ExcludeSemantics(
+                    child: Icon(
+                      widget.connected
+                          ? AppIcons.bluetoothConnected
+                          : AppIcons.bluetoothOutlined,
+                      key: const ValueKey<String>(
+                        'characteristic-connection-status-icon',
+                      ),
+                      size: 14,
+                      color: widget.connected
+                          ? AppTheme.colorsOf(context).chart2
+                          : AppTheme.colorsOf(context).mutedForeground,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    widget.connected
+                        ? widget.l10n.connected
+                        : widget.l10n.disconnected,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: AppTheme.textStylesOf(context).labelSmall,
+                  ),
+                ],
               ),
               ToolTooltip(
                 message: '设备发送策略',
@@ -107,12 +129,15 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
           if (!widget.connected)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(widget.l10n.connectToDiscoverCharacteristics),
+              child: Text(
+                widget.l10n.connectToDiscoverCharacteristics,
+                style: hintStyle,
+              ),
             )
           else if (widget.characteristics.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(widget.l10n.noCharacteristics),
+              child: Text(widget.l10n.noCharacteristics, style: hintStyle),
             )
           else ...<Widget>[
             Row(
@@ -147,7 +172,7 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
                     compact: dense,
                     onChanged: (bool value) =>
                         setState(() => _operableOnly = value),
-                    child: const Text('R/W'),
+                    child: Text('R/W', style: actionTextStyle),
                   ),
                 ),
               ],
@@ -155,7 +180,10 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
             if (filteredCharacteristics.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(widget.l10n.noMatchingCharacteristics),
+                child: Text(
+                  widget.l10n.noMatchingCharacteristics,
+                  style: hintStyle,
+                ),
               )
             else
               ...byService.entries.expand(

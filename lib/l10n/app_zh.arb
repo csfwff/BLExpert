@@ -59,6 +59,7 @@
     }
   }
   ,"connecting": "正在连接"
+  ,"disconnecting": "正在断开"
   ,"connectingDevice": "正在连接 {name}..."
   ,"@connectingDevice": {"placeholders": {"name": {"type": "String"}}}
   ,"disconnectingDevice": "正在断开 {name}..."

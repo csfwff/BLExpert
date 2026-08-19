@@ -59,6 +59,7 @@
     }
   }
   ,"connecting": "Connecting"
+  ,"disconnecting": "Disconnecting"
   ,"connectingDevice": "Connecting to {name}..."
   ,"@connectingDevice": {"placeholders": {"name": {"type": "String"}}}
   ,"disconnectingDevice": "Disconnecting from {name}..."

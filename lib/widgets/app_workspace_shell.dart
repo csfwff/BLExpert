@@ -213,29 +213,43 @@ class _AppWorkspaceShell extends StatelessWidget {
               child: shad.NavigationBar(
                 key: const ValueKey<String>('app-mode-navigation-mobile'),
                 expanded: true,
-                keepMainAxisSize: true,
-                labelPosition: shad.NavigationLabelPosition.bottom,
-                selectedKey: ValueKey<String>('app-mode-${mode.name}'),
-                onSelected: (Key? key) {
-                  final String? value = (key as ValueKey<String>?)?.value;
-                  if (value == null) return;
-                  final int index = _AppMode.values.indexWhere(
-                    (_AppMode item) => value == 'app-mode-${item.name}',
-                  );
-                  if (index >= 0) onModeChanged(_AppMode.values[index]);
-                },
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                spacing: 0,
                 children: <Widget>[
                   for (int index = 0; index < mobileItems.length; index++)
-                    shad.NavigationItem(
-                      key: ValueKey<String>(
-                        'app-mode-${_AppMode.values[index].name}',
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: ToolSelectedButton(
+                          key: ValueKey<String>(
+                            'app-mode-${_AppMode.values[index].name}',
+                          ),
+                          value: mode == _AppMode.values[index],
+                          onChanged: (bool selected) {
+                            if (selected) {
+                              onModeChanged(_AppMode.values[index]);
+                            }
+                          },
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(mobileItems[index].icon, size: 20),
+                              const SizedBox(height: 4),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  mobileItems[index].label,
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  style: AppTheme.textStylesOf(
+                                    context,
+                                  ).labelSmall,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      selectedStyle: const shad.ButtonStyle.primary(
-                        size: shad.ButtonSize.small,
-                        density: shad.ButtonDensity.compact,
-                      ),
-                      label: Text(mobileItems[index].label),
-                      child: Icon(mobileItems[index].icon, size: 20),
                     ),
                 ],
               ),
@@ -260,33 +274,26 @@ class _ModeRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<
-      ({_AppMode mode, IconData icon, IconData selectedIcon, String label})
-    >
-    items =
-        <({_AppMode mode, IconData icon, IconData selectedIcon, String label})>[
+    final List<({_AppMode mode, IconData icon, String label})> items =
+        <({_AppMode mode, IconData icon, String label})>[
           (
             mode: _AppMode.debug,
             icon: AppIcons.terminalOutlined,
-            selectedIcon: AppIcons.terminal,
             label: l10n.debug,
           ),
           (
             mode: _AppMode.configure,
             icon: AppIcons.tuneOutlined,
-            selectedIcon: AppIcons.tune,
             label: l10n.configure,
           ),
           (
             mode: _AppMode.records,
             icon: AppIcons.historyOutlined,
-            selectedIcon: AppIcons.history,
             label: l10n.records,
           ),
           (
             mode: _AppMode.settings,
             icon: AppIcons.settingsOutlined,
-            selectedIcon: AppIcons.settings,
             label: l10n.settings,
           ),
         ];
@@ -305,7 +312,6 @@ class _ModeRail extends StatelessWidget {
             ToolSelectedButton(
               key: ValueKey<String>('app-mode-${item.mode.name}'),
               value: value == item.mode,
-              emphasis: ToolSelectedEmphasis.strong,
               onChanged: (bool selected) {
                 if (selected) onChanged(item.mode);
               },
@@ -314,10 +320,7 @@ class _ModeRail extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    Icon(
-                      value == item.mode ? item.selectedIcon : item.icon,
-                      size: 20,
-                    ),
+                    Icon(item.icon, size: 20),
                     const SizedBox(height: 4),
                     FittedBox(
                       fit: BoxFit.scaleDown,

@@ -9,6 +9,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:blexpert/app/app_theme.dart';
 import 'package:blexpert/app/design/tool_button.dart';
 import 'package:blexpert/app/design/tool_toggle.dart';
+import 'package:blexpert/app/design/tool_tooltip.dart';
 
 double _contrastRatio(Color first, Color second) {
   final double lighter = first.computeLuminance() + 0.05;
@@ -59,6 +60,10 @@ void main() {
         greaterThanOrEqualTo(4.5),
       );
       expect(
+        _contrastRatio(colors.popoverForeground, colors.popover),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(
         _contrastRatio(colors.primary, colors.card),
         greaterThanOrEqualTo(3),
       );
@@ -89,6 +94,66 @@ void main() {
       );
     });
   }
+
+  for (final Brightness brightness in Brightness.values) {
+    testWidgets('$brightness Tooltip 使用有背景的主题容器', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        _themedHarness(
+          brightness: brightness,
+          child: const ToolTooltip(
+            message: '悬浮说明',
+            child: ColoredBox(
+              key: ValueKey<String>('tooltip-trigger'),
+              color: Color(0x01000000),
+              child: SizedBox(width: 40, height: 40),
+            ),
+          ),
+        ),
+      );
+
+      final Finder tooltipFinder = find.byType(shad.Tooltip);
+      final shad.Tooltip tooltip = tester.widget<shad.Tooltip>(tooltipFinder);
+      final Widget tooltipContent = tooltip.tooltip(
+        tester.element(tooltipFinder),
+      );
+      expect(tooltipContent, isA<Container>());
+
+      await tester.pumpWidget(
+        _themedHarness(brightness: brightness, child: tooltipContent),
+      );
+      await tester.pump();
+
+      final Finder surfaceFinder = find.byKey(
+        const ValueKey<String>('tool-tooltip-surface'),
+      );
+      expect(surfaceFinder, findsOneWidget);
+      expect(find.text('悬浮说明'), findsOneWidget);
+      final Container surface = tester.widget<Container>(surfaceFinder);
+      final BoxDecoration decoration = surface.decoration! as BoxDecoration;
+      expect(
+        surface.padding,
+        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      );
+      expect(decoration.color, buildAppTheme(brightness).colorScheme.popover);
+      expect(decoration.border, isNotNull);
+    });
+  }
+
+  testWidgets('已有可见标签时 Tooltip 只保留语义', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      _themedHarness(
+        child: const ToolTooltip(
+          message: '可见标签',
+          showVisual: false,
+          child: Text('可见标签'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(shad.Tooltip), findsNothing);
+    expect(tester.getSemantics(find.text('可见标签')).tooltip, '可见标签');
+  });
 
   testWidgets('选择按钮公开持久选中语义', (WidgetTester tester) async {
     await tester.pumpWidget(

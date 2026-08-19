@@ -247,6 +247,7 @@ class _ConsoleArea extends StatelessWidget {
               const Spacer(),
               ToolTooltip(
                 message: l10n.autoScroll,
+                showVisual: compactHeader,
                 child: ToolSwitch(
                   value: autoScroll,
                   onChanged: onAutoScrollChanged,

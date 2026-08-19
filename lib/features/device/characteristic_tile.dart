@@ -23,6 +23,7 @@ class _CharacteristicTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool dense = MediaQuery.sizeOf(context).width >= 680;
+    final TextStyle actionTextStyle = AppTheme.of(context).typography.xSmall;
     return Container(
       margin: const EdgeInsets.only(left: 6),
       padding: const EdgeInsets.fromLTRB(6, 6, 4, 6),
@@ -116,7 +117,7 @@ class _CharacteristicTile extends StatelessWidget {
                       value: characteristic.isWriteTarget,
                       compact: dense,
                       onChanged: (_) => onSelectWrite(characteristic),
-                      child: Text(l10n.writeTarget),
+                      child: Text(l10n.writeTarget, style: actionTextStyle),
                     ),
                   if (characteristic.canNotify)
                     ToolSelectedButton(
@@ -133,7 +134,7 @@ class _CharacteristicTile extends StatelessWidget {
                         BluetoothSubscriptionMode.notify,
                         selected,
                       ),
-                      child: Text(l10n.notify),
+                      child: Text(l10n.notify, style: actionTextStyle),
                     ),
                   if (characteristic.canIndicate)
                     ToolSelectedButton(
@@ -150,7 +151,7 @@ class _CharacteristicTile extends StatelessWidget {
                         BluetoothSubscriptionMode.indicate,
                         selected,
                       ),
-                      child: Text(l10n.indicate),
+                      child: Text(l10n.indicate, style: actionTextStyle),
                     ),
                 ],
               ),

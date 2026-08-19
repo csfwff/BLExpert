@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'package:blexpert/main.dart';
+import 'package:blexpert/app/app_theme.dart';
+import 'package:blexpert/app/design/app_icons.dart';
 import 'package:blexpert/app/design/tool_button.dart';
 import 'package:blexpert/app/design/tool_select.dart';
 import 'package:blexpert/app/design/tool_toggle.dart';
@@ -14,6 +16,7 @@ import 'package:blexpert/services/bluetooth_service.dart';
 
 class _DelayedBluetoothService extends MockBluetoothService {
   final Completer<void> _connectCompleter = Completer<void>();
+  final Completer<void> _disconnectCompleter = Completer<void>();
 
   @override
   Future<void> connect(String deviceId) async {
@@ -21,8 +24,34 @@ class _DelayedBluetoothService extends MockBluetoothService {
     await super.connect(deviceId);
   }
 
+  @override
+  Future<void> disconnect(String deviceId) async {
+    await _disconnectCompleter.future;
+    await super.disconnect(deviceId);
+  }
+
   void completeConnection() {
     if (!_connectCompleter.isCompleted) _connectCompleter.complete();
+  }
+
+  void completeDisconnection() {
+    if (!_disconnectCompleter.isCompleted) _disconnectCompleter.complete();
+  }
+}
+
+class _ConnectedBeforeReadyBluetoothService extends MockBluetoothService {
+  final Completer<void> _discoveryCompleter = Completer<void>();
+
+  @override
+  Future<List<BluetoothCharacteristicInfo>> discoverCharacteristics(
+    String deviceId,
+  ) async {
+    await _discoveryCompleter.future;
+    return super.discoverCharacteristics(deviceId);
+  }
+
+  void completeDiscovery() {
+    if (!_discoveryCompleter.isCompleted) _discoveryCompleter.complete();
   }
 }
 
@@ -89,6 +118,24 @@ void main() {
     }
   });
 
+  testWidgets('模式导航切换时保持图标一致', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    final Finder debugDestination = find.byKey(
+      const ValueKey<String>('app-mode-debug'),
+    );
+    final Icon selectedIcon = tester.widget<Icon>(
+      find.descendant(of: debugDestination, matching: find.byType(Icon)),
+    );
+
+    await selectAppMode(tester, 'configure');
+
+    final Icon unselectedIcon = tester.widget<Icon>(
+      find.descendant(of: debugDestination, matching: find.byType(Icon)),
+    );
+    expect(unselectedIcon.icon, selectedIcon.icon);
+  });
+
   testWidgets('扫描和连接按钮显示当前动作与连接状态', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
@@ -105,7 +152,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey<String>('connection-action-button')),
-        matching: find.text('已连接 · 断开设备'),
+        matching: find.text('断开设备'),
       ),
       findsOneWidget,
     );
@@ -132,12 +179,19 @@ void main() {
     );
 
     await openWorkspaceSelector(tester);
-    expect(find.byType(shad.DropdownMenu), findsOneWidget);
+    final Finder workspaceMenu = find.byType(shad.DropdownMenu);
+    expect(workspaceMenu, findsOneWidget);
+    expect(
+      tester.getSize(workspaceMenu).width,
+      tester
+          .getSize(find.byKey(const ValueKey<String>('workspace-selector')))
+          .width,
+    );
     await tester.tap(findToolTooltip('选择工作区'));
     await tester.pump();
   });
 
-  testWidgets('首页工具栏选择器与操作按钮使用统一高度', (WidgetTester tester) async {
+  testWidgets('首页工具栏选择器与操作按钮使用统一尺寸和间距', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
     final List<Finder> controls = <Finder>[
@@ -149,6 +203,22 @@ void main() {
     for (final Finder control in controls) {
       expect(tester.getSize(control).height, 36);
     }
+    for (final Finder control in controls) {
+      expect(tester.getSize(control).width, 136);
+    }
+    final List<Rect> controlBounds = controls
+        .map(tester.getRect)
+        .toList(growable: false);
+    for (var index = 1; index < controlBounds.length; index += 1) {
+      expect(controlBounds[index].left - controlBounds[index - 1].right, 8);
+    }
+    final Text deviceLabel = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('bluetooth-device-selector')),
+        matching: find.text('BLE 温度传感器'),
+      ),
+    );
+    expect(deviceLabel.style?.fontSize, lessThanOrEqualTo(12));
 
     expect(
       tester
@@ -166,6 +236,15 @@ void main() {
           .alignment,
       Alignment.center,
     );
+    for (final String message in <String>['选择工作区', '连接设备', '自动滚动']) {
+      expect(
+        find.descendant(
+          of: findToolTooltip(message),
+          matching: find.byType(shad.Tooltip),
+        ),
+        findsNothing,
+      );
+    }
   });
 
   testWidgets('连接中图标保持正方形且按钮内容居中', (WidgetTester tester) async {
@@ -200,6 +279,89 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('连接加载期间保持主按钮底色', (WidgetTester tester) async {
+    final _ConnectedBeforeReadyBluetoothService bluetoothService =
+        _ConnectedBeforeReadyBluetoothService();
+    await pumpDesktopApp(tester, bluetoothService: bluetoothService);
+
+    final Finder connectionButton = find.byKey(
+      const ValueKey<String>('connection-action-button'),
+    );
+    await tester.tap(connectionButton);
+    await tester.pump();
+    await tester.pump();
+
+    final BuildContext buttonContext = tester.element(connectionButton);
+    final shad.Button button = tester.widget<shad.Button>(connectionButton);
+    final BoxDecoration loadingDecoration =
+        button.style.decoration(buttonContext, <WidgetState>{
+              WidgetState.disabled,
+            })
+            as BoxDecoration;
+    expect(loadingDecoration.color, AppTheme.colorsOf(buttonContext).primary);
+    expect(button.onPressed, isNull);
+    expect(
+      find.descendant(of: connectionButton, matching: find.text('正在连接')),
+      findsOneWidget,
+    );
+
+    bluetoothService.completeDiscovery();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('断开设备期间显示正在断开', (WidgetTester tester) async {
+    final _DelayedBluetoothService bluetoothService =
+        _DelayedBluetoothService();
+    await pumpDesktopApp(tester, bluetoothService: bluetoothService);
+
+    final Finder connectionButton = find.byKey(
+      const ValueKey<String>('connection-action-button'),
+    );
+    await tester.tap(connectionButton);
+    await tester.pump();
+    bluetoothService.completeConnection();
+    await tester.pumpAndSettle();
+
+    await tester.tap(connectionButton);
+    await tester.pump();
+
+    expect(
+      find.descendant(of: connectionButton, matching: find.text('正在断开')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: connectionButton, matching: find.text('正在连接')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: connectionButton,
+        matching: find.byType(ToolLoadingIcon),
+      ),
+      findsOneWidget,
+    );
+    final BuildContext buttonContext = tester.element(connectionButton);
+    final shad.Button button = tester.widget<shad.Button>(connectionButton);
+    final BoxDecoration loadingDecoration =
+        button.style.decoration(buttonContext, <WidgetState>{
+              WidgetState.disabled,
+            })
+            as BoxDecoration;
+    final shad.ColorScheme colors = AppTheme.colorsOf(buttonContext);
+    expect(loadingDecoration.color, colors.secondary);
+    expect(
+      (loadingDecoration.border! as Border).top.color,
+      colors.secondaryForeground,
+    );
+
+    bluetoothService.completeDisconnection();
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: connectionButton, matching: find.text('连接设备')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('窄屏调试工作区保留搜索和底部模式导航', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(375, 812);
     tester.view.devicePixelRatio = 1;
@@ -222,6 +384,27 @@ void main() {
       find.byKey(const ValueKey<String>('app-mode-navigation-mobile')),
       findsOneWidget,
     );
+    final List<Rect> destinations =
+        <String>['debug', 'configure', 'records', 'settings']
+            .map(
+              (String mode) => tester.getRect(
+                find.byKey(ValueKey<String>('app-mode-$mode')),
+              ),
+            )
+            .toList(growable: false);
+    for (final Rect destination in destinations.skip(1)) {
+      expect(destination.width, closeTo(destinations.first.width, 0.1));
+    }
+    expect(destinations.first.left, greaterThanOrEqualTo(8));
+    expect(destinations.last.right, lessThanOrEqualTo(367));
+    expect(
+      tester
+          .widget<ToolSelectedButton>(
+            find.byKey(const ValueKey<String>('app-mode-debug')),
+          )
+          .value,
+      isTrue,
+    );
     final Text sendLabel = tester.widget<Text>(
       find.descendant(
         of: find.byKey(const ValueKey<String>('console-send-button')),
@@ -230,6 +413,15 @@ void main() {
     );
     expect(sendLabel.maxLines, 1);
     expect(sendLabel.softWrap, isFalse);
+    await openWorkspaceSelector(tester);
+    expect(
+      tester.getSize(find.byType(shad.DropdownMenu)).width,
+      greaterThan(
+        tester
+            .getSize(find.byKey(const ValueKey<String>('workspace-selector')))
+            .width,
+      ),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -716,6 +908,39 @@ void main() {
     expect(bluetoothService.sentPackets, isEmpty);
   });
 
+  testWidgets('设备发送策略弹窗标题对齐且操作按钮保持紧凑', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(findToolTooltip('连接设备'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('写入目标'));
+    await tester.pumpAndSettle();
+    await tester.tap(findToolTooltip('设备发送策略'));
+    await tester.pumpAndSettle();
+
+    final Rect iconRect = tester.getRect(
+      find.byKey(const ValueKey<String>('tool-alert-dialog-icon')),
+    );
+    final Rect titleRect = tester.getRect(find.text('设备发送策略').last);
+    final Row titleRow = tester.widget<Row>(
+      find.byKey(const ValueKey<String>('tool-alert-dialog-title-row')),
+    );
+    expect(titleRow.crossAxisAlignment, CrossAxisAlignment.center);
+    expect(
+      (iconRect.center.dy - titleRect.center.dy).abs(),
+      lessThanOrEqualTo(1),
+    );
+
+    final Finder cancel = find.widgetWithText(ToolButton, '取消');
+    final Finder save = find.widgetWithText(ToolButton, '保存');
+    final Size cancelSize = tester.getSize(cancel);
+    final Size saveSize = tester.getSize(save);
+    expect(cancelSize.height, 34);
+    expect(saveSize.height, 34);
+    expect(cancelSize.width, greaterThan(64));
+    expect(saveSize.width, greaterThan(64));
+  });
+
   testWidgets('可在左侧新增协议定义', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
@@ -800,8 +1025,29 @@ void main() {
   testWidgets('桌面特征面板使用紧凑筛选与操作控件', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
+    final Text discoveryHint = tester.widget<Text>(
+      find.text('连接设备后可发现其 GATT 特征。'),
+    );
+    expect(discoveryHint.style?.fontSize, lessThanOrEqualTo(12));
+    final Finder statusIcon = find.byKey(
+      const ValueKey<String>('characteristic-connection-status-icon'),
+    );
+    final Icon disconnectedStatusIcon = tester.widget<Icon>(statusIcon);
+    expect(disconnectedStatusIcon.icon, AppIcons.bluetoothOutlined);
+    expect(
+      disconnectedStatusIcon.color,
+      AppTheme.colorsOf(tester.element(statusIcon)).mutedForeground,
+    );
+
     await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
+
+    final Icon connectedStatusIcon = tester.widget<Icon>(statusIcon);
+    expect(connectedStatusIcon.icon, AppIcons.bluetoothConnected);
+    expect(
+      connectedStatusIcon.color,
+      AppTheme.colorsOf(tester.element(statusIcon)).chart2,
+    );
 
     final Finder filter = find.byKey(
       const ValueKey<String>('characteristic-filter'),
@@ -832,6 +1078,15 @@ void main() {
     );
     expect(writeTarget.compact, isTrue);
     expect(writeTarget.emphasis, ToolSelectedEmphasis.subtle);
+    for (final String label in <String>['R/W', '写入目标', 'Notify', 'Indicate']) {
+      final Text actionLabel = tester.widget<Text>(
+        find.descendant(
+          of: find.widgetWithText(ToolSelectedButton, label).first,
+          matching: find.text(label),
+        ),
+      );
+      expect(actionLabel.style?.fontSize, lessThanOrEqualTo(12));
+    }
   });
 
   testWidgets('点击控制台日志后 Inspector 显示帧详情', (WidgetTester tester) async {

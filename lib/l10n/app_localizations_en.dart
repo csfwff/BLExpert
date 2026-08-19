@@ -129,6 +129,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connecting => 'Connecting';
 
   @override
+  String get disconnecting => 'Disconnecting';
+
+  @override
   String connectingDevice(String name) {
     return 'Connecting to $name...';
   }

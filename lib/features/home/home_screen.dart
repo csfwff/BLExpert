@@ -69,6 +69,8 @@ class _WorkspaceImportDecision {
   final WorkspaceConflictPolicy conflictPolicy;
 }
 
+enum _ConnectionOperation { connect, disconnect }
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
@@ -119,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
       <String, _MonitoredFieldValue>{};
   String? _selectedDeviceId;
   bool _scanning = false;
-  bool _connecting = false;
+  _ConnectionOperation? _connectionOperation;
   bool _hexMode = true;
   bool _autoScroll = true;
   _AppMode _mode = _AppMode.debug;
@@ -1261,22 +1263,25 @@ class _HomeScreenState extends State<HomeScreen> {
       _showBluetoothError(StateError('No Bluetooth device selected.'));
       return;
     }
-    if (_connecting) {
+    if (_connectionOperation != null) {
       return;
     }
+    final _ConnectionOperation operation = device.connected
+        ? _ConnectionOperation.disconnect
+        : _ConnectionOperation.connect;
     _addSystemLog(
-      device.connected
+      operation == _ConnectionOperation.disconnect
           ? AppLocalizations.of(context)!.disconnectingDevice(device.name)
           : AppLocalizations.of(context)!.connectingDevice(device.name),
     );
-    setState(() => _connecting = true);
+    setState(() => _connectionOperation = operation);
     try {
-      if (device.connected) {
+      if (operation == _ConnectionOperation.disconnect) {
         await _bluetoothService.disconnect(device.id);
         if (mounted) {
           setState(() {
             _characteristics = <BluetoothCharacteristicInfo>[];
-            _connecting = false;
+            _connectionOperation = null;
           });
         }
       } else {
@@ -1291,7 +1296,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) {
           setState(() {
             _scanning = false;
-            _connecting = false;
+            _connectionOperation = null;
             _characteristics = characteristics;
           });
           _addSystemLog(
@@ -1303,7 +1308,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         setState(() {
           _scanning = false;
-          _connecting = false;
+          _connectionOperation = null;
           _characteristics = <BluetoothCharacteristicInfo>[];
         });
       }
@@ -1550,6 +1555,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ToolAlertDialog(
               icon: AppIcons.shieldOutlined,
               title: '设备发送策略',
+              centerTitleIcon: true,
               content: SizedBox(
                 width: 520,
                 child: Form(
@@ -1620,6 +1626,11 @@ class _HomeScreenState extends State<HomeScreen> {
               actions: <Widget>[
                 ToolButton.ghost(
                   onPressed: () => Navigator.pop(context),
+                  height: 34,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 4,
+                  ),
                   child: const Text('取消'),
                 ),
                 ToolButton.primary(
@@ -1639,6 +1650,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     );
                   },
+                  height: 34,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 4,
+                  ),
                   child: const Text('保存'),
                 ),
               ],
@@ -2331,6 +2347,33 @@ class _HomeScreenState extends State<HomeScreen> {
     final l10n = AppLocalizations.of(context)!;
     final workspace = _workspaceManager.activeWorkspace;
     final bool compactToolbar = MediaQuery.sizeOf(context).width < 680;
+    final bool compactConnectedStyle =
+        _connectionOperation == _ConnectionOperation.disconnect ||
+        _connectionOperation == null && _selectedDevice?.connected == true;
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
+    final shad.AbstractButtonStyle compactConnectionBaseStyle =
+        compactConnectedStyle
+        ? shad.ButtonVariance.secondary
+        : shad.ButtonVariance.primary;
+    final shad.AbstractButtonStyle compactConnectionStyle =
+        _connectionOperation == null
+        ? compactConnectionBaseStyle
+        : compactConnectionBaseStyle
+              .withBackgroundColor(
+                disabledColor: compactConnectedStyle
+                    ? colors.secondary
+                    : colors.primary,
+              )
+              .withForegroundColor(
+                disabledColor: compactConnectedStyle
+                    ? colors.secondaryForeground
+                    : colors.primaryForeground,
+              )
+              .withBorder(
+                disabledBorder: compactConnectedStyle
+                    ? Border.all(color: colors.secondaryForeground)
+                    : null,
+              );
     return CallbackShortcuts(
       bindings: _appShortcutBindings(
         inputFocusNode: _inputFocusNode,
@@ -2348,7 +2391,9 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               alignment: Alignment.centerLeft,
               title: const _AppIdentity(),
-              trailingGap: 4,
+              trailingGap: compactToolbar
+                  ? 4
+                  : _WorkspaceSelector._toolbarControlGap,
               trailing: <Widget>[
                 _WorkspaceSelector(
                   workspace: workspace,
@@ -2371,37 +2416,40 @@ class _HomeScreenState extends State<HomeScreen> {
                   l10n: l10n,
                 ),
                 if (!compactToolbar) ...<Widget>[
-                  const SizedBox(width: 8),
                   _ConnectionSelector(
                     devices: _devices,
                     selectedId: _selectedDeviceId,
                     connected: _selectedDevice?.connected ?? false,
-                    connecting: _connecting,
+                    operation: _connectionOperation,
                     onSelected: _selectDevice,
                     onToggleConnection: _toggleConnection,
                     l10n: l10n,
                   ),
-                  const SizedBox(width: 12),
                 ],
                 if (compactToolbar)
                   ToolTooltip(
-                    message: _selectedDevice == null
+                    message:
+                        _connectionOperation == _ConnectionOperation.disconnect
+                        ? l10n.disconnecting
+                        : _connectionOperation == _ConnectionOperation.connect
+                        ? l10n.connecting
+                        : _selectedDevice == null
                         ? l10n.selectDeviceFirst
                         : _selectedDevice?.connected == true
                         ? '${l10n.connected} · ${l10n.disconnectDevice}'
                         : l10n.connectDevice,
                     child: shad.IconButton(
                       key: const ValueKey<String>('connection-action-button'),
-                      variance: _selectedDevice?.connected == true
-                          ? shad.ButtonVariance.secondary
-                          : shad.ButtonVariance.primary,
+                      variance: compactConnectionStyle,
                       density: shad.ButtonDensity.iconDense,
                       size: shad.ButtonSize.small,
-                      onPressed: _selectedDevice == null || _connecting
+                      onPressed:
+                          _selectedDevice == null ||
+                              _connectionOperation != null
                           ? null
                           : _toggleConnection,
                       icon: Icon(
-                        _connecting
+                        _connectionOperation != null
                             ? AppIcons.syncOutlined
                             : _selectedDevice?.connected == true
                             ? AppIcons.linkOff
@@ -2409,7 +2457,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-                if (compactToolbar) const SizedBox(width: 4),
                 if (compactToolbar)
                   ToolTooltip(
                     message: _scanning ? l10n.stopScan : l10n.startScan,
@@ -2443,7 +2490,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         : null,
                     l10n: l10n,
                   ),
-                const SizedBox(width: 4),
               ],
             ),
             const shad.Divider(height: 1),

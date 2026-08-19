@@ -128,6 +128,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connecting => '正在连接';
 
   @override
+  String get disconnecting => '正在断开';
+
+  @override
   String connectingDevice(String name) {
     return '正在连接 $name...';
   }
