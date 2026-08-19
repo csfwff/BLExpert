@@ -38,9 +38,9 @@ class _QuickCommandsPanel extends StatelessWidget {
             Expanded(
               child: Text(
                 l10n.quickCommands,
-                style: Theme.of(
+                style: AppTheme.textStylesOf(
                   context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ).titleMedium.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -55,8 +55,11 @@ class _QuickCommandsPanel extends StatelessWidget {
           ...byGroup.entries.expand(
             (MapEntry<String, List<CommandDefinition>> entry) => <Widget>[
               if (entry.key != '-') ...<Widget>[
-                const Divider(height: 24),
-                Text(entry.key, style: Theme.of(context).textTheme.labelLarge),
+                const shad.Divider(height: 24),
+                Text(
+                  entry.key,
+                  style: AppTheme.textStylesOf(context).labelLarge,
+                ),
                 const SizedBox(height: 6),
               ],
               ...entry.value.map(
@@ -165,7 +168,7 @@ class _CommandTileState extends State<_CommandTile> {
       padding: const EdgeInsets.fromLTRB(8, 8, 6, 8),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
+          bottom: BorderSide(color: AppTheme.colorsOf(context).border),
         ),
       ),
       child: Semantics(
@@ -177,7 +180,7 @@ class _CommandTileState extends State<_CommandTile> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: <Widget>[
                 Expanded(
-                  child: Scrollbar(
+                  child: shad.Scrollbar(
                     controller: _frameScrollController,
                     thumbVisibility: true,
                     child: SingleChildScrollView(
@@ -198,7 +201,7 @@ class _CommandTileState extends State<_CommandTile> {
                   tooltip: '${widget.l10n.sendCommand} ${command.name}',
                   variant: ToolButtonVariant.primary,
                   onPressed: sendEnabled ? _send : null,
-                  icon: const Icon(Icons.send_outlined, size: 18),
+                  icon: const Icon(AppIcons.sendOutlined, size: 18),
                 ),
               ],
             ),
@@ -208,7 +211,7 @@ class _CommandTileState extends State<_CommandTile> {
                 child: Text(
                   _validationError!,
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
+                    color: AppTheme.colorsOf(context).destructive,
                     fontSize: 12,
                   ),
                 ),
@@ -295,13 +298,13 @@ class _CommandTileState extends State<_CommandTile> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Tooltip(
+            ToolTooltip(
               message: label,
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall,
+                style: AppTheme.textStylesOf(context).labelSmall,
               ),
             ),
             const SizedBox(height: 2),
@@ -383,7 +386,7 @@ class _FixedFrameCell extends StatelessWidget {
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  style: AppTheme.textStylesOf(context).bodySmall.copyWith(
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.w600,
                   ),
@@ -421,7 +424,7 @@ class _RawFrameCell extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               value,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              style: AppTheme.textStylesOf(context).bodySmall.copyWith(
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.w600,
               ),

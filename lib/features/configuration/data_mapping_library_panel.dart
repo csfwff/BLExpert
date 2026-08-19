@@ -24,15 +24,15 @@ class _DataMappingLibraryPanel extends StatelessWidget {
           Expanded(
             child: Text(
               l10n.dataMappings,
-              style: Theme.of(
+              style: AppTheme.textStylesOf(
                 context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ).titleMedium.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
           ToolIconButton(
             tooltip: l10n.addResponseMapping,
             onPressed: onNew,
-            icon: const Icon(Icons.add, size: 19),
+            icon: const Icon(AppIcons.add, size: 19),
           ),
         ],
       ),
@@ -51,14 +51,14 @@ class _DataMappingLibraryPanel extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: Theme.of(context).dividerColor),
+                bottom: BorderSide(color: AppTheme.colorsOf(context).border),
               ),
             ),
             child: Row(
               children: <Widget>[
                 Expanded(
-                  child: InkWell(
-                    onTap: () => onEdit(mapping),
+                  child: ToolClickableRow(
+                    onPressed: () => onEdit(mapping),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
@@ -81,12 +81,12 @@ class _DataMappingLibraryPanel extends StatelessWidget {
                 ToolIconButton(
                   tooltip: l10n.editResponseMapping,
                   onPressed: () => onEdit(mapping),
-                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  icon: const Icon(AppIcons.editOutlined, size: 18),
                 ),
                 ToolIconButton(
                   tooltip: l10n.deleteResponseMapping,
                   onPressed: () => onDelete(mapping),
-                  icon: const Icon(Icons.delete_outline, size: 18),
+                  icon: const Icon(AppIcons.deleteOutline, size: 18),
                 ),
               ],
             ),
@@ -110,7 +110,7 @@ class _CommandParameterEditor extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
     decoration: BoxDecoration(
-      border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      border: Border(top: BorderSide(color: AppTheme.colorsOf(context).border)),
     ),
     child: Column(
       children: <Widget>[
@@ -136,7 +136,7 @@ class _CommandParameterEditor extends StatelessWidget {
             ToolIconButton(
               tooltip: '删除参数',
               onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline, size: 18),
+              icon: const Icon(AppIcons.deleteOutline, size: 18),
             ),
           ],
         ),
@@ -224,7 +224,9 @@ class _MappingFieldEditor extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+        border: Border(
+          top: BorderSide(color: AppTheme.colorsOf(context).border),
+        ),
       ),
       child: Column(
         children: <Widget>[
@@ -250,7 +252,7 @@ class _MappingFieldEditor extends StatelessWidget {
               ToolIconButton(
                 tooltip: l10n.deleteDataField,
                 onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, size: 18),
+                icon: const Icon(AppIcons.deleteOutline, size: 18),
               ),
             ],
           ),

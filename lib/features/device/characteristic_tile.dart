@@ -23,24 +23,12 @@ class _CharacteristicTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool dense = MediaQuery.sizeOf(context).width >= 680;
-    final shad.AbstractButtonStyle actionStyle = dense
-        ? const shad.ButtonStyle.ghost(
-            size: shad.ButtonSize.small,
-            density: shad.ButtonDensity.dense,
-          )
-        : const shad.ButtonStyle.ghost();
-    final shad.AbstractButtonStyle selectedActionStyle = dense
-        ? const shad.ButtonStyle.secondary(
-            size: shad.ButtonSize.small,
-            density: shad.ButtonDensity.dense,
-          )
-        : const shad.ButtonStyle.secondary();
     return Container(
       margin: const EdgeInsets.only(left: 6),
       padding: const EdgeInsets.fromLTRB(6, 6, 4, 6),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
+          bottom: BorderSide(color: AppTheme.colorsOf(context).border),
         ),
       ),
       child: Column(
@@ -50,12 +38,12 @@ class _CharacteristicTile extends StatelessWidget {
             children: <Widget>[
               Icon(
                 characteristic.isSubscribed
-                    ? Icons.sensors_outlined
-                    : Icons.memory_outlined,
+                    ? AppIcons.sensorsOutlined
+                    : AppIcons.memoryOutlined,
                 size: 16,
                 color: characteristic.isSubscribed
-                    ? Theme.of(context).colorScheme.tertiary
-                    : Theme.of(context).colorScheme.outline,
+                    ? AppTheme.colorsOf(context).chart2
+                    : AppTheme.colorsOf(context).border,
               ),
               const SizedBox(width: 4),
               Expanded(
@@ -106,13 +94,13 @@ class _CharacteristicTile extends StatelessWidget {
                 runSpacing: 4,
                 children: <Widget>[
                   if (characteristic.canRead)
-                    Tooltip(
+                    ToolTooltip(
                       message: l10n.readValue,
                       child: shad.IconButton.ghost(
                         key: ValueKey<String>(
                           'characteristic-read-${characteristic.key}',
                         ),
-                        icon: const Icon(Icons.download_outlined, size: 18),
+                        icon: const Icon(AppIcons.downloadOutlined, size: 18),
                         size: dense
                             ? shad.ButtonSize.small
                             : shad.ButtonSize.normal,
@@ -121,18 +109,17 @@ class _CharacteristicTile extends StatelessWidget {
                     ),
                   if (characteristic.canWrite ||
                       characteristic.canWriteWithoutResponse)
-                    shad.SelectedButton(
+                    ToolSelectedButton(
                       key: ValueKey<String>(
                         'characteristic-write-target-${characteristic.key}',
                       ),
                       value: characteristic.isWriteTarget,
-                      style: actionStyle,
-                      selectedStyle: selectedActionStyle,
+                      compact: dense,
                       onChanged: (_) => onSelectWrite(characteristic),
                       child: Text(l10n.writeTarget),
                     ),
                   if (characteristic.canNotify)
-                    shad.SelectedButton(
+                    ToolSelectedButton(
                       key: ValueKey<String>(
                         'characteristic-notify-${characteristic.key}',
                       ),
@@ -140,8 +127,7 @@ class _CharacteristicTile extends StatelessWidget {
                           characteristic.isSubscribed &&
                           characteristic.subscriptionMode ==
                               BluetoothSubscriptionMode.notify,
-                      style: actionStyle,
-                      selectedStyle: selectedActionStyle,
+                      compact: dense,
                       onChanged: (bool selected) => onSubscriptionChanged(
                         characteristic,
                         BluetoothSubscriptionMode.notify,
@@ -150,7 +136,7 @@ class _CharacteristicTile extends StatelessWidget {
                       child: Text(l10n.notify),
                     ),
                   if (characteristic.canIndicate)
-                    shad.SelectedButton(
+                    ToolSelectedButton(
                       key: ValueKey<String>(
                         'characteristic-indicate-${characteristic.key}',
                       ),
@@ -158,8 +144,7 @@ class _CharacteristicTile extends StatelessWidget {
                           characteristic.isSubscribed &&
                           characteristic.subscriptionMode ==
                               BluetoothSubscriptionMode.indicate,
-                      style: actionStyle,
-                      selectedStyle: selectedActionStyle,
+                      compact: dense,
                       onChanged: (bool selected) => onSubscriptionChanged(
                         characteristic,
                         BluetoothSubscriptionMode.indicate,
@@ -183,7 +168,7 @@ class _CapabilityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
+    return ToolTooltip(
       message: label,
       child: Semantics(
         label: label,

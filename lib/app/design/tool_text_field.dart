@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
+
+import '../app_theme.dart';
 
 /// Text input boundary used while migrating form controls to shadcn_flutter.
 ///
@@ -59,7 +61,7 @@ class ToolTextField extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
 
   Widget _buildField(BuildContext context, FormFieldState<String>? field) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
     final String? effectiveError = errorText ?? field?.errorText;
     final Widget input = shad.TextField(
       controller: controller,
@@ -98,13 +100,13 @@ class ToolTextField extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           if (showLabel) ...<Widget>[
-            Text(label, style: Theme.of(context).textTheme.labelMedium),
+            Text(label, style: AppTheme.textStylesOf(context).labelMedium),
             const SizedBox(height: 4),
           ],
           input,
           if (helperText != null && effectiveError == null) ...<Widget>[
             const SizedBox(height: 4),
-            Text(helperText!, style: Theme.of(context).textTheme.bodySmall),
+            Text(helperText!, style: AppTheme.textStylesOf(context).bodySmall),
           ],
           if (effectiveError != null) ...<Widget>[
             const SizedBox(height: 4),
@@ -113,9 +115,9 @@ class ToolTextField extends StatelessWidget {
               label: effectiveError,
               child: Text(
                 effectiveError,
-                style: Theme.of(
+                style: AppTheme.textStylesOf(
                   context,
-                ).textTheme.bodySmall?.copyWith(color: colors.error),
+                ).bodySmall.copyWith(color: colors.destructive),
               ),
             ),
           ],

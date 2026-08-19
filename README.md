@@ -14,7 +14,7 @@ BLExpert 是一款基于 Flutter 的跨平台 BLE 协议调试与分析工具。
 - 桌面端使用模式导航、设备与特征区、通信控制台和可收起 Inspector；窄屏端使用底部导航。
 - 支持亮色、暗色和跟随系统主题，以及中文、英文和跟随系统语言。
 - 通信控制台记录带时间戳的发送、接收、系统和错误事件，支持 HEX/文本手动发送、自动滚动和清空。
-- UI 组件正在逐步迁移到 `shadcn_flutter`：首页工作区菜单、蓝牙设备选择、工具对话框、输入框、选择器、按钮、桌面模式导航、配置导航、设置分段控件、记录筛选和状态徽章已通过 shadcn 组件或本地适配层实现；其余组件继续按功能批次重构，窄屏底部导航与需要平台原生语义的页面骨架暂时保留 Material。
+- UI 已全面迁移到 `shadcn_flutter`：应用根、页面骨架、桌面/窄屏导航、Tabs、Tooltip、Toast、对话框、输入与选择控件、点击表面、SelectableText、Scrollbar 和 Lucide 图标均通过 shadcn 组件或本地适配层实现；应用层 Material UI 例外为零。
 
 ### BLE Central
 
@@ -72,7 +72,7 @@ flutter analyze
 flutter test
 ```
 
-当前仓库测试覆盖工作区/指令/协议 JSON 兼容、参数化载荷编码、响应字段映射、Web 服务 UUID 解析和核心 Widget 工作流。
+当前仓库测试覆盖工作区/指令/协议 JSON 兼容、参数化载荷编码、响应字段映射、Web 服务 UUID 解析和核心 Widget 工作流；UI 回归另覆盖亮暗主题对比度、选中/禁用/焦点语义、Switch 动效，以及 375px/1440px 完整页面 Golden。
 
 ## 项目结构
 

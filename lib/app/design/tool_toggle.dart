@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
+
+import '../app_theme.dart';
 
 class ToolSwitch extends StatelessWidget {
   const ToolSwitch({
@@ -17,13 +19,57 @@ class ToolSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shad.ThemeData theme = AppTheme.of(context);
+    final shad.ColorScheme colors = theme.colorScheme;
+    final bool interactive = enabled && onChanged != null;
+    final Duration duration = AppMotion.resolve(context, AppMotion.standard);
+    final Color trackColor = value ? colors.primary : colors.input;
+    final Color thumbColor = value ? colors.primaryForeground : colors.card;
     return Semantics(
       label: label,
       toggled: value,
-      child: shad.Switch(
-        value: value,
-        enabled: enabled && onChanged != null,
-        onChanged: onChanged,
+      enabled: interactive,
+      child: shad.Clickable(
+        enabled: interactive,
+        enableFeedback: false,
+        onPressed: interactive ? () => onChanged!(!value) : null,
+        child: AnimatedOpacity(
+          duration: duration,
+          opacity: interactive ? 1 : 0.48,
+          child: AnimatedContainer(
+            key: const ValueKey<String>('tool-switch-track'),
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            width: 38,
+            height: 22,
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: trackColor,
+              border: Border.all(color: value ? colors.primary : colors.border),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: AnimatedAlign(
+              duration: duration,
+              curve: Curves.easeOutCubic,
+              alignment: value
+                  ? AlignmentDirectional.centerEnd
+                  : AlignmentDirectional.centerStart,
+              child: AnimatedContainer(
+                key: const ValueKey<String>('tool-switch-thumb-position'),
+                duration: duration,
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: thumbColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colors.foreground.withValues(alpha: 0.18),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -59,7 +105,7 @@ class ToolSwitchTile extends StatelessWidget {
                 if (subtitle != null) ...<Widget>[
                   const SizedBox(height: 2),
                   DefaultTextStyle.merge(
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: AppTheme.textStylesOf(context).bodySmall,
                     child: subtitle!,
                   ),
                 ],
@@ -140,7 +186,7 @@ class ToolCheckboxTile extends StatelessWidget {
                 if (subtitle != null) ...<Widget>[
                   const SizedBox(height: 2),
                   DefaultTextStyle.merge(
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: AppTheme.textStylesOf(context).bodySmall,
                     child: subtitle!,
                   ),
                 ],

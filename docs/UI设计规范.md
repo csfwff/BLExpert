@@ -1,13 +1,13 @@
 # UI设计规范
 
-> 文档基线：2026-08-19。规范已对齐当前工作台实现与 shadcn_flutter 阶段性迁移现状；业务优先级以 [开发路线图](开发路线图.md) 为准。
+> 文档基线：2026-08-19。规范已对齐当前工作台实现、shadcn_flutter 全面迁移及状态/动效修正结果；业务优先级以 [开发路线图](开发路线图.md) 为准，专项记录见 [UI shadcn 全面迁移与状态动效修正计划](UI状态与动效修正计划.md)。
 
 ## 文档状态
 
-- 状态：阶段 9 的核心交互、可访问性、会话定位和首轮代码边界拆分已收口；`shadcn_flutter` 组件迁移与相关重构继续按批次推进，跨平台视觉回归属于阶段 11
+- 状态：阶段 9 的核心交互、会话定位、shadcn 全面迁移、状态辨识和微交互动效已收口；跨平台视觉回归属于阶段 11
 - 设计依据：现有 Flutter 实现 + `ui-ux-pro-max` 的 Flutter、工具型产品、图标可访问性和表单校验规范
 - 适用范围：桌面优先、兼容窄屏的 BLE 协议调试工具
-- 当前阶段：阶段 9 核心范围已完成当前环境验收；组件迁移仍是持续性工程，后续同时聚焦复杂配置表单、阶段 10 草案能力和阶段 11 跨平台回归
+- 当前阶段：阶段 9 核心流程、完整页面 Golden 和 Linux/Web 视觉检查已完成当前环境验收；后续聚焦复杂配置表单、阶段 10 草案能力和阶段 11 跨平台真机回归
 
 ## 设计定位
 
@@ -34,7 +34,7 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 
 | 模式 | 当前职责 | 入口 |
 | --- | --- | --- |
-| 调试 | 设备、特征、通信控制台、当前上下文 | 桌面 shadcn `NavigationRail` / 窄屏 Material `NavigationBar` |
+| 调试 | 设备、特征、通信控制台、当前上下文 | 桌面 shadcn `NavigationRail` / 窄屏 shadcn `NavigationBar` |
 | 配置 | 工作区、协议、指令、响应映射 | 独立配置导航 |
 | 记录 | 有界会话日志、筛选、书签、导出与基础事务回溯 | 独立记录视图 |
 
@@ -67,7 +67,7 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 - 工作台一般表面使用 4px 圆角，工具对话框使用 6px 圆角；不使用 shadcn 默认 XXL 大圆角，避免弹窗与高密度工具栏产生风格断裂。
 - 应用栏、面板标题、控制台标题和对话框已使用一致的图标、层级和分隔线表达；列表项由独立圆角卡片收敛为连续工具列表。
 - 亮色、暗色与系统主题均可用。
-- shadcn `NavigationRail`、Material `NavigationBar`、调试三栏和配置双栏均通过 `LayoutBuilder` 适应宽度。
+- 桌面 shadcn `NavigationRail`、窄屏 shadcn `NavigationBar`、调试三栏和配置双栏均通过 `LayoutBuilder` 适应宽度。
 - 图标按钮已配置紧凑最小尺寸和 tooltip 主题。
 - 已引入局部 `Semantics` 和多数图标按钮 tooltip。
 
@@ -86,25 +86,27 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 
 ## 组件库选型与迁移边界
 
-结论：已确定并锁定 `shadcn_flutter` 作为目标组件体系，适配层和关键 spike 已完成，但全量组件迁移尚未完成，将继续随功能区域逐步重构；暂不引入 `fossui`。
+结论：已锁定 `shadcn_flutter` 作为唯一 UI 组件体系，应用层全面迁移已完成，不保留 Material 可见控件，也不引入 `fossui`。
 
 | 候选 | 当前结论 | 原因 |
 | --- | --- | --- |
-| `shadcn_flutter` | 首选候选 | Button、Dialog、Input、Select、Tabs 等组件覆盖适合阶段 9 的高频改造面；当前 Flutter 3.44.1 / Dart 3.12.1 满足其 Flutter >= 3.32.3、Dart >= 3.6.0 的要求。 |
+| `shadcn_flutter` | 唯一组件体系 | Button、Dialog、Input、Select、Tabs、Navigation、Tooltip、Toast 和 Scrollbar 已覆盖应用 UI；当前 Flutter 3.44.1 / Dart 3.12.1 满足其版本要求。 |
 | `fossui` | 暂不引入 | 当前环境虽满足 Flutter >= 3.41.0、Dart ^3.11.5，但库仍处于较早阶段，针对设备树、密集日志列表和复杂配置编辑器的覆盖需额外验证。 |
 
 迁移规则：
 
-- 不一次性重写 Material 3 界面。过渡期允许 shadcn 与 Material 共存，但同一功能区域应保持统一的控件语义和视觉规则。
+- 应用代码不得新增 Material 可见控件或交互表面；需要新控件时优先扩展 `app/design` 或使用 shadcn 原生组件。
 - 目录与组件拆分不等于组件库迁移完成；迁移状态以本文件“本轮迁移记录”和实际代码为准。
 - 新增 `app/design` 适配层封装候选库，业务界面不直接依赖第三方组件 API；主题颜色、间距、圆角、等宽数据文本和语义约束继续由本项目令牌定义。
-- 当前已落地的 shadcn_flutter 组件：`ShadcnLayer` / `DrawerOverlay`、工作区与工具下拉菜单、蓝牙设备与表单选择器、工具对话框、业务输入框、扫描/连接/图标按钮、配置侧栏导航、设置主题分段按钮、记录筛选按钮、开关、复选框、特征能力徽章和特征操作按钮。
-- 桌面模式导航使用 shadcn `NavigationRail`，通过稳定 key 维护选中态与键盘语义；窄屏底部模式导航保留 Flutter `NavigationBar`，继续沿用已验证的安全区域与触控契约。
+- 当前已落地的 shadcn_flutter 组件：`ShadcnApp`、`Scaffold`、`AppBar`、桌面与窄屏导航、Tabs、Tooltip、Toast、DropdownMenu、Select、AlertDialog、TextField、SelectableText、Scrollbar、按钮、开关、复选框、徽章及 Lucide 图标。
+- 桌面模式导航已使用 shadcn `NavigationRail`；窄屏底部模式导航迁移到 shadcn `NavigationBar`，同时保留已验证的安全区域、触控尺寸、稳定 key 和键盘/读屏语义契约。
 - 语言设置和记录页元数据筛选统一通过 `ToolSelect` 使用 shadcn `Select`；弹层测试使用定时 `pump` 覆盖进出场动画，不依赖持续 ticker 收敛。
 - 首个 spike 限定为配置页命令编辑器、设备发送策略确认框和发送编辑器；不得修改 BLE 服务、领域模型、工作区导入导出格式或安全发送策略。
-- 当前已完成 `lib/app/design` 的对话框、输入框与基础选择器适配边界。受保护发送、工作区导入和设备策略等现有工具对话框统一走 `ToolAlertDialog`；它实际使用 `shadcn_flutter.AlertDialog`，并必须通过 `showToolDialog` 的 shadcn `DialogConfiguration` 打开，避免 Material `showDialog` 将 `ModalBackdrop` 按全屏布局。内部仍用透明 Material 容器维持 `ListTile`、按钮和未迁移内容的既有语义与墨水反馈。配置页命令编辑器的名称、分组、载荷和备注统一走 `ToolTextField`，实际使用 `shadcn_flutter.TextField`；可见标签、错误文本与 `Semantics` 仍由应用维护，避免验证和无障碍契约耦合第三方 decoration API。载荷格式统一走 `ToolSelect`，实际使用 `shadcn_flutter.Select`，选项和标签继续由应用拥有。
-- `MaterialApp.builder` 必须提供 `ShadcnLayer` 和 `DrawerOverlay`，为 Dialog、Select 等 shadcn 弹层提供主题、popover 与移动端 drawer 宿主。`ToolTextField` 的调用方必须提供稳定 Key、应用拥有的标签和控制器；多行高度由 `minLines` / `maxLines` 固定，错误文本使用 live region。`ToolSelect` 限制菜单高度以避免视口外选项；按钮、开关、复选框与分段控件分别通过 `ToolButton`、`ToolToggle` 和 shadcn `SelectedButton` 统一交互与尺寸。
-- 调试发送区的模式切换使用紧凑矩形分段控件：高度 36px、圆角 6px、水平内边距 10px；选中态使用主题的 secondary container，不使用大范围胶囊或发光效果。行尾选择器与其保持同高、同边框和 6px 圆角，模式、行尾和发送操作在一条工具带中对齐。
+- `lib/app/design` 已提供对话框、输入框、选择器、按钮、选择状态、开关、Tooltip、Toast 和点击行适配边界。工具对话框使用 shadcn `AlertDialog` 与 `DialogConfiguration`，不再保留透明 Material 承载层。
+- 应用根使用 `ShadcnApp` 承载主题、国际化、路由、Popover、Tooltip、Menu、Drawer 和 Toast；`ToolTextField`、`ToolSelect`、`ToolButton`、`ToolToggle` 和项目选择控件继续提供业务稳定边界。
+- shadcn 亮暗主题必须从同一组项目语义颜色构建，不得依赖默认 Slate 主题，也不得在业务页面复制选中、焦点、禁用和危险状态颜色。
+- 调试发送区的模式切换使用紧凑矩形分段控件：高度 36px、圆角 6px、水平内边距 10px；选中态使用项目的 `selectedStrong` 或 `selectedSubtle` 角色，不再把默认 `ButtonStyle.secondary` 直接视为合格选中态。行尾选择器与其保持同高、同边框和 6px 圆角，模式、行尾和发送操作在一条工具带中对齐。
+- 业务界面不得继续复制 `outline/ghost -> secondary` 的选择样式组合；选择按钮、导航项和筛选器应经 `app/design` 的项目级状态样式接入。选中态至少同时改变背景、边框/指示条、文字/图标中的两项。
 - 已迁移控件需持续通过 Linux 与 Web、窄屏与宽屏、亮暗主题、键盘焦点/屏幕阅读器语义、文本溢出和 Widget 回归；升级 `shadcn_flutter` 时按同一矩阵复测。
 - `shadcn_flutter` 当前仍为 `0.0.x`，锁定版本并在升级前审查破坏性变更、依赖体积和测试结果。
 
@@ -222,6 +224,8 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 | 左侧对象区 | 240px，范围 220-280px | 可折叠或可拖动 |
 | Inspector | 320px，范围 300-360px | 可关闭或可拖动 |
 
+交互状态与动效令牌以 [UI shadcn 全面迁移与状态动效修正计划](UI状态与动效修正计划.md) 为准。关键要求是：选择态至少有一个达到 3:1 的非文本指示，普通文字达到 4.5:1；hover/pressed 使用 100-150ms，Switch/选择切换使用 180-220ms，弹层使用 200-300ms，并为减少动态效果提供终态直达分支。
+
 视觉规则：
 
 - 不新增浮动卡片、大阴影、渐变背景、装饰插图或营销式标题。
@@ -242,7 +246,7 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 - 添加快捷键：扫描、连接/断开、聚焦发送框、发送、清空、切换自动滚动、展开/收起 Inspector。
 - 不以 toast/SnackBar 作为唯一错误反馈；输入和配置错误必须保留可定位的行内信息。
 - 高对比度下验证状态色、禁用态、焦点环和文本对比度；亮色正文对比度不低于 4.5:1。
-- 任何动画只用于 150-250ms 的状态过渡；遵从减少动态效果偏好，不能影响数据刷新与焦点定位。
+- 动效按距离和复杂度使用项目令牌，不把一个时长套用到全部过渡；遵从减少动态效果偏好，语义状态立即更新，动画不能影响数据刷新与焦点定位。
 
 #### 验收
 
@@ -273,7 +277,7 @@ BLExpert 是面向嵌入式、IoT、测试和现场支持工程师的设备协�
 
 ### 窄屏：小于 900px
 
-- 保持现有 `NavigationBar` 的调试、配置、记录三入口。
+- 使用 shadcn `NavigationBar` 保持调试、配置、记录三入口，不保留 Material `NavigationBar`。
 - 调试模式不再并排展示设备、控制台与 Inspector；采用当前对象优先的页面栈或底部面板。
 - 发送入口和连接状态必须快速可达。
 - 日志采用两行紧凑行：首行时间、方向、来源、长度；次行 HEX 摘要。点击打开完整详情。
@@ -316,7 +320,8 @@ lib/
 1. 为复杂协议配置补充草稿、保存状态和跨字段错误摘要。
 2. 将 Inspector 从日志优先扩展到特征、命令和映射对象上下文。
 3. 将记录模式升级为带元数据、异常标记、脱敏导出和精确事务归因的会话分析工具。
-4. 在阶段 11 执行 Android、iOS、Windows、macOS、Linux 和 Web 的视觉、焦点与真实设备回归。
+4. 持续运行已建立的 375px/1440px、亮暗主题组件与完整页面 Golden，防止 shadcn 状态和响应式布局回退。
+5. 在阶段 11 执行 Android、iOS、Windows、macOS、Linux 和 Web 的视觉、焦点与真实设备回归。
 
 ## 本轮迁移记录
 
@@ -324,12 +329,15 @@ lib/
 | --- | --- | --- |
 | 首页工作区切换 | 已切换 | 使用 shadcn `DropdownMenu`，同时承载新建、删除、导入和导出命令；高度固定为 36px。 |
 | 首页蓝牙设备选择 | 已切换 | 使用 shadcn `Select`，与工作区、连接和扫描控件统一为 36px，并保留空设备禁用态。 |
-| 桌面配置侧栏 | 已切换 | 使用 shadcn `NavigationRail`，保留窄屏横向 `NavigationBar`。 |
-| 设置主题选择 | 已切换 | 使用 shadcn `SelectedButton`，保留原有 key、语义和三种主题模式。 |
-| 记录筛选 | 已切换 | 方向与书签使用 shadcn `SelectedButton`，元数据使用 `ToolSelect`。 |
+| 桌面配置侧栏 | 已切换 | 使用 shadcn `NavigationRail`；窄屏横向导航也使用 shadcn `NavigationBar`，不保留 Material 实现。 |
+| 设置主题选择 | 已切换 | 使用项目 `ToolSelectedButton`，保留原有 key、语义和三种主题模式。 |
+| 记录筛选 | 已切换 | 方向与书签使用 `ToolSelectedButton`，元数据使用 `ToolSelect`。 |
 | 工具表单/对话框 | 已切换 | 继续统一经由 `ToolTextField`、`ToolSelect`、`ToolAlertDialog`。 |
-| 顶层模式导航 | 桌面已切换 | 桌面使用 shadcn `NavigationRail`；窄屏底部 Material `NavigationBar` 保留安全区域和现有测试契约。 |
-| 开关与复选框 | 已切换 | 使用 `ToolSwitch` / `ToolCheckbox` 适配 shadcn 控件并保留语义状态。 |
+| 顶层模式导航 | 已切换 | 桌面使用 shadcn `NavigationRail`，窄屏使用 shadcn `NavigationBar`，并保留安全区域和现有测试契约。 |
+| 开关与复选框 | 已切换 | 使用 `ToolSwitch` / `ToolCheckbox`；Switch 由项目拥有 200ms 动效和减少动态效果分支。 |
+| 应用骨架与通用交互 | 已切换 | `ShadcnApp`、Scaffold、Tabs、Tooltip、Toast、点击行、SelectableText、Scrollbar 和 Lucide 图标均已落地。 |
+
+审计补充：应用层 Material 可见控件和 `package:flutter/material.dart` import 均为零；亮暗状态组件、375px/1440px 完整页面 Golden 与 Linux/Web 视觉检查均已完成。Android、iOS、Windows、macOS 和真实 BLE 设备验收仍按阶段 11 跟踪。
 
 ## 交付检查清单
 
@@ -337,6 +345,10 @@ lib/
 - [ ] 任意日志行可定位来源、方向、长度、HEX、解析结果与错误。
 - [ ] 控制台、设备树、Inspector 与配置表单没有嵌套滚动造成的操作阻塞。
 - [ ] 所有状态同时具备颜色与文本/图标表达。
+- [x] shadcn 亮暗主题使用统一项目语义颜色，选中态不依赖默认 Slate `secondary`。
+- [x] 应用根、Scaffold、导航、Tabs、Tooltip、点击表面、对话框承载层和图标体系完成 shadcn/Lucide-Radix 迁移，应用层 Material UI 例外为零。
+- [x] 选择态至少有一个达到 3:1 的非文本指示，普通文字与背景对比度不低于 4.5:1。
+- [x] Switch、选择按钮和弹层使用项目动效令牌，并在减少动态效果下稳定到达终态。
 - [x] 纯图标操作都有 tooltip 与语义名称。
 - [ ] 发送禁用和配置校验失败均有持久、明确、可定位的原因。
 - [ ] 亮色、暗色、1200px、900px、768px 和窄屏下文本不溢出，核心操作可达。

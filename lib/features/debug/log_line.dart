@@ -16,12 +16,12 @@ class _LogLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
     final Color color = switch (entry.kind) {
-      SessionLogKind.received => colors.tertiary,
+      SessionLogKind.received => colors.chart2,
       SessionLogKind.sent => colors.primary,
-      SessionLogKind.system => Theme.of(context).colorScheme.secondary,
-      SessionLogKind.error => Theme.of(context).colorScheme.error,
+      SessionLogKind.system => AppTheme.colorsOf(context).secondary,
+      SessionLogKind.error => AppTheme.colorsOf(context).destructive,
     };
     final String payload = entry.message ?? _toHex(entry.data);
     final String timestamp = entry.timestamp.toIso8601String().split('T').last;
@@ -31,7 +31,7 @@ class _LogLine extends StatelessWidget {
             tooltip: entry.bookmarked ? '取消书签' : '添加书签',
             onPressed: () => onToggleBookmark!(entry),
             icon: Icon(
-              entry.bookmarked ? Icons.bookmark : Icons.bookmark_outline,
+              entry.bookmarked ? AppIcons.bookmark : AppIcons.bookmarkOutline,
               size: 19,
               color: entry.bookmarked ? colors.primary : null,
             ),
@@ -42,7 +42,7 @@ class _LogLine extends StatelessWidget {
         : ToolIconButton(
             tooltip: l10n.viewLogDetails,
             onPressed: onTap,
-            icon: const Icon(Icons.subject_outlined, size: 18),
+            icon: const Icon(AppIcons.subjectOutlined, size: 18),
             touchSize: 44,
           );
     return Semantics(
@@ -54,9 +54,7 @@ class _LogLine extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
           decoration: BoxDecoration(
-            color: selected
-                ? colors.primaryContainer.withValues(alpha: 0.45)
-                : null,
+            color: selected ? colors.secondary.withValues(alpha: 0.45) : null,
             border: Border(left: BorderSide(color: color, width: 2)),
           ),
           child: LayoutBuilder(
@@ -79,7 +77,7 @@ class _LogLine extends StatelessWidget {
                   ),
                 ),
               );
-              final Widget content = SelectableText(
+              final Widget content = shad.SelectableText(
                 payload,
                 style: TextStyle(
                   fontFamily: 'monospace',
@@ -99,7 +97,7 @@ class _LogLine extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 11,
-                            color: colors.outline,
+                            color: colors.border,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -122,7 +120,7 @@ class _LogLine extends StatelessWidget {
                           const SizedBox(width: 8),
                           Text(
                             '${entry.data.length} B',
-                            style: Theme.of(context).textTheme.labelSmall,
+                            style: AppTheme.textStylesOf(context).labelSmall,
                           ),
                         ],
                         if (bookmarkButton != null) ...<Widget>[
@@ -150,7 +148,7 @@ class _LogLine extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: 'monospace',
                         fontSize: 11,
-                        color: colors.outline,
+                        color: colors.border,
                       ),
                     ),
                   ),
@@ -177,7 +175,7 @@ class _LogLine extends StatelessWidget {
                       width: 32,
                       child: Text(
                         '${entry.data.length} B',
-                        style: Theme.of(context).textTheme.labelSmall,
+                        style: AppTheme.textStylesOf(context).labelSmall,
                       ),
                     ),
                   ],
@@ -220,10 +218,10 @@ List<int>? _parseHex(String value) {
   ];
 }
 
-IconData _themeModeIcon(ThemeMode mode) => switch (mode) {
-  ThemeMode.system => Icons.brightness_auto_outlined,
-  ThemeMode.light => Icons.light_mode_outlined,
-  ThemeMode.dark => Icons.dark_mode_outlined,
+IconData _themeModeIcon(shad.ThemeMode mode) => switch (mode) {
+  shad.ThemeMode.system => AppIcons.brightnessAuto,
+  shad.ThemeMode.light => AppIcons.lightMode,
+  shad.ThemeMode.dark => AppIcons.darkMode,
 };
 
 String _toHex(List<int> bytes) => bytes

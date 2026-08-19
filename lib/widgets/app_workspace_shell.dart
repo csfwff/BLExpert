@@ -9,7 +9,7 @@ class _AppIdentity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -18,13 +18,13 @@ class _AppIdentity extends StatelessWidget {
           height: 28,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: colors.primaryContainer,
+            color: colors.secondary,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Icon(
-            Icons.bluetooth_connected,
+            AppIcons.bluetoothConnected,
             size: 18,
-            color: colors.onPrimaryContainer,
+            color: colors.secondaryForeground,
           ),
         ),
         const SizedBox(width: 8),
@@ -51,8 +51,8 @@ class _AppOverflowMenu extends StatelessWidget {
     required this.l10n,
   });
 
-  final ThemeMode themeMode;
-  final ValueChanged<ThemeMode> onThemeModeChanged;
+  final shad.ThemeMode themeMode;
+  final ValueChanged<shad.ThemeMode> onThemeModeChanged;
   final ValueChanged<Locale?> onLocaleChanged;
   final bool includeAppearance;
   final VoidCallback? onConfigureWebServices;
@@ -63,11 +63,11 @@ class _AppOverflowMenu extends StatelessWidget {
       case _ToolbarAction.webServices:
         onConfigureWebServices?.call();
       case _ToolbarAction.light:
-        onThemeModeChanged(ThemeMode.light);
+        onThemeModeChanged(shad.ThemeMode.light);
       case _ToolbarAction.dark:
-        onThemeModeChanged(ThemeMode.dark);
+        onThemeModeChanged(shad.ThemeMode.dark);
       case _ToolbarAction.systemTheme:
-        onThemeModeChanged(ThemeMode.system);
+        onThemeModeChanged(shad.ThemeMode.system);
       case _ToolbarAction.chinese:
         onLocaleChanged(const Locale('zh'));
       case _ToolbarAction.english:
@@ -81,7 +81,7 @@ class _AppOverflowMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return ToolIconButton(
       tooltip: '更多操作',
-      icon: const Icon(Icons.more_vert),
+      icon: const Icon(AppIcons.moreVertical),
       onPressed: () => shad
           .showDropdown<void>(
             context: context,
@@ -90,7 +90,7 @@ class _AppOverflowMenu extends StatelessWidget {
               children: <shad.MenuItem>[
                 if (onConfigureWebServices != null)
                   shad.MenuButton(
-                    leading: const Icon(Icons.tune),
+                    leading: const Icon(AppIcons.tune),
                     onPressed: (_) => _select(_ToolbarAction.webServices),
                     child: Text(l10n.webServiceUuids),
                   ),
@@ -103,12 +103,12 @@ class _AppOverflowMenu extends StatelessWidget {
                     child: Text(l10n.followSystem),
                   ),
                   shad.MenuButton(
-                    leading: const Icon(Icons.light_mode_outlined),
+                    leading: const Icon(AppIcons.lightMode),
                     onPressed: (_) => _select(_ToolbarAction.light),
                     child: Text(l10n.lightMode),
                   ),
                   shad.MenuButton(
-                    leading: const Icon(Icons.dark_mode_outlined),
+                    leading: const Icon(AppIcons.darkMode),
                     onPressed: (_) => _select(_ToolbarAction.dark),
                     child: Text(l10n.darkMode),
                   ),
@@ -192,37 +192,53 @@ class _AppWorkspaceShell extends StatelessWidget {
           return Row(
             children: <Widget>[
               _ModeRail(value: mode, onChanged: onModeChanged, l10n: l10n),
-              const VerticalDivider(width: 1),
+              const shad.VerticalDivider(width: 1),
               Expanded(child: content),
             ],
           );
         }
+        final List<({IconData icon, String label})> mobileItems =
+            <({IconData icon, String label})>[
+              (icon: AppIcons.terminalOutlined, label: l10n.debug),
+              (icon: AppIcons.tuneOutlined, label: l10n.configure),
+              (icon: AppIcons.historyOutlined, label: l10n.records),
+              (icon: AppIcons.settingsOutlined, label: l10n.settings),
+            ];
         return Column(
           children: <Widget>[
             Expanded(child: content),
-            const Divider(height: 1),
-            NavigationBar(
-              selectedIndex: mode.index,
-              onDestinationSelected: (int index) =>
-                  onModeChanged(_AppMode.values[index]),
-              destinations: <Widget>[
-                NavigationDestination(
-                  icon: Icon(Icons.terminal_outlined),
-                  label: l10n.debug,
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.tune_outlined),
-                  label: l10n.configure,
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.history_outlined),
-                  label: l10n.records,
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.settings_outlined),
-                  label: l10n.settings,
-                ),
-              ],
+            const shad.Divider(height: 1),
+            SafeArea(
+              top: false,
+              child: shad.NavigationBar(
+                key: const ValueKey<String>('app-mode-navigation-mobile'),
+                expanded: true,
+                keepMainAxisSize: true,
+                labelPosition: shad.NavigationLabelPosition.bottom,
+                selectedKey: ValueKey<String>('app-mode-${mode.name}'),
+                onSelected: (Key? key) {
+                  final String? value = (key as ValueKey<String>?)?.value;
+                  if (value == null) return;
+                  final int index = _AppMode.values.indexWhere(
+                    (_AppMode item) => value == 'app-mode-${item.name}',
+                  );
+                  if (index >= 0) onModeChanged(_AppMode.values[index]);
+                },
+                children: <Widget>[
+                  for (int index = 0; index < mobileItems.length; index++)
+                    shad.NavigationItem(
+                      key: ValueKey<String>(
+                        'app-mode-${_AppMode.values[index].name}',
+                      ),
+                      selectedStyle: const shad.ButtonStyle.primary(
+                        size: shad.ButtonSize.small,
+                        density: shad.ButtonDensity.compact,
+                      ),
+                      label: Text(mobileItems[index].label),
+                      child: Icon(mobileItems[index].icon, size: 20),
+                    ),
+                ],
+              ),
             ),
           ],
         );
@@ -251,52 +267,45 @@ class _ModeRail extends StatelessWidget {
         <({_AppMode mode, IconData icon, IconData selectedIcon, String label})>[
           (
             mode: _AppMode.debug,
-            icon: Icons.terminal_outlined,
-            selectedIcon: Icons.terminal,
+            icon: AppIcons.terminalOutlined,
+            selectedIcon: AppIcons.terminal,
             label: l10n.debug,
           ),
           (
             mode: _AppMode.configure,
-            icon: Icons.tune_outlined,
-            selectedIcon: Icons.tune,
+            icon: AppIcons.tuneOutlined,
+            selectedIcon: AppIcons.tune,
             label: l10n.configure,
           ),
           (
             mode: _AppMode.records,
-            icon: Icons.history_outlined,
-            selectedIcon: Icons.history,
+            icon: AppIcons.historyOutlined,
+            selectedIcon: AppIcons.history,
             label: l10n.records,
           ),
           (
             mode: _AppMode.settings,
-            icon: Icons.settings_outlined,
-            selectedIcon: Icons.settings,
+            icon: AppIcons.settingsOutlined,
+            selectedIcon: AppIcons.settings,
             label: l10n.settings,
           ),
         ];
     return SizedBox(
-      width: 76,
+      width: 88,
       child: shad.NavigationRail(
         key: const ValueKey<String>('app-mode-navigation'),
         alignment: shad.NavigationRailAlignment.start,
         expanded: true,
-        expandedSize: 76,
+        expandedSize: 88,
         labelType: shad.NavigationLabelType.all,
         labelPosition: shad.NavigationLabelPosition.bottom,
         selectedKey: ValueKey<String>('app-mode-${value.name}'),
         children: <Widget>[
           for (final item in items)
-            shad.SelectedButton(
+            ToolSelectedButton(
               key: ValueKey<String>('app-mode-${item.mode.name}'),
               value: value == item.mode,
-              style: const shad.ButtonStyle.ghost(
-                size: shad.ButtonSize.small,
-                density: shad.ButtonDensity.compact,
-              ),
-              selectedStyle: const shad.ButtonStyle.secondary(
-                size: shad.ButtonSize.small,
-                density: shad.ButtonDensity.compact,
-              ),
+              emphasis: ToolSelectedEmphasis.strong,
               onChanged: (bool selected) {
                 if (selected) onChanged(item.mode);
               },
@@ -310,11 +319,14 @@ class _ModeRail extends StatelessWidget {
                       size: 20,
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      item.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        item.label,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: AppTheme.textStylesOf(context).labelSmall,
+                      ),
                     ),
                   ],
                 ),
@@ -335,9 +347,9 @@ class _SettingsWorkspace extends StatelessWidget {
     required this.l10n,
   });
 
-  final ThemeMode themeMode;
+  final shad.ThemeMode themeMode;
   final Locale? locale;
-  final ValueChanged<ThemeMode> onThemeModeChanged;
+  final ValueChanged<shad.ThemeMode> onThemeModeChanged;
   final ValueChanged<Locale?> onLocaleChanged;
   final AppLocalizations l10n;
 
@@ -364,21 +376,21 @@ class _SettingsWorkspace extends StatelessWidget {
                 Row(
                   children: <Widget>[
                     Icon(
-                      Icons.settings_outlined,
-                      color: Theme.of(context).colorScheme.secondary,
+                      AppIcons.settingsOutlined,
+                      color: AppTheme.colorsOf(context).secondary,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       l10n.settings,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppTheme.textStylesOf(
+                        context,
+                      ).titleLarge.copyWith(fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),
                 const SizedBox(height: 28),
                 _SettingsSection(
-                  icon: Icons.contrast_outlined,
+                  icon: AppIcons.contrastOutlined,
                   title: l10n.themeMode,
                   child: KeyedSubtree(
                     key: const ValueKey<String>('theme-mode-selector'),
@@ -387,23 +399,23 @@ class _SettingsWorkspace extends StatelessWidget {
                       runSpacing: 8,
                       children: <Widget>[
                         _ThemeModeButton(
-                          value: ThemeMode.system,
+                          value: shad.ThemeMode.system,
                           currentValue: themeMode,
-                          icon: Icons.brightness_auto_outlined,
+                          icon: AppIcons.brightnessAuto,
                           label: l10n.followSystem,
                           onChanged: onThemeModeChanged,
                         ),
                         _ThemeModeButton(
-                          value: ThemeMode.light,
+                          value: shad.ThemeMode.light,
                           currentValue: themeMode,
-                          icon: Icons.light_mode_outlined,
+                          icon: AppIcons.lightMode,
                           label: l10n.lightMode,
                           onChanged: onThemeModeChanged,
                         ),
                         _ThemeModeButton(
-                          value: ThemeMode.dark,
+                          value: shad.ThemeMode.dark,
                           currentValue: themeMode,
-                          icon: Icons.dark_mode_outlined,
+                          icon: AppIcons.darkMode,
                           label: l10n.darkMode,
                           onChanged: onThemeModeChanged,
                         ),
@@ -411,9 +423,9 @@ class _SettingsWorkspace extends StatelessWidget {
                     ),
                   ),
                 ),
-                const Divider(height: 40),
+                const shad.Divider(height: 40),
                 _SettingsSection(
-                  icon: Icons.language_outlined,
+                  icon: AppIcons.languageOutlined,
                   title: l10n.language,
                   child: ToolSelect<_LanguagePreference>(
                     key: const ValueKey<String>('language-selector'),
@@ -459,24 +471,16 @@ class _ThemeModeButton extends StatelessWidget {
     required this.onChanged,
   });
 
-  final ThemeMode value;
-  final ThemeMode currentValue;
+  final shad.ThemeMode value;
+  final shad.ThemeMode currentValue;
   final IconData icon;
   final String label;
-  final ValueChanged<ThemeMode> onChanged;
+  final ValueChanged<shad.ThemeMode> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return shad.SelectedButton(
+    return ToolSelectedButton(
       value: currentValue == value,
-      style: const shad.ButtonStyle.outline(
-        size: shad.ButtonSize.small,
-        density: shad.ButtonDensity.dense,
-      ),
-      selectedStyle: const shad.ButtonStyle.secondary(
-        size: shad.ButtonSize.small,
-        density: shad.ButtonDensity.dense,
-      ),
       onChanged: (bool selected) {
         if (selected) onChanged(value);
       },
@@ -510,17 +514,13 @@ class _SettingsSection extends StatelessWidget {
       children: <Widget>[
         Row(
           children: <Widget>[
-            Icon(
-              icon,
-              size: 20,
-              color: Theme.of(context).colorScheme.secondary,
-            ),
+            Icon(icon, size: 20, color: AppTheme.colorsOf(context).secondary),
             const SizedBox(width: 8),
             Text(
               title,
-              style: Theme.of(
+              style: AppTheme.textStylesOf(
                 context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ).titleSmall.copyWith(fontWeight: FontWeight.w700),
             ),
           ],
         ),
@@ -531,7 +531,7 @@ class _SettingsSection extends StatelessWidget {
   }
 }
 
-class _DebugWorkspace extends StatelessWidget {
+class _DebugWorkspace extends StatefulWidget {
   const _DebugWorkspace({
     required this.devicePane,
     required this.consolePane,
@@ -547,58 +547,71 @@ class _DebugWorkspace extends StatelessWidget {
   final ValueChanged<bool> onInspectorVisibilityChanged;
 
   @override
+  State<_DebugWorkspace> createState() => _DebugWorkspaceState();
+}
+
+class _DebugWorkspaceState extends State<_DebugWorkspace> {
+  int _tabIndex = 0;
+
+  @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         if (constraints.maxWidth < 680) {
-          return DefaultTabController(
-            length: 3,
-            child: Column(
-              children: <Widget>[
-                const TabBar(
-                  tabs: <Widget>[
-                    Tab(text: '控制台'),
-                    Tab(text: '设备'),
-                    Tab(text: '上下文'),
+          return Column(
+            children: <Widget>[
+              shad.Tabs(
+                index: _tabIndex,
+                expand: true,
+                onChanged: (int value) => setState(() => _tabIndex = value),
+                children: const <shad.TabItem>[
+                  shad.TabItem(child: Text('控制台')),
+                  shad.TabItem(child: Text('设备')),
+                  shad.TabItem(child: Text('上下文')),
+                ],
+              ),
+              Expanded(
+                child: IndexedStack(
+                  index: _tabIndex,
+                  children: <Widget>[
+                    widget.consolePane,
+                    widget.devicePane,
+                    widget.inspectorPane,
                   ],
                 ),
-                Expanded(
-                  child: TabBarView(
-                    children: <Widget>[consolePane, devicePane, inspectorPane],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           );
         }
         return Row(
           children: <Widget>[
-            SizedBox(width: 240, child: devicePane),
-            const VerticalDivider(width: 1),
+            SizedBox(width: 240, child: widget.devicePane),
+            const shad.VerticalDivider(width: 1),
             Expanded(
               child: Stack(
                 children: <Widget>[
-                  Positioned.fill(child: consolePane),
+                  Positioned.fill(child: widget.consolePane),
                   Positioned(
                     top: 6,
                     right: 8,
                     child: ToolIconButton(
-                      tooltip: inspectorOpen ? '收起上下文面板' : '展开上下文面板',
-                      onPressed: () =>
-                          onInspectorVisibilityChanged(!inspectorOpen),
+                      tooltip: widget.inspectorOpen ? '收起上下文面板' : '展开上下文面板',
+                      onPressed: () => widget.onInspectorVisibilityChanged(
+                        !widget.inspectorOpen,
+                      ),
                       icon: Icon(
-                        inspectorOpen
-                            ? Icons.keyboard_double_arrow_right_outlined
-                            : Icons.keyboard_double_arrow_left_outlined,
+                        widget.inspectorOpen
+                            ? AppIcons.chevronsRight
+                            : AppIcons.chevronsLeft,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            if (inspectorOpen) ...<Widget>[
-              const VerticalDivider(width: 1),
-              SizedBox(width: 320, child: inspectorPane),
+            if (widget.inspectorOpen) ...<Widget>[
+              const shad.VerticalDivider(width: 1),
+              SizedBox(width: 320, child: widget.inspectorPane),
             ],
           ],
         );
@@ -620,15 +633,15 @@ class _PanelHeading extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
+          bottom: BorderSide(color: AppTheme.colorsOf(context).border),
         ),
       ),
       child: Row(
         children: <Widget>[
           Icon(
-            Icons.data_object_outlined,
+            AppIcons.dataObject,
             size: 17,
-            color: Theme.of(context).colorScheme.secondary,
+            color: AppTheme.colorsOf(context).secondary,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -636,9 +649,9 @@ class _PanelHeading extends StatelessWidget {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(
+              style: AppTheme.textStylesOf(
                 context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ).titleSmall.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
           if (trailing != null) ...<Widget>[

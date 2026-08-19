@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
@@ -8,6 +8,7 @@ import 'package:blexpert/main.dart';
 import 'package:blexpert/app/design/tool_button.dart';
 import 'package:blexpert/app/design/tool_select.dart';
 import 'package:blexpert/app/design/tool_toggle.dart';
+import 'package:blexpert/app/design/tool_tooltip.dart';
 import 'package:blexpert/models/command_definition.dart';
 import 'package:blexpert/services/bluetooth_service.dart';
 
@@ -26,6 +27,11 @@ class _DelayedBluetoothService extends MockBluetoothService {
 }
 
 void main() {
+  Finder findToolTooltip(String message) => find.byWidgetPredicate(
+    (Widget widget) => widget is ToolTooltip && widget.message == message,
+    description: 'ToolTooltip with message "$message"',
+  );
+
   Future<void> pumpDesktopApp(
     WidgetTester tester, {
     BluetoothService? bluetoothService,
@@ -45,7 +51,7 @@ void main() {
   }
 
   Future<void> openWorkspaceSelector(WidgetTester tester) async {
-    await tester.tap(find.byTooltip('选择工作区'));
+    await tester.tap(findToolTooltip('选择工作区'));
     // shadcn's anchored menu keeps an overlay ticker while it is open.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
@@ -71,6 +77,16 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(shad.NavigationRail), findsOneWidget);
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey<String>('app-mode-navigation')))
+          .width,
+      88,
+    );
+    for (final String label in <String>['调试', '配置', '记录', '设置']) {
+      final Text text = tester.widget<Text>(find.text(label));
+      expect(text.overflow, isNot(TextOverflow.ellipsis));
+    }
   });
 
   testWidgets('扫描和连接按钮显示当前动作与连接状态', (WidgetTester tester) async {
@@ -83,7 +99,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
 
     expect(
@@ -117,7 +133,7 @@ void main() {
 
     await openWorkspaceSelector(tester);
     expect(find.byType(shad.DropdownMenu), findsOneWidget);
-    await tester.tap(find.byTooltip('选择工作区'));
+    await tester.tap(findToolTooltip('选择工作区'));
     await tester.pump();
   });
 
@@ -157,7 +173,7 @@ void main() {
         _DelayedBluetoothService();
     await pumpDesktopApp(tester, bluetoothService: bluetoothService);
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pump();
 
     final Finder connectionButton = find.byKey(
@@ -202,7 +218,10 @@ void main() {
       find.byKey(const ValueKey<String>('console-search')),
       findsOneWidget,
     );
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('app-mode-navigation-mobile')),
+      findsOneWidget,
+    );
     final Text sendLabel = tester.widget<Text>(
       find.descendant(
         of: find.byKey(const ValueKey<String>('console-send-button')),
@@ -217,8 +236,8 @@ void main() {
   testWidgets('Inspector 开关不遮挡控制台清空操作', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    final Rect clearButton = tester.getRect(find.byTooltip('清空'));
-    final Rect inspectorToggle = tester.getRect(find.byTooltip('收起上下文面板'));
+    final Rect clearButton = tester.getRect(findToolTooltip('清空'));
+    final Rect inspectorToggle = tester.getRect(findToolTooltip('收起上下文面板'));
 
     expect(clearButton.overlaps(inspectorToggle), isFalse);
     expect(clearButton.right, lessThanOrEqualTo(inspectorToggle.left - 4));
@@ -274,8 +293,8 @@ void main() {
   testWidgets('主题和语言统一收纳在设置工作区', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    expect(find.byTooltip('主题模式'), findsNothing);
-    expect(find.byTooltip('语言'), findsNothing);
+    expect(findToolTooltip('主题模式'), findsNothing);
+    expect(findToolTooltip('语言'), findsNothing);
 
     await selectAppMode(tester, 'settings');
 
@@ -291,7 +310,7 @@ void main() {
     await tester.tap(find.text('暗色模式'));
     await tester.pumpAndSettle();
     expect(
-      Theme.of(
+      shad.Theme.of(
         tester.element(
           find.byKey(const ValueKey<String>('theme-mode-selector')),
         ),
@@ -426,7 +445,14 @@ void main() {
 
     tester.view.physicalSize = const Size(375, 812);
     await tester.pumpAndSettle();
-    expect(find.byType(shad.NavigationBar), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('configuration-navigation-mobile')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('app-mode-navigation-mobile')),
+      findsOneWidget,
+    );
     await tester.tap(
       find.byKey(const ValueKey<String>('configuration-section-0')),
     );
@@ -453,6 +479,7 @@ void main() {
 
     expect(find.text('温度计工作区'), findsWidgets);
     expect(find.text('工作区已保存。'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('工作区指令可选择显示在右侧快捷区', (WidgetTester tester) async {
@@ -461,7 +488,7 @@ void main() {
     await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('新建指令'));
+    await tester.tap(findToolTooltip('新建指令'));
     await tester.pumpAndSettle();
 
     expect(
@@ -540,7 +567,7 @@ void main() {
     expect(find.text('查询状态'), findsWidgets);
     expect(find.text('AA 55 01'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('快捷入口'));
+    await tester.tap(findToolTooltip('快捷入口'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'debug');
     expect(find.bySemanticsLabel('查询状态：AA 55 01'), findsOneWidget);
@@ -555,7 +582,7 @@ void main() {
     await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('新建指令'));
+    await tester.tap(findToolTooltip('新建指令'));
     await tester.pumpAndSettle();
     expect(
       tester
@@ -586,7 +613,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     Future<void> addCommand(String name, String payload) async {
-      await tester.tap(find.byTooltip('新建指令'));
+      await tester.tap(findToolTooltip('新建指令'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey<String>('command-name-field')),
@@ -604,14 +631,14 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<shad.SelectedButton>(
-            find.widgetWithText(shad.SelectedButton, '写入目标'),
+          .widget<ToolSelectedButton>(
+            find.widgetWithText(ToolSelectedButton, '写入目标'),
           )
           .value,
       isTrue,
@@ -625,7 +652,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.widgetWithText(ToolSwitchTile, '仅允许已选指令发送'),
-        matching: find.byType(shad.Switch),
+        matching: find.byType(ToolSwitch),
       ),
     );
     await tester.pumpAndSettle();
@@ -639,18 +666,20 @@ void main() {
     await tester.tap(find.widgetWithText(ToolButton, '保存').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('快捷入口').first);
+    await tester.tap(findToolTooltip('快捷入口').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('快捷入口').last);
+    await tester.tap(findToolTooltip('快捷入口').last);
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'debug');
-    await tester.tap(find.byTooltip('发送 允许指令'));
+    await tester.tap(findToolTooltip('发送 允许指令'));
     await tester.pumpAndSettle();
     expect(bluetoothService.sentPackets, hasLength(1));
-    await tester.tap(find.byTooltip('发送 拒绝指令'));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.tap(findToolTooltip('发送 拒绝指令'));
     await tester.pumpAndSettle();
 
     expect(bluetoothService.sentPackets, hasLength(1));
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('设备策略会阻止超过当前设备帧上限的手动发送', (WidgetTester tester) async {
@@ -667,11 +696,11 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('设备发送策略'));
+    await tester.tap(findToolTooltip('设备发送策略'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(shad.TextField).last, '1');
     await tester.tap(find.widgetWithText(ToolButton, '保存'));
@@ -695,7 +724,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(shad.TextField).at(0), '主协议');
     await tester.enterText(find.byType(shad.TextField).at(1), '测试设备主链路');
-    await tester.tap(find.byTooltip('新增片段').first);
+    await tester.tap(findToolTooltip('新增片段').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.text('固定 HEX').last);
@@ -713,7 +742,7 @@ void main() {
   testWidgets('连接后可选择写入与订阅特征', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
 
     expect(find.text('0000FFF1-0000-1000-8000-00805F9B34FB'), findsOneWidget);
@@ -731,26 +760,24 @@ void main() {
       '',
     );
     await tester.pump();
-    await tester.tap(find.widgetWithText(shad.SelectedButton, 'R/W'));
+    await tester.tap(find.widgetWithText(ToolSelectedButton, 'R/W'));
     await tester.pump();
     expect(find.text('0000FFF1-0000-1000-8000-00805F9B34FB'), findsOneWidget);
     expect(find.text('0000FFF2-0000-1000-8000-00805F9B34FB'), findsNothing);
-    await tester.tap(find.widgetWithText(shad.SelectedButton, 'R/W'));
+    await tester.tap(find.widgetWithText(ToolSelectedButton, 'R/W'));
     await tester.pump();
 
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(shad.SelectedButton, 'Notify').first);
+    await tester.tap(find.widgetWithText(ToolSelectedButton, 'Notify').first);
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.widgetWithText(shad.SelectedButton, 'Indicate').first,
-    );
+    await tester.tap(find.widgetWithText(ToolSelectedButton, 'Indicate').first);
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<shad.SelectedButton>(
-            find.widgetWithText(shad.SelectedButton, 'Indicate').first,
+          .widget<ToolSelectedButton>(
+            find.widgetWithText(ToolSelectedButton, 'Indicate').first,
           )
           .value,
       isTrue,
@@ -773,7 +800,7 @@ void main() {
   testWidgets('桌面特征面板使用紧凑筛选与操作控件', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
 
     final Finder filter = find.byKey(
@@ -794,35 +821,31 @@ void main() {
     expect(scanButton.style, isA<shad.ButtonStyle>());
     expect(connectionButton.style, isA<shad.ButtonStyle>());
 
-    final shad.SelectedButton operableOnly = tester.widget<shad.SelectedButton>(
-      find.widgetWithText(shad.SelectedButton, 'R/W'),
+    final ToolSelectedButton operableOnly = tester.widget<ToolSelectedButton>(
+      find.widgetWithText(ToolSelectedButton, 'R/W'),
     );
-    expect(operableOnly.style, isA<shad.ButtonStyle>());
-    expect(operableOnly.selectedStyle, isA<shad.ButtonStyle>());
-    final shad.ButtonStyle operableStyle =
-        operableOnly.style as shad.ButtonStyle;
-    expect(operableStyle.size, shad.ButtonSize.small);
-    expect(operableStyle.density, shad.ButtonDensity.dense);
+    expect(operableOnly.compact, isTrue);
+    expect(operableOnly.emphasis, ToolSelectedEmphasis.subtle);
 
-    final shad.SelectedButton writeTarget = tester.widget<shad.SelectedButton>(
-      find.widgetWithText(shad.SelectedButton, '写入目标'),
+    final ToolSelectedButton writeTarget = tester.widget<ToolSelectedButton>(
+      find.widgetWithText(ToolSelectedButton, '写入目标'),
     );
-    expect(writeTarget.style, isA<shad.ButtonStyle>());
-    expect(writeTarget.selectedStyle, isA<shad.ButtonStyle>());
+    expect(writeTarget.compact, isTrue);
+    expect(writeTarget.emphasis, ToolSelectedEmphasis.subtle);
   });
 
   testWidgets('点击控制台日志后 Inspector 显示帧详情', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(shad.SelectedButton, '写入目标'), findsOneWidget);
+    expect(find.widgetWithText(ToolSelectedButton, '写入目标'), findsOneWidget);
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<shad.SelectedButton>(
-            find.widgetWithText(shad.SelectedButton, '写入目标'),
+          .widget<ToolSelectedButton>(
+            find.widgetWithText(ToolSelectedButton, '写入目标'),
           )
           .value,
       isTrue,
@@ -852,7 +875,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final Finder detailsButton = find.byTooltip('查看日志详情');
+    final Finder detailsButton = findToolTooltip('查看日志详情');
     expect(detailsButton, findsWidgets);
     await tester.tap(detailsButton.first);
     await tester.pump();
@@ -863,14 +886,14 @@ void main() {
   testWidgets('控制台可按 HEX 搜索、筛选方向并导出结果', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<shad.SelectedButton>(
-            find.widgetWithText(shad.SelectedButton, '写入目标'),
+          .widget<ToolSelectedButton>(
+            find.widgetWithText(ToolSelectedButton, '写入目标'),
           )
           .value,
       isTrue,
@@ -899,14 +922,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('没有匹配的日志'), findsNothing);
 
-    await tester.tap(find.byTooltip('筛选日志'));
+    await tester.tap(findToolTooltip('筛选日志'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.text('TX').last);
     await tester.pumpAndSettle();
     expect(find.text('没有匹配的日志'), findsNothing);
 
-    await tester.tap(find.byTooltip('导出日志'));
+    await tester.tap(findToolTooltip('导出日志'));
     await tester.pumpAndSettle();
     expect(find.text('导出会话记录'), findsOneWidget);
     expect(find.textContaining('AA BB'), findsWidgets);
@@ -917,7 +940,7 @@ void main() {
   testWidgets('仅支持无响应写入的特征可设为写入目标', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
 
     final Finder writeTargets = find.text('写入目标');
@@ -927,8 +950,8 @@ void main() {
 
     expect(
       tester
-          .widget<shad.SelectedButton>(
-            find.widgetWithText(shad.SelectedButton, '写入目标'),
+          .widget<ToolSelectedButton>(
+            find.widgetWithText(ToolSelectedButton, '写入目标'),
           )
           .value,
       isTrue,
@@ -938,14 +961,14 @@ void main() {
   testWidgets('高风险命令在发送前要求确认', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('新建指令'));
+    await tester.tap(findToolTooltip('新建指令'));
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -962,11 +985,11 @@ void main() {
     );
     await tester.tap(find.widgetWithText(ToolButton, '保存').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('快捷入口'));
+    await tester.tap(findToolTooltip('快捷入口'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'debug');
 
-    await tester.tap(find.byTooltip('发送 恢复出厂设置'));
+    await tester.tap(findToolTooltip('发送 恢复出厂设置'));
     await tester.pumpAndSettle();
 
     expect(find.text('确认受保护发送'), findsOneWidget);
@@ -989,14 +1012,14 @@ void main() {
   testWidgets('显式保护命令在发送前要求确认', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('新建指令'));
+    await tester.tap(findToolTooltip('新建指令'));
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1014,17 +1037,17 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.widgetWithText(ToolSwitchTile, '发送前始终确认'),
-        matching: find.byType(shad.Switch),
+        matching: find.byType(ToolSwitch),
       ),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ToolButton, '保存').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('快捷入口'));
+    await tester.tap(findToolTooltip('快捷入口'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'debug');
 
-    await tester.tap(find.byTooltip('发送 安全动作'));
+    await tester.tap(findToolTooltip('发送 安全动作'));
     await tester.pumpAndSettle();
 
     expect(find.text('确认受保护发送'), findsOneWidget);
@@ -1048,11 +1071,12 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
 
     expect(find.text('设备已离开蓝牙范围或停止广播，请重新扫描后再连接。'), findsWidgets);
     expect(find.textContaining('Bad state:'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('会话记录可筛选并导出当前结果', (WidgetTester tester) async {
@@ -1070,7 +1094,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'records');
     await tester.enterText(
@@ -1080,12 +1104,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('1/'), findsOneWidget);
-    await tester.tap(find.byTooltip('添加书签'));
+    await tester.tap(findToolTooltip('添加书签'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(shad.SelectedButton, '书签'));
+    await tester.tap(find.widgetWithText(ToolSelectedButton, '书签'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('取消书签'), findsOneWidget);
-    await tester.tap(find.byTooltip('导出会话记录'));
+    expect(findToolTooltip('取消书签'), findsOneWidget);
+    await tester.tap(findToolTooltip('导出会话记录'));
     await tester.pumpAndSettle();
     expect(find.text('导出会话记录'), findsOneWidget);
     expect(find.textContaining('"kind": "error"'), findsOneWidget);
@@ -1095,14 +1119,14 @@ void main() {
   testWidgets('发送记录可按指令筛选并导出', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    await tester.tap(find.byTooltip('连接设备'));
+    await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('写入目标'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('新建指令'));
+    await tester.tap(findToolTooltip('新建指令'));
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1119,10 +1143,10 @@ void main() {
     );
     await tester.tap(find.widgetWithText(ToolButton, '保存').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('快捷入口'));
+    await tester.tap(findToolTooltip('快捷入口'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'debug');
-    await tester.tap(find.byTooltip('发送 诊断命令'));
+    await tester.tap(findToolTooltip('发送 诊断命令'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'records');
 
@@ -1142,7 +1166,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    await tester.tap(find.byTooltip('导出会话记录'));
+    await tester.tap(findToolTooltip('导出会话记录'));
     await tester.pumpAndSettle();
     expect(find.textContaining('"commandName": "诊断命令"'), findsOneWidget);
     expect(find.textContaining('"transactionId": "tx-'), findsOneWidget);

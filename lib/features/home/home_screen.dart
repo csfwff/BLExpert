@@ -2,15 +2,20 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
+import '../../app/app_theme.dart';
+import '../../app/design/app_icons.dart';
 import '../../app/design/tool_alert_dialog.dart';
 import '../../app/design/tool_button.dart';
+import '../../app/design/tool_clickable.dart';
 import '../../app/design/tool_select.dart';
 import '../../app/design/tool_text_field.dart';
 import '../../app/design/tool_toggle.dart';
+import '../../app/design/tool_tooltip.dart';
+import '../../app/design/tool_toast.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/command_definition.dart';
 import '../../models/data_mapping.dart';
@@ -74,9 +79,9 @@ class HomeScreen extends StatefulWidget {
     this.bluetoothService,
   });
 
-  final ThemeMode themeMode;
+  final shad.ThemeMode themeMode;
   final Locale? locale;
-  final ValueChanged<ThemeMode> onThemeModeChanged;
+  final ValueChanged<shad.ThemeMode> onThemeModeChanged;
   final ValueChanged<Locale?> onLocaleChanged;
   final BluetoothService? bluetoothService;
 
@@ -579,7 +584,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) =>
               ToolAlertDialog(
-                icon: Icons.bluetooth_searching_outlined,
+                icon: AppIcons.bluetoothSearching,
                 title: l10n.webServiceUuids,
                 content: SizedBox(
                   width: 460,
@@ -641,9 +646,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _deleteActiveWorkspace() async {
     final AppLocalizations l10n = AppLocalizations.of(context)!;
     if (_workspaceManager.workspaces.length <= 1) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.deleteWorkspaceLast)));
+      showToolToast(context, l10n.deleteWorkspaceLast);
       return;
     }
     final Workspace workspace = _workspaceManager.activeWorkspace;
@@ -651,7 +654,7 @@ class _HomeScreenState extends State<HomeScreen> {
         await showToolDialog<bool>(
           context: context,
           builder: (BuildContext context) => ToolAlertDialog(
-            icon: Icons.delete_outline,
+            icon: AppIcons.deleteOutline,
             title: l10n.deleteWorkspace,
             content: Text(l10n.deleteWorkspaceConfirm(workspace.name)),
             actions: <Widget>[
@@ -707,7 +710,7 @@ class _HomeScreenState extends State<HomeScreen> {
           await showToolDialog<bool>(
             context: context,
             builder: (BuildContext context) => ToolAlertDialog(
-              icon: Icons.warning_amber_outlined,
+              icon: AppIcons.warningAmber,
               title: '启用未信任脚本？',
               content: Text(
                 '来源：${scriptConfig.source}\n'
@@ -774,7 +777,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) =>
               ToolAlertDialog(
-                icon: Icons.terminal_outlined,
+                icon: AppIcons.terminalOutlined,
                 title: existing == null ? l10n.newCommand : l10n.editCommand,
                 content: SizedBox(
                   width: 460,
@@ -793,7 +796,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Text(
                                   '${l10n.configurationErrors}\n$validationError',
                                   style: TextStyle(
-                                    color: Theme.of(context).colorScheme.error,
+                                    color: AppTheme.colorsOf(
+                                      context,
+                                    ).destructive,
                                   ),
                                 ),
                               ),
@@ -850,7 +855,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               onPressed: () => setDialogState(
                                 () => parameters.add(_newCommandParameter()),
                               ),
-                              icon: const Icon(Icons.add, size: 19),
+                              icon: const Icon(AppIcons.add, size: 19),
                             ),
                           ],
                         ),
@@ -1103,7 +1108,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) =>
               ToolAlertDialog(
-                icon: Icons.data_object_outlined,
+                icon: AppIcons.dataObject,
                 title: existing == null
                     ? AppLocalizations.of(context)!.newResponseMapping
                     : AppLocalizations.of(context)!.editResponseMapping,
@@ -1141,7 +1146,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               onPressed: () => setDialogState(
                                 () => fields.add(_newDataField(fields.length)),
                               ),
-                              icon: const Icon(Icons.add),
+                              icon: const Icon(AppIcons.add),
                             ),
                           ],
                         ),
@@ -1170,7 +1175,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Text(
                               validationError!,
                               style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
+                                color: AppTheme.colorsOf(context).destructive,
                               ),
                             ),
                           ),
@@ -1543,7 +1548,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (BuildContext context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) =>
             ToolAlertDialog(
-              icon: Icons.shield_outlined,
+              icon: AppIcons.shieldOutlined,
               title: '设备发送策略',
               content: SizedBox(
                 width: 520,
@@ -1848,14 +1853,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return await showToolDialog<bool>(
           context: context,
           builder: (BuildContext context) => ToolAlertDialog(
-            icon: Icons.warning_amber_outlined,
+            icon: AppIcons.warningAmber,
             title: '确认受保护发送',
             content: SizedBox(
               width: 560,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 360),
                 child: SingleChildScrollView(
-                  child: SelectableText(
+                  child: shad.SelectableText(
                     <String>[
                       if (commandName != null && commandName.isNotEmpty)
                         '指令：$commandName',
@@ -1935,9 +1940,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       _trimLogs();
     });
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    showToolToast(context, message);
   }
 
   void _addSystemLog(
@@ -2045,14 +2048,14 @@ class _HomeScreenState extends State<HomeScreen> {
     showToolDialog<void>(
       context: context,
       builder: (BuildContext context) => ToolAlertDialog(
-        icon: Icons.upload_file_outlined,
+        icon: AppIcons.uploadFile,
         title: '导出工作区',
         content: SizedBox(
           width: 640,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 480),
             child: SingleChildScrollView(
-              child: SelectableText(
+              child: shad.SelectableText(
                 jsonText,
                 style: const TextStyle(fontFamily: 'monospace'),
               ),
@@ -2068,12 +2071,10 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: jsonText));
               if (context.mounted) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('工作区 JSON 已复制。')));
+                showToolToast(context, '工作区 JSON 已复制。');
               }
             },
-            leading: const Icon(Icons.copy_outlined),
+            leading: const Icon(AppIcons.copyOutlined),
             child: const Text('复制 JSON'),
           ),
         ],
@@ -2093,7 +2094,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (BuildContext context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) => ToolAlertDialog(
-          icon: Icons.download_outlined,
+          icon: AppIcons.downloadOutlined,
           title: '导入工作区',
           content: SizedBox(
             width: 640,
@@ -2116,18 +2117,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: const TextStyle(fontFamily: 'monospace'),
                     ),
                     const SizedBox(height: 14),
-                    Text('导入方式', style: Theme.of(context).textTheme.labelLarge),
+                    Text(
+                      '导入方式',
+                      style: AppTheme.textStylesOf(context).labelLarge,
+                    ),
                     const SizedBox(height: 6),
                     ToolSegmentedControl<WorkspaceImportMode>(
                       options: const <ToolSegmentOption<WorkspaceImportMode>>[
                         ToolSegmentOption<WorkspaceImportMode>(
                           value: WorkspaceImportMode.replace,
-                          icon: Icon(Icons.sync_disabled_outlined),
+                          icon: Icon(AppIcons.syncDisabled),
                           label: '完整替换',
                         ),
                         ToolSegmentOption<WorkspaceImportMode>(
                           value: WorkspaceImportMode.merge,
-                          icon: Icon(Icons.merge_type_outlined),
+                          icon: Icon(AppIcons.mergeType),
                           label: '合并导入',
                         ),
                       ],
@@ -2140,7 +2144,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Text(
                         validationError!,
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+                          color: AppTheme.colorsOf(context).destructive,
                         ),
                       ),
                     ],
@@ -2154,7 +2158,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 8),
                       Text(
                         '版本 ${preview!.sourceVersion}${preview!.migrationApplied ? ' -> ${preview!.version}（已迁移）' : ''} | 脚本工作区 ${preview!.scriptedWorkspaceCount} 个（导入后保持禁用）。',
-                        style: Theme.of(context).textTheme.bodySmall,
+                        style: AppTheme.textStylesOf(context).bodySmall,
                       ),
                       if (preview!
                           .conflictingWorkspaceIds
@@ -2163,7 +2167,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Text(
                           'ID 冲突：${preview!.conflictingWorkspaceIds.join('、')}',
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
+                            color: AppTheme.colorsOf(context).destructive,
                           ),
                         ),
                       ],
@@ -2174,7 +2178,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 12),
                         Text(
                           '冲突处理',
-                          style: Theme.of(context).textTheme.labelLarge,
+                          style: AppTheme.textStylesOf(context).labelLarge,
                         ),
                         const SizedBox(height: 6),
                         ToolSegmentedControl<WorkspaceConflictPolicy>(
@@ -2185,12 +2189,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ToolSegmentOption<WorkspaceConflictPolicy>(
                                   value:
                                       WorkspaceConflictPolicy.replaceExisting,
-                                  icon: Icon(Icons.sync_outlined),
+                                  icon: Icon(AppIcons.syncOutlined),
                                   label: '覆盖当前',
                                 ),
                                 ToolSegmentOption<WorkspaceConflictPolicy>(
                                   value: WorkspaceConflictPolicy.keepExisting,
-                                  icon: Icon(Icons.shield_outlined),
+                                  icon: Icon(AppIcons.shieldOutlined),
                                   label: '保留当前',
                                 ),
                               ],
@@ -2206,7 +2210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             .join('、'),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
+                        style: AppTheme.textStylesOf(context).bodySmall,
                       ),
                     ],
                   ],
@@ -2298,14 +2302,14 @@ class _HomeScreenState extends State<HomeScreen> {
     showToolDialog<void>(
       context: context,
       builder: (BuildContext context) => ToolAlertDialog(
-        icon: Icons.download_outlined,
+        icon: AppIcons.downloadOutlined,
         title: '导出会话记录',
         content: SizedBox(
           width: 640,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 480),
             child: SingleChildScrollView(
-              child: SelectableText(
+              child: shad.SelectableText(
                 jsonText,
                 style: const TextStyle(fontFamily: 'monospace'),
               ),
@@ -2337,111 +2341,114 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Focus(
         autofocus: true,
-        child: Scaffold(
-          appBar: AppBar(
-            toolbarHeight: 56,
-            titleSpacing: 12,
-            title: const _AppIdentity(),
-            bottom: const PreferredSize(
-              preferredSize: Size.fromHeight(1),
-              child: Divider(height: 1),
-            ),
-            actions: <Widget>[
-              _WorkspaceSelector(
-                workspace: workspace,
-                workspaces: _workspaceManager.workspaces,
-                compact: compactToolbar,
-                onSelected: (String workspaceId) {
-                  setState(() {
-                    _packetDecoder.reset();
-                    _scriptSendRateLimiter.reset();
-                    _pendingReceiveEvents.clear();
-                    _monitoredValues.clear();
-                    _workspaceManager.setActiveWorkspace(workspaceId);
-                    _persistWorkspaces();
-                  });
-                },
-                onNew: _createWorkspace,
-                onDelete: _deleteActiveWorkspace,
-                onExport: _exportWorkspaces,
-                onImport: _importWorkspaces,
-                l10n: l10n,
-              ),
-              if (!compactToolbar) ...<Widget>[
-                const SizedBox(width: 8),
-                _ConnectionSelector(
-                  devices: _devices,
-                  selectedId: _selectedDeviceId,
-                  connected: _selectedDevice?.connected ?? false,
-                  connecting: _connecting,
-                  onSelected: _selectDevice,
-                  onToggleConnection: _toggleConnection,
+        child: shad.Scaffold(
+          headers: <Widget>[
+            shad.AppBar(
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              alignment: Alignment.centerLeft,
+              title: const _AppIdentity(),
+              trailingGap: 4,
+              trailing: <Widget>[
+                _WorkspaceSelector(
+                  workspace: workspace,
+                  workspaces: _workspaceManager.workspaces,
+                  compact: compactToolbar,
+                  onSelected: (String workspaceId) {
+                    setState(() {
+                      _packetDecoder.reset();
+                      _scriptSendRateLimiter.reset();
+                      _pendingReceiveEvents.clear();
+                      _monitoredValues.clear();
+                      _workspaceManager.setActiveWorkspace(workspaceId);
+                      _persistWorkspaces();
+                    });
+                  },
+                  onNew: _createWorkspace,
+                  onDelete: _deleteActiveWorkspace,
+                  onExport: _exportWorkspaces,
+                  onImport: _importWorkspaces,
                   l10n: l10n,
                 ),
-                const SizedBox(width: 12),
-              ],
-              if (compactToolbar)
-                Tooltip(
-                  message: _selectedDevice == null
-                      ? l10n.selectDeviceFirst
-                      : _selectedDevice?.connected == true
-                      ? '${l10n.connected} · ${l10n.disconnectDevice}'
-                      : l10n.connectDevice,
-                  child: shad.IconButton(
-                    key: const ValueKey<String>('connection-action-button'),
-                    variance: _selectedDevice?.connected == true
-                        ? shad.ButtonVariance.secondary
-                        : shad.ButtonVariance.primary,
-                    density: shad.ButtonDensity.iconDense,
-                    size: shad.ButtonSize.small,
-                    onPressed: _selectedDevice == null || _connecting
-                        ? null
-                        : _toggleConnection,
-                    icon: Icon(
-                      _connecting
-                          ? Icons.sync_outlined
-                          : _selectedDevice?.connected == true
-                          ? Icons.link_off_outlined
-                          : Icons.bluetooth_outlined,
+                if (!compactToolbar) ...<Widget>[
+                  const SizedBox(width: 8),
+                  _ConnectionSelector(
+                    devices: _devices,
+                    selectedId: _selectedDeviceId,
+                    connected: _selectedDevice?.connected ?? false,
+                    connecting: _connecting,
+                    onSelected: _selectDevice,
+                    onToggleConnection: _toggleConnection,
+                    l10n: l10n,
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                if (compactToolbar)
+                  ToolTooltip(
+                    message: _selectedDevice == null
+                        ? l10n.selectDeviceFirst
+                        : _selectedDevice?.connected == true
+                        ? '${l10n.connected} · ${l10n.disconnectDevice}'
+                        : l10n.connectDevice,
+                    child: shad.IconButton(
+                      key: const ValueKey<String>('connection-action-button'),
+                      variance: _selectedDevice?.connected == true
+                          ? shad.ButtonVariance.secondary
+                          : shad.ButtonVariance.primary,
+                      density: shad.ButtonDensity.iconDense,
+                      size: shad.ButtonSize.small,
+                      onPressed: _selectedDevice == null || _connecting
+                          ? null
+                          : _toggleConnection,
+                      icon: Icon(
+                        _connecting
+                            ? AppIcons.syncOutlined
+                            : _selectedDevice?.connected == true
+                            ? AppIcons.linkOff
+                            : AppIcons.bluetoothOutlined,
+                      ),
                     ),
                   ),
-                ),
-              if (compactToolbar) const SizedBox(width: 4),
-              if (compactToolbar)
-                Tooltip(
-                  message: _scanning ? l10n.stopScan : l10n.startScan,
-                  child: shad.IconButton(
-                    key: const ValueKey<String>('scan-button'),
-                    variance: _scanning
-                        ? shad.ButtonVariance.outline
-                        : shad.ButtonVariance.primary,
-                    density: shad.ButtonDensity.iconDense,
-                    size: shad.ButtonSize.small,
+                if (compactToolbar) const SizedBox(width: 4),
+                if (compactToolbar)
+                  ToolTooltip(
+                    message: _scanning ? l10n.stopScan : l10n.startScan,
+                    child: shad.IconButton(
+                      key: const ValueKey<String>('scan-button'),
+                      variance: _scanning
+                          ? shad.ButtonVariance.outline
+                          : shad.ButtonVariance.primary,
+                      density: shad.ButtonDensity.iconDense,
+                      size: shad.ButtonSize.small,
+                      onPressed: _toggleScan,
+                      icon: Icon(
+                        _scanning ? AppIcons.stopCircle : AppIcons.radar,
+                      ),
+                    ),
+                  )
+                else
+                  _ScanButton(
+                    scanning: _scanning,
                     onPressed: _toggleScan,
-                    icon: Icon(
-                      _scanning ? Icons.stop_circle_outlined : Icons.radar,
-                    ),
+                    l10n: l10n,
                   ),
-                )
-              else
-                _ScanButton(
-                  scanning: _scanning,
-                  onPressed: _toggleScan,
-                  l10n: l10n,
-                ),
-              if (compactToolbar || kIsWeb)
-                _AppOverflowMenu(
-                  themeMode: widget.themeMode,
-                  onThemeModeChanged: widget.onThemeModeChanged,
-                  onLocaleChanged: widget.onLocaleChanged,
-                  includeAppearance: compactToolbar,
-                  onConfigureWebServices: kIsWeb ? _configureWebServices : null,
-                  l10n: l10n,
-                ),
-              const SizedBox(width: 4),
-            ],
-          ),
-          body: _AppWorkspaceShell(
+                if (compactToolbar || kIsWeb)
+                  _AppOverflowMenu(
+                    themeMode: widget.themeMode,
+                    onThemeModeChanged: widget.onThemeModeChanged,
+                    onLocaleChanged: widget.onLocaleChanged,
+                    includeAppearance: compactToolbar,
+                    onConfigureWebServices: kIsWeb
+                        ? _configureWebServices
+                        : null,
+                    l10n: l10n,
+                  ),
+                const SizedBox(width: 4),
+              ],
+            ),
+            const shad.Divider(height: 1),
+          ],
+          child: _AppWorkspaceShell(
             mode: _mode,
             onModeChanged: (mode) => setState(() => _mode = mode),
             l10n: l10n,

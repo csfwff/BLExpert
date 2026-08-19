@@ -85,7 +85,7 @@ class _CommandsAndDataPanel extends StatelessWidget {
             l10n: l10n,
           ),
         ),
-        const Divider(height: 1),
+        const shad.Divider(height: 1),
         Expanded(
           flex: 4,
           child: _MappedDataPanel(
@@ -119,15 +119,15 @@ class _MappedDataPanel extends StatelessWidget {
     ];
     return Container(
       padding: const EdgeInsets.all(14),
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      color: AppTheme.colorsOf(context).muted,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
             l10n.mappedData,
-            style: Theme.of(
+            style: AppTheme.textStylesOf(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ).titleMedium.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           if (fields.isEmpty)
@@ -136,7 +136,7 @@ class _MappedDataPanel extends StatelessWidget {
             Expanded(
               child: ListView.separated(
                 itemCount: fields.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
+                separatorBuilder: (_, _) => const shad.Divider(height: 1),
                 itemBuilder: (BuildContext context, int index) {
                   final _MonitoredFieldDefinition definition = fields[index];
                   final _MonitoredFieldValue? latest =
@@ -159,7 +159,9 @@ class _MappedDataPanel extends StatelessWidget {
                               ),
                               Text(
                                 '${definition.mapping.name} | CMD ${definition.mapping.commandHex}',
-                                style: Theme.of(context).textTheme.labelSmall,
+                                style: AppTheme.textStylesOf(
+                                  context,
+                                ).labelSmall,
                               ),
                             ],
                           ),

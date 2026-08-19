@@ -39,7 +39,7 @@ class _ConsoleLogFilterBar extends StatelessWidget {
             ),
           )
           .future,
-      icon: const Icon(Icons.filter_list_outlined, size: 18),
+      icon: const Icon(AppIcons.filterList, size: 18),
     );
   }
 

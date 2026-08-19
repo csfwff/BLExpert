@@ -11,13 +11,7 @@ enum ProtocolChecksumAlgorithm {
 
 enum ProtocolCalculationRange { payloadOnly, frameExcludingSelf }
 
-enum ProtocolSegmentType {
-  fixedHex,
-  payload,
-  length,
-  sequence,
-  checksum,
-}
+enum ProtocolSegmentType { fixedHex, payload, length, sequence, checksum }
 
 class ProtocolSegment {
   const ProtocolSegment({
@@ -128,12 +122,19 @@ class ProtocolDefinition {
         description: json['description'] as String? ?? '',
         sendSegments: sendList
             .whereType<Map>()
-            .map((Map item) => ProtocolSegment.fromJson(Map<String, dynamic>.from(item)))
+            .map(
+              (Map item) =>
+                  ProtocolSegment.fromJson(Map<String, dynamic>.from(item)),
+            )
             .toList(growable: false),
-        receiveSegments: (json['receiveSegments'] as List<dynamic>? ?? const <dynamic>[])
-            .whereType<Map>()
-            .map((Map item) => ProtocolSegment.fromJson(Map<String, dynamic>.from(item)))
-            .toList(growable: false),
+        receiveSegments:
+            (json['receiveSegments'] as List<dynamic>? ?? const <dynamic>[])
+                .whereType<Map>()
+                .map(
+                  (Map item) =>
+                      ProtocolSegment.fromJson(Map<String, dynamic>.from(item)),
+                )
+                .toList(growable: false),
       );
     }
 
@@ -265,9 +266,15 @@ class ProtocolFrameDefinition {
     return ProtocolFrameDefinition(
       headerHex: json['headerHex'] as String? ?? '',
       footerHex: json['footerHex'] as String? ?? '',
-      lengthField: _nullableMap(json['lengthField'])?.let(ProtocolLengthField.fromJson),
-      sequenceField: _nullableMap(json['sequenceField'])?.let(ProtocolSequenceField.fromJson),
-      checksumField: _nullableMap(json['checksumField'])?.let(ProtocolChecksumField.fromJson),
+      lengthField: _nullableMap(
+        json['lengthField'],
+      )?.let(ProtocolLengthField.fromJson),
+      sequenceField: _nullableMap(
+        json['sequenceField'],
+      )?.let(ProtocolSequenceField.fromJson),
+      checksumField: _nullableMap(
+        json['checksumField'],
+      )?.let(ProtocolChecksumField.fromJson),
     );
   }
 }
@@ -293,10 +300,14 @@ class ProtocolProfile {
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
       sendFrame: ProtocolFrameDefinition.fromJson(
-        Map<String, dynamic>.from(json['sendFrame'] as Map? ?? const <String, dynamic>{}),
+        Map<String, dynamic>.from(
+          json['sendFrame'] as Map? ?? const <String, dynamic>{},
+        ),
       ),
       receiveFrame: ProtocolFrameDefinition.fromJson(
-        Map<String, dynamic>.from(json['receiveFrame'] as Map? ?? const <String, dynamic>{}),
+        Map<String, dynamic>.from(
+          json['receiveFrame'] as Map? ?? const <String, dynamic>{},
+        ),
       ),
     );
   }

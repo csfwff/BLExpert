@@ -29,12 +29,12 @@ class _WorkspaceSelector extends StatelessWidget {
         .showDropdown<void>(
           context: context,
           widthConstraint: shad.PopoverConstraint.flexible,
-          showDuration: Duration.zero,
-          dismissDuration: Duration.zero,
+          showDuration: AppMotion.overlay,
+          dismissDuration: AppMotion.overlay,
           builder: (BuildContext context) => shad.DropdownMenu(
             children: <shad.MenuItem>[
               shad.MenuLabel(
-                leading: const Icon(Icons.folder_outlined, size: 18),
+                leading: const Icon(AppIcons.folderOutlined, size: 18),
                 child: Text(l10n.selectWorkspace),
               ),
               const shad.MenuDivider(),
@@ -57,24 +57,24 @@ class _WorkspaceSelector extends StatelessWidget {
               ),
               const shad.MenuDivider(),
               shad.MenuButton(
-                leading: const Icon(Icons.create_new_folder_outlined),
+                leading: const Icon(AppIcons.createNewFolder),
                 onPressed: (_) => onNew(),
                 child: Text(l10n.newWorkspace),
               ),
               shad.MenuButton(
-                leading: const Icon(Icons.delete_outline),
+                leading: const Icon(AppIcons.deleteOutline),
                 enabled: workspaces.length > 1,
                 onPressed: (_) => onDelete(),
                 child: Text(l10n.deleteWorkspace),
               ),
               const shad.MenuDivider(),
               shad.MenuButton(
-                leading: const Icon(Icons.download_outlined),
+                leading: const Icon(AppIcons.downloadOutlined),
                 onPressed: (_) => onImport(),
                 child: Text(l10n.importWorkspace),
               ),
               shad.MenuButton(
-                leading: const Icon(Icons.upload_file_outlined),
+                leading: const Icon(AppIcons.uploadFile),
                 onPressed: (_) => onExport(),
                 child: Text(l10n.exportWorkspace),
               ),
@@ -91,7 +91,7 @@ class _WorkspaceSelector extends StatelessWidget {
       child: compact
           ? shad.IconButton.ghost(
               key: const ValueKey<String>('workspace-selector'),
-              icon: const Icon(Icons.folder_outlined),
+              icon: const Icon(AppIcons.folderOutlined),
               size: shad.ButtonSize.small,
               onPressed: () => _showWorkspaceMenu(context),
             )
@@ -103,8 +103,8 @@ class _WorkspaceSelector extends StatelessWidget {
                   size: shad.ButtonSize.small,
                   density: shad.ButtonDensity.dense,
                 ),
-                leading: const Icon(Icons.folder_outlined, size: 18),
-                trailing: const Icon(Icons.expand_more, size: 18),
+                leading: const Icon(AppIcons.folderOutlined, size: 18),
+                trailing: const Icon(AppIcons.expandMore, size: 18),
                 alignment: Alignment.centerLeft,
                 onPressed: () => _showWorkspaceMenu(context),
                 child: Text(
@@ -119,7 +119,7 @@ class _WorkspaceSelector extends StatelessWidget {
       button: true,
       label: l10n.selectWorkspace,
       value: workspace.name,
-      child: Tooltip(message: l10n.selectWorkspace, child: trigger),
+      child: ToolTooltip(message: l10n.selectWorkspace, child: trigger),
     );
   }
 }
@@ -155,7 +155,7 @@ class _ScanButton extends StatelessWidget {
         onPressed: onPressed,
         alignment: Alignment.center,
         leading: Icon(
-          scanning ? Icons.stop_circle_outlined : Icons.radar,
+          scanning ? AppIcons.stopCircle : AppIcons.radar,
           size: 18,
         ),
         child: Text(label),
@@ -242,7 +242,7 @@ class _ConnectionSelector extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Tooltip(
+        ToolTooltip(
           message: actionLabel,
           child: SizedBox(
             width: 160,
@@ -266,8 +266,8 @@ class _ConnectionSelector extends StatelessWidget {
                   ? const ToolLoadingIcon()
                   : Icon(
                       connected
-                          ? Icons.link_off_outlined
-                          : Icons.bluetooth_connected_outlined,
+                          ? AppIcons.linkOff
+                          : AppIcons.bluetoothConnectedOutlined,
                       size: 18,
                     ),
               child: Text(actionLabel),

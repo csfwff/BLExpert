@@ -43,15 +43,15 @@ class _CommandLibraryPanel extends StatelessWidget {
             Expanded(
               child: Text(
                 l10n.commandLibrary,
-                style: Theme.of(
+                style: AppTheme.textStylesOf(
                   context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ).titleMedium.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
             ToolIconButton(
               tooltip: l10n.newCommand,
               onPressed: onNewCommand,
-              icon: const Icon(Icons.add, size: 19),
+              icon: const Icon(AppIcons.add, size: 19),
             ),
           ],
         ),
@@ -91,8 +91,11 @@ class _CommandLibraryPanel extends StatelessWidget {
           ...byGroup.entries.expand(
             (MapEntry<String, List<CommandDefinition>> entry) => <Widget>[
               if (entry.key != '-') ...<Widget>[
-                const Divider(height: 24),
-                Text(entry.key, style: Theme.of(context).textTheme.labelLarge),
+                const shad.Divider(height: 24),
+                Text(
+                  entry.key,
+                  style: AppTheme.textStylesOf(context).labelLarge,
+                ),
                 const SizedBox(height: 6),
               ],
               ...entry.value.map(
@@ -126,7 +129,7 @@ class _CommandLibraryPanel extends StatelessWidget {
       builder: (BuildContext context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) =>
             ToolAlertDialog(
-              icon: Icons.verified_user_outlined,
+              icon: AppIcons.verifiedUser,
               title: '选择允许发送的指令',
               content: SizedBox(
                 width: 440,
@@ -211,14 +214,14 @@ class _CommandLibraryTile extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
+          bottom: BorderSide(color: AppTheme.colorsOf(context).border),
         ),
       ),
       child: Row(
         children: <Widget>[
           Expanded(
-            child: InkWell(
-              onTap: onEdit,
+            child: ToolClickableRow(
+              onPressed: onEdit,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -228,9 +231,9 @@ class _CommandLibraryTile extends StatelessWidget {
                     command.payload,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(
+                    style: AppTheme.textStylesOf(
                       context,
-                    ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
+                    ).bodySmall.copyWith(fontFamily: 'monospace'),
                   ),
                   if (command.notes.isNotEmpty)
                     Padding(
@@ -239,14 +242,14 @@ class _CommandLibraryTile extends StatelessWidget {
                         command.notes,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall,
+                        style: AppTheme.textStylesOf(context).labelSmall,
                       ),
                     ),
                 ],
               ),
             ),
           ),
-          Tooltip(
+          ToolTooltip(
             message: l10n.commandEnabled,
             child: ToolSwitch(
               value: command.enabled,
@@ -254,7 +257,7 @@ class _CommandLibraryTile extends StatelessWidget {
               label: l10n.commandEnabled,
             ),
           ),
-          Tooltip(
+          ToolTooltip(
             message: l10n.quickAccess,
             child: ToolCheckbox(
               value: command.isQuickAccess,
@@ -265,12 +268,12 @@ class _CommandLibraryTile extends StatelessWidget {
           ToolIconButton(
             tooltip: l10n.editCommand,
             onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined, size: 18),
+            icon: const Icon(AppIcons.editOutlined, size: 18),
           ),
           ToolIconButton(
             tooltip: l10n.deleteCommand,
             onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, size: 18),
+            icon: const Icon(AppIcons.deleteOutline, size: 18),
           ),
         ],
       ),

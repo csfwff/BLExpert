@@ -72,14 +72,12 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
       updatedAt: DateTime.now(),
     );
     widget.onChanged(updated);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(widget.l10n.workspaceSaved)));
+    showToolToast(context, widget.l10n.workspaceSaved);
   }
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
     return ListView(
       padding: const EdgeInsets.all(18),
       children: <Widget>[
@@ -92,14 +90,14 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
               children: <Widget>[
                 Row(
                   children: <Widget>[
-                    Icon(Icons.folder_outlined, color: colors.primary),
+                    Icon(AppIcons.folderOutlined, color: colors.primary),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         widget.l10n.workspaceSettings,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: AppTheme.textStylesOf(
+                          context,
+                        ).titleLarge.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
                   ],
@@ -143,7 +141,7 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
                 Row(
                   children: <Widget>[
                     Icon(
-                      Icons.devices_other_outlined,
+                      AppIcons.devicesOther,
                       size: 20,
                       color: colors.secondary,
                     ),
@@ -152,9 +150,9 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
                     const SizedBox(width: 8),
                     Text(
                       '${widget.workspace.devices.length}',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppTheme.textStylesOf(
+                        context,
+                      ).labelLarge.copyWith(fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),
@@ -163,7 +161,7 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
                   alignment: Alignment.centerRight,
                   child: ToolButton.primary(
                     onPressed: _save,
-                    leading: const Icon(Icons.save_outlined),
+                    leading: const Icon(AppIcons.saveOutlined),
                     child: Text(widget.l10n.save),
                   ),
                 ),
@@ -189,7 +187,7 @@ class _WorkspaceField extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(label, style: Theme.of(context).textTheme.labelMedium),
+          Text(label, style: AppTheme.textStylesOf(context).labelMedium),
           const SizedBox(height: 4),
           Text(value.isEmpty ? '-' : value),
         ],

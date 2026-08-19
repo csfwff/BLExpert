@@ -35,7 +35,7 @@ class _InspectorPanel extends StatelessWidget {
             writeTarget == null
                 ? _localizedNoWriteTarget(l10n)
                 : _shortUuid(writeTarget.characteristicId),
-            style: Theme.of(context).textTheme.labelSmall,
+            style: AppTheme.textStylesOf(context).labelSmall,
           ),
         ),
         if (selectedLog != null)
@@ -73,18 +73,18 @@ class _SelectedLogDetails extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        color: AppTheme.colorsOf(context).muted,
         border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
+          bottom: BorderSide(color: AppTheme.colorsOf(context).border),
         ),
       ),
       child: ListView(
         children: <Widget>[
           Text(
             l10n.selectedLog,
-            style: Theme.of(
+            style: AppTheme.textStylesOf(
               context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+            ).labelLarge.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           Text('${entry.directionLabel(l10n)}  $timestamp'),
@@ -95,7 +95,7 @@ class _SelectedLogDetails extends StatelessWidget {
           if (entry.transactionId != null)
             Text('${l10n.transaction}: ${entry.transactionId}'),
           const SizedBox(height: 4),
-          SelectableText(
+          shad.SelectableText(
             frame,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
           ),

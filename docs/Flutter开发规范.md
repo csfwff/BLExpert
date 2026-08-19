@@ -19,7 +19,7 @@
 lib/
 ├── main.dart                  # 仅负责应用启动和导出应用根
 ├── app/
-│   ├── blexpert_app.dart      # MaterialApp、主题、语言和全局宿主
+│   ├── blexpert_app.dart      # ShadcnApp、主题、语言和全局宿主
 │   ├── app_theme.dart         # 主题令牌
 │   └── design/                # 项目拥有的第三方 UI 适配层
 ├── features/
@@ -56,18 +56,23 @@ services -> models/utils
 
 ## 组件库迁移策略
 
-`shadcn_flutter` 是 BLExpert 的目标组件体系，但迁移仍在持续进行，不视为已经全面完成。
+`shadcn_flutter` 是 BLExpert 唯一 UI 组件体系。应用层全面迁移已完成；应用拥有的可见控件和页面骨架不得重新依赖 Material 组件。
 
-- 采用渐进式迁移。每个批次围绕一个完整交互区域或一种通用控件展开，不做全项目一次性替换。
+- 采用分批全面迁移。每个批次围绕一个完整交互区域或一种通用控件展开，降低单次回归范围；分批是实施策略，不改变全部迁移到 shadcn 的终态。
 - 新增通用按钮、输入、选择、开关、复选框和工具对话框时，优先扩展或复用 `app/design/` 适配层，再由 feature 使用项目拥有的 API。
 - 已经直接使用 `shadcn_flutter` 的业务组件，在后续重构触及对应区域时逐步收敛到适配层；不要仅为消除 import 发起无行为收益的大范围改写。
-- 迁移期间允许 `shadcn_flutter` 与 Material 共存。窄屏导航、SafeArea、Scaffold 及具有明确平台语义的控件可以继续使用 Flutter Material 实现。
+- 应用代码不得新增 Material 可见控件、交互表面或页面骨架；使用 `ShadcnApp`、shadcn `Scaffold`、Navigation、Tabs、Tooltip、Dialog 和项目适配层表达对应能力。
+- Flutter 基础 Widget、渲染/语义能力及 `shadcn_flutter` 内部实现对 Material 的依赖不计为应用层 Material UI；应用代码直接创建的 Material 可见控件、交互表面和页面骨架计入迁移清单。
 - 同一功能区域内不得随意混用两套外观和交互语义。组件选择由现有适配边界、平台行为和回归结果决定。
+- shadcn 亮暗主题必须由同一组项目语义颜色构建；不得依赖默认 Slate 色值，也不得在业务页面重复定义选中、焦点、禁用和危险状态颜色。
+- 选择类控件优先使用 `app/design/` 提供的项目级状态样式。业务页面不得新增 `outline/ghost -> secondary` 作为默认选中态的重复配置；确需不同强调层级时使用明确的 strong/subtle 语义，而不是直接引用第三方 variant 名称。
+- 第三方组件未暴露必要动效参数时，在项目适配层实现，不修改 `.pub-cache`。状态语义必须立即更新，动效应响应 `MediaQuery.disableAnimations`，不能依赖动画结束完成业务逻辑。
+- 图标同步迁移到 shadcn 自带的 Lucide/Radix 体系；优先使用语义匹配的 Lucide 图标，只有库中确无对应图标时才记录例外。不得在同一层级长期混用 Material 与 Lucide/Radix 图标。
 - 每一批迁移必须保留现有业务 Key、可见文案、键盘焦点、语义标签、禁用态和异步状态，不得借组件替换修改 BLE、协议、工作区或安全发送逻辑。
 - 每一批迁移至少覆盖相关 Widget 回归，并检查 375px 窄屏、桌面宽屏、亮暗主题和弹层边界。
 - `shadcn_flutter` 当前为 `0.0.x` 版本，继续锁定依赖版本；升级前审查 API 变化、弹层行为、主题兼容性和测试结果。
 
-组件迁移完成度以 [UI 设计规范](UI设计规范.md) 的迁移记录为准。目录拆分完成不代表组件库迁移完成，两项工作分别验收。
+组件迁移状态以 [UI 设计规范](UI设计规范.md) 的迁移记录为准。当前完成线为：应用根使用 `ShadcnApp`；业务代码不直接创建 Material `Scaffold`、Navigation、Tabs、Tooltip、Dialog、按钮、选择控件或 `InkWell`；图标完成 Lucide/Radix 映射；应用层 Material UI 例外为零。后续评审必须持续守住这条边界。
 
 ## Dart Library 与文件边界
 
@@ -104,6 +109,7 @@ services -> models/utils
 - 至少覆盖 375px 窄屏和 1440px 桌面宽度；固定工具栏、列表和底部导航必须考虑 SafeArea。
 - 文本允许系统缩放，长 UUID、HEX、设备名和本地化文案必须使用换行、`Flexible` 或省略策略避免溢出。
 - 图标按钮必须有 Tooltip 或等价语义标签；状态不能只依赖颜色表达。
+- 选中态至少同时改变背景、边框/指示条、文字/图标中的两项；关键非文本指示与相邻颜色对比度不低于 3:1，普通文字不低于 4.5:1。
 - 移动端主要点击区域不小于 44x44，密集桌面控件也要保留清晰的焦点、禁用态和点击反馈。
 - 所有用户可见文案进入 ARB 国际化资源；协议原文、HEX、UUID 和脚本内容除外。
 - 明暗主题颜色从 `ThemeData`/`ColorScheme` 获取，组件中不新增仅适配单一主题的颜色常量。
@@ -129,6 +135,7 @@ git diff --check
 
 - 模型、编码、解析和安全策略变更添加单元测试。
 - 用户可见流程、响应式边界和第三方组件适配添加 Widget 测试。
+- 主题和状态样式变更增加透明色合成后的对比度断言，并为亮暗主题、窄屏/桌面的稳定组件边界增加 Golden 回归；动效变更覆盖中间帧、终态和减少动态效果分支。
 - 修复缺陷时优先增加能复现问题的回归测试。
 - 不以删除断言、扩大等待时间或跳过测试来掩盖不稳定行为。
 - 依赖原生运行时而无法在当前环境执行的测试必须明确说明跳过条件。

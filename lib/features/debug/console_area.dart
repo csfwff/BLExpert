@@ -83,13 +83,13 @@ class _ConsoleLogViewState extends State<_ConsoleLogView> {
 
   @override
   Widget build(BuildContext context) {
-    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    final bool dark = AppTheme.of(context).brightness == Brightness.dark;
     return Stack(
       children: <Widget>[
         Container(
           color: dark
               ? const Color(0xFF0A111B)
-              : Theme.of(context).colorScheme.surface,
+              : AppTheme.colorsOf(context).card,
           child: widget.logs.isEmpty
               ? Center(child: Text(widget.l10n.noMatchingLogs))
               : ListView.builder(
@@ -122,7 +122,7 @@ class _ConsoleLogViewState extends State<_ConsoleLogView> {
                 widget.onJumpToLatest();
                 _scrollToLatest();
               },
-              icon: const Icon(Icons.vertical_align_bottom, size: 18),
+              icon: const Icon(AppIcons.verticalAlignBottom, size: 18),
             ),
           ),
       ],
@@ -180,8 +180,8 @@ class _ConsoleArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
-    final dark = Theme.of(context).brightness == Brightness.dark;
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
+    final dark = AppTheme.of(context).brightness == Brightness.dark;
     final bool compactHeader = MediaQuery.sizeOf(context).width < 680;
     return Column(
       children: <Widget>[
@@ -190,20 +190,20 @@ class _ConsoleArea extends StatelessWidget {
           // Reserve space for the floating Inspector control at the top-right.
           padding: EdgeInsets.fromLTRB(12, 0, compactHeader ? 12 : 60, 0),
           decoration: BoxDecoration(
-            color: dark ? const Color(0xFF101824) : colors.surface,
+            color: dark ? const Color(0xFF101824) : colors.card,
             border: Border(
-              bottom: BorderSide(color: Theme.of(context).dividerColor),
+              bottom: BorderSide(color: AppTheme.colorsOf(context).border),
             ),
           ),
           child: Row(
             children: <Widget>[
-              Icon(Icons.terminal_rounded, size: 18, color: colors.secondary),
+              Icon(AppIcons.terminalRounded, size: 18, color: colors.secondary),
               const SizedBox(width: 8),
               Text(
                 l10n.console,
-                style: Theme.of(
+                style: AppTheme.textStylesOf(
                   context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ).titleSmall.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(width: 8),
               _ConsoleLogFilterBar(
@@ -218,32 +218,34 @@ class _ConsoleArea extends StatelessWidget {
                     l10n.retainedLogs(logs.length, discardedLogCount),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall,
+                    style: AppTheme.textStylesOf(context).labelSmall,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Icon(
                   writeTarget == null
-                      ? Icons.warning_amber_outlined
-                      : Icons.output_outlined,
+                      ? AppIcons.warningAmber
+                      : AppIcons.outputOutlined,
                   size: 15,
-                  color: writeTarget == null ? colors.error : colors.tertiary,
+                  color: writeTarget == null
+                      ? colors.destructive
+                      : colors.chart2,
                 ),
                 const SizedBox(width: 5),
                 Text(
                   writeTarget == null
                       ? '未选择写入特征'
                       : '写入  ${_shortUuid(writeTarget!)}',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  style: AppTheme.textStylesOf(context).labelSmall.copyWith(
                     fontFamily: 'monospace',
                     color: writeTarget == null
-                        ? Theme.of(context).colorScheme.error
+                        ? AppTheme.colorsOf(context).destructive
                         : null,
                   ),
                 ),
               ],
               const Spacer(),
-              Tooltip(
+              ToolTooltip(
                 message: l10n.autoScroll,
                 child: ToolSwitch(
                   value: autoScroll,
@@ -254,19 +256,19 @@ class _ConsoleArea extends StatelessWidget {
               if (!compactHeader) ...<Widget>[
                 Text(
                   l10n.autoScroll,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: AppTheme.textStylesOf(context).bodySmall,
                 ),
                 const SizedBox(width: 4),
               ],
               ToolIconButton(
                 tooltip: l10n.exportLogs,
                 onPressed: logs.isEmpty ? null : () => onExport(logs),
-                icon: const Icon(Icons.download_outlined, size: 19),
+                icon: const Icon(AppIcons.downloadOutlined, size: 19),
               ),
               ToolIconButton(
                 tooltip: l10n.clear,
                 onPressed: onClear,
-                icon: const Icon(Icons.delete_sweep_outlined, size: 19),
+                icon: const Icon(AppIcons.deleteSweep, size: 19),
               ),
             ],
           ),
@@ -275,9 +277,9 @@ class _ConsoleArea extends StatelessWidget {
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: dark ? const Color(0xFF101824) : colors.surface,
+            color: dark ? const Color(0xFF101824) : colors.card,
             border: Border(
-              bottom: BorderSide(color: Theme.of(context).dividerColor),
+              bottom: BorderSide(color: AppTheme.colorsOf(context).border),
             ),
           ),
           child: ToolTextField(
@@ -288,7 +290,7 @@ class _ConsoleArea extends StatelessWidget {
             showLabel: false,
             onChanged: onSearchChanged,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            prefix: const Icon(Icons.search, size: 17),
+            prefix: const Icon(AppIcons.search, size: 17),
             suffix: searchController.text.isEmpty
                 ? null
                 : ToolIconButton(
@@ -297,7 +299,7 @@ class _ConsoleArea extends StatelessWidget {
                       searchController.clear();
                       onSearchChanged('');
                     },
-                    icon: const Icon(Icons.close, size: 16),
+                    icon: const Icon(AppIcons.close, size: 16),
                   ),
           ),
         ),
@@ -326,9 +328,9 @@ class _ConsoleArea extends StatelessWidget {
             return Container(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               decoration: BoxDecoration(
-                color: dark ? const Color(0xFF101824) : colors.surface,
+                color: dark ? const Color(0xFF101824) : colors.card,
                 border: Border(
-                  top: BorderSide(color: Theme.of(context).dividerColor),
+                  top: BorderSide(color: AppTheme.colorsOf(context).border),
                 ),
               ),
               child: Column(
@@ -356,7 +358,7 @@ class _ConsoleArea extends StatelessWidget {
                         child: ToolButton.primary(
                           key: const ValueKey<String>('console-send-button'),
                           onPressed: effectiveCanSend ? onSend : null,
-                          leading: const Icon(Icons.send_outlined, size: 18),
+                          leading: const Icon(AppIcons.sendOutlined, size: 18),
                           child: Text(
                             l10n.sendData,
                             maxLines: 1,
@@ -376,9 +378,9 @@ class _ConsoleArea extends StatelessWidget {
                         child: Row(
                           children: <Widget>[
                             Icon(
-                              Icons.info_outline,
+                              AppIcons.infoOutline,
                               size: 15,
-                              color: colors.onSurfaceVariant,
+                              color: colors.mutedForeground,
                             ),
                             const SizedBox(width: 5),
                             Flexible(
@@ -387,8 +389,8 @@ class _ConsoleArea extends StatelessWidget {
                                 key: const ValueKey<String>(
                                   'console-send-disabled-reason',
                                 ),
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: colors.onSurfaceVariant),
+                                style: AppTheme.textStylesOf(context).bodySmall
+                                    .copyWith(color: colors.mutedForeground),
                               ),
                             ),
                           ],
@@ -407,7 +409,7 @@ class _ConsoleArea extends StatelessWidget {
                         children: <Widget>[
                           Text(
                             l10n.payloadLength(preview.payloadLength!),
-                            style: Theme.of(context).textTheme.labelSmall,
+                            style: AppTheme.textStylesOf(context).labelSmall,
                           ),
                           Text(
                             preview.scriptPending
@@ -416,10 +418,10 @@ class _ConsoleArea extends StatelessWidget {
                                     preview.finalFrame!.length,
                                     _toHex(preview.finalFrame!),
                                   ),
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
+                            style: AppTheme.textStylesOf(context).labelSmall
+                                .copyWith(
                                   fontFamily: 'monospace',
-                                  color: colors.onSurfaceVariant,
+                                  color: colors.mutedForeground,
                                 ),
                           ),
                         ],
@@ -441,7 +443,7 @@ class _ConsoleArea extends StatelessWidget {
                       const SizedBox(width: 12),
                       Text(
                         l10n.lineEnding,
-                        style: Theme.of(context).textTheme.bodySmall,
+                        style: AppTheme.textStylesOf(context).bodySmall,
                       ),
                       const SizedBox(width: 4),
                       SizedBox(

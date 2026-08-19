@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
+
+import '../app_theme.dart';
 
 class ToolSelectOption<T> {
   const ToolSelectOption({required this.value, required this.label});
@@ -36,7 +38,7 @@ class ToolSelect<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
     final ToolSelectOption<T> selected = _optionFor(value);
     final Widget select = shad.Select<T>(
       value: value,
@@ -73,7 +75,7 @@ class ToolSelect<T> extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         if (label != null) ...<Widget>[
-          Text(label!, style: Theme.of(context).textTheme.labelMedium),
+          Text(label!, style: AppTheme.textStylesOf(context).labelMedium),
           const SizedBox(height: 4),
         ],
         semantics,
@@ -84,9 +86,9 @@ class ToolSelect<T> extends StatelessWidget {
             label: errorText,
             child: Text(
               errorText!,
-              style: Theme.of(
+              style: AppTheme.textStylesOf(
                 context,
-              ).textTheme.bodySmall?.copyWith(color: colors.error),
+              ).bodySmall.copyWith(color: colors.destructive),
             ),
           ),
         ],

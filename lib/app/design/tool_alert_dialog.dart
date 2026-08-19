@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
+
+import '../app_theme.dart';
 
 /// Presents a tool dialog with the layout route expected by shadcn_flutter.
 ///
@@ -43,30 +45,22 @@ class ToolAlertDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
     // Keep modal surfaces aligned with the app's compact 4-6px radius scale.
     // This override is scoped to the dialog so other shadcn components keep
     // their default theme behavior.
     final shad.ThemeData dialogTheme = shad.Theme.of(
       context,
     ).copyWith(radius: () => 0.25);
-    return Material(
-      type: MaterialType.transparency,
-      child: shad.Theme(
-        data: dialogTheme,
-        child: shad.AlertDialog(
-          leading: ExcludeSemantics(
-            child: Icon(icon, size: 19, color: colors.secondary),
-          ),
-          title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-          content: Material(type: MaterialType.transparency, child: content),
-          actions: actions
-              .map(
-                (Widget action) =>
-                    Material(type: MaterialType.transparency, child: action),
-              )
-              .toList(growable: false),
+    return shad.Theme(
+      data: dialogTheme,
+      child: shad.AlertDialog(
+        leading: ExcludeSemantics(
+          child: Icon(icon, size: 19, color: colors.secondaryForeground),
         ),
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        content: content,
+        actions: actions,
       ),
     );
   }

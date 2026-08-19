@@ -90,14 +90,14 @@ class _ConfigurationWorkspaceState extends State<_ConfigurationWorkspace> {
             ? Column(
                 children: <Widget>[
                   navigation,
-                  const Divider(height: 1),
+                  const shad.Divider(height: 1),
                   Expanded(child: pages[_section]),
                 ],
               )
             : Row(
                 children: <Widget>[
                   SizedBox(width: 220, child: navigation),
-                  const VerticalDivider(width: 1),
+                  const shad.VerticalDivider(width: 1),
                   Expanded(child: pages[_section]),
                 ],
               );
@@ -121,15 +121,16 @@ class _ConfigurationNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     const List<({IconData icon, String label})> items =
         <({IconData icon, String label})>[
-          (icon: Icons.folder_outlined, label: '工作区'),
-          (icon: Icons.account_tree_outlined, label: '协议'),
-          (icon: Icons.list_alt_outlined, label: '指令'),
-          (icon: Icons.data_object_outlined, label: '响应映射'),
+          (icon: AppIcons.folderOutlined, label: '工作区'),
+          (icon: AppIcons.accountTree, label: '协议'),
+          (icon: AppIcons.listAlt, label: '指令'),
+          (icon: AppIcons.dataObject, label: '响应映射'),
         ];
     final List<Widget> navigationItems = <Widget>[
       for (int index = 0; index < items.length; index++)
         shad.NavigationItem(
           key: ValueKey<String>('configuration-section-$index'),
+          selectedStyle: const shad.ButtonStyle.primary(),
           label: Text(items[index].label),
           child: Icon(items[index].icon, size: 19),
         ),
@@ -144,6 +145,7 @@ class _ConfigurationNavigation extends StatelessWidget {
             child: Text('配置', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
           shad.NavigationBar(
+            key: const ValueKey<String>('configuration-navigation-mobile'),
             expanded: true,
             labelPosition: shad.NavigationLabelPosition.bottom,
             selectedKey: ValueKey<String>('configuration-section-$value'),
@@ -160,6 +162,7 @@ class _ConfigurationNavigation extends StatelessWidget {
     }
 
     return shad.NavigationRail(
+      key: const ValueKey<String>('configuration-navigation-desktop'),
       alignment: shad.NavigationRailAlignment.start,
       expanded: true,
       expandedSize: 220,

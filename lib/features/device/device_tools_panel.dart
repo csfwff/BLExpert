@@ -58,7 +58,7 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
     }
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      color: AppTheme.colorsOf(context).muted,
       child: ListView(
         children: <Widget>[
           Row(
@@ -68,9 +68,9 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
                   widget.l10n.characteristics,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
+                  style: AppTheme.textStylesOf(
                     context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  ).titleSmall.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
               const SizedBox(width: 6),
@@ -81,17 +81,17 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.end,
-                style: Theme.of(context).textTheme.labelSmall,
+                style: AppTheme.textStylesOf(context).labelSmall,
               ),
-              Tooltip(
+              ToolTooltip(
                 message: '设备发送策略',
                 child: shad.IconButton.ghost(
                   icon: Icon(
                     widget.safetyPolicy.allowedWriteTargetKeys.isNotEmpty ||
                             widget.safetyPolicy.maxFinalFrameBytes != null ||
                             widget.safetyPolicy.requireWriteWithResponse
-                        ? Icons.shield
-                        : Icons.shield_outlined,
+                        ? AppIcons.shield
+                        : AppIcons.shieldOutlined,
                     size: 19,
                   ),
                   size: dense ? shad.ButtonSize.small : shad.ButtonSize.normal,
@@ -131,31 +131,20 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
                         vertical: 4,
                       ),
                       onChanged: (_) => setState(() {}),
-                      prefix: const Icon(Icons.search, size: 18),
+                      prefix: const Icon(AppIcons.search, size: 18),
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
                 ),
                 const SizedBox(width: 6),
-                Tooltip(
+                ToolTooltip(
                   message: widget.l10n.operableOnly,
-                  child: shad.SelectedButton(
+                  child: ToolSelectedButton(
                     key: const ValueKey<String>(
                       'operable-characteristics-filter',
                     ),
                     value: _operableOnly,
-                    style: dense
-                        ? const shad.ButtonStyle.ghost(
-                            size: shad.ButtonSize.small,
-                            density: shad.ButtonDensity.dense,
-                          )
-                        : const shad.ButtonStyle.ghost(),
-                    selectedStyle: dense
-                        ? const shad.ButtonStyle.secondary(
-                            size: shad.ButtonSize.small,
-                            density: shad.ButtonDensity.dense,
-                          )
-                        : const shad.ButtonStyle.secondary(),
+                    compact: dense,
                     onChanged: (bool value) =>
                         setState(() => _operableOnly = value),
                     child: const Text('R/W'),
@@ -233,15 +222,15 @@ class _ServiceTreeHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
+          bottom: BorderSide(color: AppTheme.colorsOf(context).border),
         ),
       ),
       child: Row(
         children: <Widget>[
           Icon(
-            Icons.account_tree_outlined,
+            AppIcons.accountTree,
             size: 15,
-            color: Theme.of(context).colorScheme.secondary,
+            color: AppTheme.colorsOf(context).secondary,
           ),
           const SizedBox(width: 4),
           Expanded(

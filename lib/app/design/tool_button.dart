@@ -1,5 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
+
+import '../app_theme.dart';
+import 'tool_tooltip.dart';
 
 enum ToolButtonVariant { primary, secondary, outline, ghost, destructive }
 
@@ -147,7 +150,7 @@ class ToolIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox.square(
       dimension: touchSize ?? (compact ? 36 : 40),
-      child: Tooltip(
+      child: ToolTooltip(
         message: tooltip,
         child: shad.IconButton(
           icon: icon,
@@ -155,6 +158,115 @@ class ToolIconButton extends StatelessWidget {
           size: compact ? shad.ButtonSize.small : shad.ButtonSize.normal,
           density: shad.ButtonDensity.iconDense,
           onPressed: onPressed,
+        ),
+      ),
+    );
+  }
+}
+
+enum ToolSelectedEmphasis { strong, subtle }
+
+/// Project selected-state boundary with persistent high-contrast styling.
+///
+/// shadcn's Clickable keeps focus, pointer and keyboard behavior while the
+/// project owns the 200ms persistent-state transition and semantic contrast.
+class ToolSelectedButton extends StatefulWidget {
+  const ToolSelectedButton({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    required this.child,
+    this.emphasis = ToolSelectedEmphasis.subtle,
+    this.compact = true,
+    this.enabled = true,
+    this.onPressed,
+  });
+
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final Widget child;
+  final ToolSelectedEmphasis emphasis;
+  final bool compact;
+  final bool enabled;
+  final VoidCallback? onPressed;
+
+  @override
+  State<ToolSelectedButton> createState() => _ToolSelectedButtonState();
+}
+
+class _ToolSelectedButtonState extends State<ToolSelectedButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  bool get _enabled => widget.enabled && widget.onChanged != null;
+
+  Color _stateOverlay(Color base, shad.ColorScheme colors) {
+    if (!_enabled) return base.withValues(alpha: 0.48);
+    if (_pressed) {
+      return Color.alphaBlend(colors.foreground.withValues(alpha: 0.12), base);
+    }
+    if (_hovered) {
+      return Color.alphaBlend(colors.primary.withValues(alpha: 0.10), base);
+    }
+    return base;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shad.ThemeData theme = AppTheme.of(context);
+    final shad.ColorScheme colors = theme.colorScheme;
+    final bool strong = widget.emphasis == ToolSelectedEmphasis.strong;
+    final Color baseColor = widget.value
+        ? (strong ? colors.primary : colors.secondary)
+        : colors.card;
+    final Color foreground = widget.value
+        ? (strong ? colors.primaryForeground : colors.secondaryForeground)
+        : colors.foreground;
+    final Color borderColor = widget.value ? colors.primary : colors.border;
+    final Duration duration = AppMotion.resolve(context, AppMotion.standard);
+    final EdgeInsets padding = EdgeInsets.symmetric(
+      horizontal: widget.compact ? 10 : 14,
+      vertical: widget.compact ? 7 : 9,
+    );
+    return Semantics(
+      button: true,
+      selected: widget.value,
+      enabled: _enabled,
+      child: shad.Clickable(
+        enabled: _enabled,
+        onHover: (bool hovered) => setState(() => _hovered = hovered),
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onPressed: _enabled
+            ? () {
+                widget.onPressed?.call();
+                widget.onChanged?.call(!widget.value);
+              }
+            : null,
+        enableFeedback: false,
+        child: AnimatedContainer(
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          constraints: BoxConstraints(minHeight: widget.compact ? 36 : 40),
+          padding: padding,
+          decoration: BoxDecoration(
+            color: _stateOverlay(baseColor, colors),
+            border: Border.all(color: borderColor),
+            borderRadius: theme.borderRadiusSm,
+          ),
+          child: AnimatedDefaultTextStyle(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            style: theme.typography.small.copyWith(
+              color: foreground,
+              fontWeight: widget.value ? FontWeight.w700 : FontWeight.w500,
+            ),
+            child: IconTheme(
+              data: IconThemeData(color: foreground, size: 16),
+              child: widget.child,
+            ),
+          ),
         ),
       ),
     );
@@ -215,16 +327,8 @@ class ToolSegmentedControl<T> extends StatelessWidget {
             .map(
               (ToolSegmentOption<T> option) => Padding(
                 padding: EdgeInsets.only(right: option == options.last ? 0 : 4),
-                child: shad.SelectedButton(
+                child: ToolSelectedButton(
                   value: value == option.value,
-                  style: const shad.ButtonStyle.outline(
-                    size: shad.ButtonSize.small,
-                    density: shad.ButtonDensity.dense,
-                  ),
-                  selectedStyle: const shad.ButtonStyle.secondary(
-                    size: shad.ButtonSize.small,
-                    density: shad.ButtonDensity.dense,
-                  ),
                   onChanged: (_) => onChanged(option.value),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

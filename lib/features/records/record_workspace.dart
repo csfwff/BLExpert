@@ -83,7 +83,7 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
             children: <Widget>[
               Text(
                 '${filteredLogs.length}/${widget.logs.length} 条',
-                style: Theme.of(context).textTheme.labelSmall,
+                style: AppTheme.textStylesOf(context).labelSmall,
               ),
               const SizedBox(width: 4),
               ToolIconButton(
@@ -91,7 +91,7 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
                 onPressed: filteredLogs.isEmpty
                     ? null
                     : () => widget.onExport(filteredLogs),
-                icon: const Icon(Icons.download_outlined, size: 18),
+                icon: const Icon(AppIcons.downloadOutlined, size: 18),
               ),
             ],
           ),
@@ -104,7 +104,7 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
             hintText: '搜索文本或 HEX',
             showLabel: false,
             onChanged: (_) => setState(() {}),
-            prefix: const Icon(Icons.search, size: 18),
+            prefix: const Icon(AppIcons.search, size: 18),
             suffix: _filterController.text.isEmpty
                 ? null
                 : ToolIconButton(
@@ -113,7 +113,7 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
                       _filterController.clear();
                       setState(() {});
                     },
-                    icon: const Icon(Icons.clear, size: 18),
+                    icon: const Icon(AppIcons.clear, size: 18),
                   ),
           ),
         ),
@@ -201,7 +201,7 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
               : ListView.separated(
                   padding: const EdgeInsets.all(12),
                   itemCount: filteredLogs.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  separatorBuilder: (_, _) => const shad.Divider(height: 1),
                   itemBuilder: (_, int index) => _LogLine(
                     entry: filteredLogs[index],
                     l10n: widget.l10n,
@@ -215,16 +215,8 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
 
   Widget _filterChip(String label, SessionLogKind? kind) => Padding(
     padding: const EdgeInsets.only(right: 6),
-    child: shad.SelectedButton(
+    child: ToolSelectedButton(
       value: _kindFilter == kind,
-      style: const shad.ButtonStyle.outline(
-        size: shad.ButtonSize.xSmall,
-        density: shad.ButtonDensity.dense,
-      ),
-      selectedStyle: const shad.ButtonStyle.secondary(
-        size: shad.ButtonSize.xSmall,
-        density: shad.ButtonDensity.dense,
-      ),
       onChanged: (_) => setState(() => _kindFilter = kind),
       child: Text(label),
     ),
@@ -232,21 +224,13 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
 
   Widget _bookmarkFilterChip() => Padding(
     padding: const EdgeInsets.only(right: 6),
-    child: shad.SelectedButton(
+    child: ToolSelectedButton(
       value: _bookmarksOnly,
-      style: const shad.ButtonStyle.outline(
-        size: shad.ButtonSize.xSmall,
-        density: shad.ButtonDensity.dense,
-      ),
-      selectedStyle: const shad.ButtonStyle.secondary(
-        size: shad.ButtonSize.xSmall,
-        density: shad.ButtonDensity.dense,
-      ),
       onChanged: (bool selected) => setState(() => _bookmarksOnly = selected),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(Icons.bookmark_outline, size: 16),
+          Icon(AppIcons.bookmarkOutline, size: 16),
           SizedBox(width: 4),
           Text('书签'),
         ],

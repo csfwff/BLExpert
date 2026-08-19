@@ -104,9 +104,9 @@ class _ProtocolConfigurationPanelState
       children: <Widget>[
         Text(
           l10n.protocolProfiles,
-          style: Theme.of(
+          style: AppTheme.textStylesOf(
             context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ).titleMedium.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 12),
         ToolTextField(
@@ -126,12 +126,12 @@ class _ProtocolConfigurationPanelState
           options: <ToolSegmentOption<_ProtocolMode>>[
             ToolSegmentOption(
               value: _ProtocolMode.standard,
-              icon: const Icon(Icons.account_tree_outlined),
+              icon: const Icon(AppIcons.accountTree),
               label: l10n.standardProtocol,
             ),
             ToolSegmentOption(
               value: _ProtocolMode.script,
-              icon: const Icon(Icons.code_outlined),
+              icon: const Icon(AppIcons.codeOutlined),
               label: l10n.scriptProtocolMode,
             ),
           ],
@@ -179,12 +179,12 @@ class _ProtocolModeNote extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: standard
-            ? Theme.of(context).colorScheme.secondaryContainer
-            : Theme.of(context).colorScheme.tertiaryContainer,
+            ? AppTheme.colorsOf(context).secondary
+            : AppTheme.colorsOf(context).accent,
       ),
       child: Text(
         standard ? l10n.standardProtocolHint : l10n.scriptProtocolHint,
-        style: Theme.of(context).textTheme.bodySmall,
+        style: AppTheme.textStylesOf(context).bodySmall,
       ),
     );
   }
@@ -216,7 +216,7 @@ class _StandardProtocolEditor extends StatelessWidget {
           onChanged: (List<ProtocolSegment> value) =>
               onProtocolChanged(sendSegments: value),
         ),
-        const Divider(height: 30),
+        const shad.Divider(height: 30),
         _InlineProtocolSegmentSection(
           title: l10n.receiveFrame,
           segments: protocol.receiveSegments,
@@ -257,7 +257,10 @@ class _ScriptProtocolEditor extends StatelessWidget {
               ? l10n.scriptEngineReady
               : l10n.scriptEngineUnavailable,
         ),
-        Text(l10n.scriptMethods, style: Theme.of(context).textTheme.titleSmall),
+        Text(
+          l10n.scriptMethods,
+          style: AppTheme.textStylesOf(context).titleSmall,
+        ),
         const SizedBox(height: 8),
         _ScriptMethodContract(
           title: 'beforeSend(context)',
@@ -282,7 +285,7 @@ class _ScriptProtocolEditor extends StatelessWidget {
               afterReceiveController.text = _defaultAfterReceiveScript;
               onChanged();
             },
-            leading: const Icon(Icons.auto_fix_high_outlined),
+            leading: const Icon(AppIcons.autoFix),
             child: Text(l10n.loadProtocolSample),
           ),
         ),
@@ -325,7 +328,7 @@ class _ScriptMethodContract extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
+          bottom: BorderSide(color: AppTheme.colorsOf(context).border),
         ),
       ),
       child: Column(
@@ -333,13 +336,13 @@ class _ScriptMethodContract extends StatelessWidget {
         children: <Widget>[
           Text(title, style: const TextStyle(fontFamily: 'monospace')),
           const SizedBox(height: 3),
-          Text(details, style: Theme.of(context).textTheme.bodySmall),
+          Text(details, style: AppTheme.textStylesOf(context).bodySmall),
           const SizedBox(height: 5),
           Text(
             signature,
-            style: Theme.of(
+            style: AppTheme.textStylesOf(
               context,
-            ).textTheme.labelSmall?.copyWith(fontFamily: 'monospace'),
+            ).labelSmall.copyWith(fontFamily: 'monospace'),
           ),
         ],
       ),
@@ -367,20 +370,18 @@ class _ScriptBuiltinLibrary extends StatelessWidget {
     ];
     return Container(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      ),
+      decoration: BoxDecoration(color: AppTheme.colorsOf(context).muted),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
             l10n.scriptBuiltins,
-            style: Theme.of(context).textTheme.titleSmall,
+            style: AppTheme.textStylesOf(context).titleSmall,
           ),
           const SizedBox(height: 4),
           Text(
             l10n.scriptBuiltinsHint,
-            style: Theme.of(context).textTheme.bodySmall,
+            style: AppTheme.textStylesOf(context).bodySmall,
           ),
           const SizedBox(height: 8),
           ...functions.map(
@@ -388,9 +389,9 @@ class _ScriptBuiltinLibrary extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 3),
               child: Text(
                 function,
-                style: Theme.of(
+                style: AppTheme.textStylesOf(
                   context,
-                ).textTheme.labelSmall?.copyWith(fontFamily: 'monospace'),
+                ).labelSmall.copyWith(fontFamily: 'monospace'),
               ),
             ),
           ),
@@ -421,11 +422,14 @@ class _InlineProtocolSegmentSection extends StatelessWidget {
         Row(
           children: <Widget>[
             Expanded(
-              child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+              child: Text(
+                title,
+                style: AppTheme.textStylesOf(context).titleSmall,
+              ),
             ),
             ToolIconButton(
               tooltip: l10n.newProtocolSegment,
-              icon: const Icon(Icons.add, size: 18),
+              icon: const Icon(AppIcons.add, size: 18),
               onPressed: () => shad
                   .showDropdown<void>(
                     context: context,
@@ -452,7 +456,7 @@ class _InlineProtocolSegmentSection extends StatelessWidget {
         if (segments.isEmpty)
           Text(
             l10n.noProtocolSegments,
-            style: Theme.of(context).textTheme.bodySmall,
+            style: AppTheme.textStylesOf(context).bodySmall,
           )
         else
           ...List<Widget>.generate(segments.length, (int index) {
@@ -521,7 +525,7 @@ class _InlineProtocolSegmentTile extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
+          bottom: BorderSide(color: AppTheme.colorsOf(context).border),
         ),
       ),
       child: Row(
@@ -642,17 +646,17 @@ class _InlineProtocolSegmentTile extends StatelessWidget {
           ToolIconButton(
             tooltip: l10n.moveUp,
             onPressed: canMoveUp ? onMoveUp : null,
-            icon: const Icon(Icons.arrow_upward, size: 18),
+            icon: const Icon(AppIcons.arrowUp, size: 18),
           ),
           ToolIconButton(
             tooltip: l10n.moveDown,
             onPressed: canMoveDown ? onMoveDown : null,
-            icon: const Icon(Icons.arrow_downward, size: 18),
+            icon: const Icon(AppIcons.arrowDown, size: 18),
           ),
           ToolIconButton(
             tooltip: l10n.deleteProtocolSegment,
             onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, size: 18),
+            icon: const Icon(AppIcons.deleteOutline, size: 18),
           ),
         ],
       ),
