@@ -19,13 +19,13 @@ class DeviceSendPolicy {
   static DeviceSendPolicyDecision evaluate({
     required DeviceSafetyPolicy policy,
     required String writeTargetKey,
-    required bool writeWithResponseAvailable,
+    required bool writeWithResponseSelected,
     required int finalFrameLength,
   }) {
     final List<DeviceSendPolicyReason> reasons = <DeviceSendPolicyReason>[
       if (!policy.allowsWriteTarget(writeTargetKey))
         DeviceSendPolicyReason.writeTargetNotAllowed,
-      if (policy.requireWriteWithResponse && !writeWithResponseAvailable)
+      if (policy.requireWriteWithResponse && !writeWithResponseSelected)
         DeviceSendPolicyReason.writeWithResponseRequired,
       if (policy.maxFinalFrameBytes != null &&
           finalFrameLength > policy.maxFinalFrameBytes!)

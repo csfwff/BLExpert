@@ -1,5 +1,6 @@
 import 'script_config.dart';
 import 'device_safety_policy.dart';
+import 'bluetooth_write_mode.dart';
 
 /// Describes a single Bluetooth device profile inside a workspace.
 class DeviceProfile {
@@ -12,6 +13,7 @@ class DeviceProfile {
     required this.scriptConfig,
     this.serviceUuid,
     this.writeCharacteristicUuid,
+    this.writeMode,
     this.subscribeCharacteristicUuid,
     this.webServiceUuid,
     this.safetyPolicy = const DeviceSafetyPolicy(),
@@ -25,6 +27,7 @@ class DeviceProfile {
   final ScriptConfig scriptConfig;
   final String? serviceUuid;
   final String? writeCharacteristicUuid;
+  final BluetoothWriteMode? writeMode;
   final String? subscribeCharacteristicUuid;
   final String? webServiceUuid;
   final DeviceSafetyPolicy safetyPolicy;
@@ -46,6 +49,9 @@ class DeviceProfile {
       ),
       serviceUuid: json['serviceUuid'] as String?,
       writeCharacteristicUuid: json['writeCharacteristicUuid'] as String?,
+      writeMode: BluetoothWriteMode.values
+          .where((BluetoothWriteMode mode) => mode.name == json['writeMode'])
+          .firstOrNull,
       subscribeCharacteristicUuid:
           json['subscribeCharacteristicUuid'] as String?,
       webServiceUuid: json['webServiceUuid'] as String?,
@@ -70,6 +76,7 @@ class DeviceProfile {
       if (writeCharacteristicUuid != null &&
           writeCharacteristicUuid!.isNotEmpty)
         'writeCharacteristicUuid': writeCharacteristicUuid,
+      if (writeMode != null) 'writeMode': writeMode!.name,
       if (subscribeCharacteristicUuid != null &&
           subscribeCharacteristicUuid!.isNotEmpty)
         'subscribeCharacteristicUuid': subscribeCharacteristicUuid,
@@ -91,6 +98,8 @@ class DeviceProfile {
     bool clearServiceUuid = false,
     String? writeCharacteristicUuid,
     bool clearWriteCharacteristicUuid = false,
+    BluetoothWriteMode? writeMode,
+    bool clearWriteMode = false,
     String? subscribeCharacteristicUuid,
     bool clearSubscribeCharacteristicUuid = false,
     String? webServiceUuid,
@@ -108,6 +117,7 @@ class DeviceProfile {
       writeCharacteristicUuid: clearWriteCharacteristicUuid
           ? null
           : (writeCharacteristicUuid ?? this.writeCharacteristicUuid),
+      writeMode: clearWriteMode ? null : (writeMode ?? this.writeMode),
       subscribeCharacteristicUuid: clearSubscribeCharacteristicUuid
           ? null
           : (subscribeCharacteristicUuid ?? this.subscribeCharacteristicUuid),

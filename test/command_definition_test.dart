@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:blexpert/models/command_definition.dart';
+import 'package:blexpert/models/bluetooth_write_mode.dart';
 import 'package:blexpert/models/data_mapping.dart';
 import 'package:blexpert/models/device_profile.dart';
 import 'package:blexpert/models/device_safety_policy.dart';
@@ -588,6 +589,7 @@ void main() {
           scriptConfig: ScriptConfig.empty(),
           serviceUuid: '180F',
           writeCharacteristicUuid: '2A19',
+          writeMode: BluetoothWriteMode.withoutResponse,
           subscribeCharacteristicUuid: '2A1A',
           webServiceUuid: '180F',
           safetyPolicy: const DeviceSafetyPolicy(
@@ -604,6 +606,7 @@ void main() {
     ).devices.single;
     expect(restored.serviceUuid, '180F');
     expect(restored.writeCharacteristicUuid, '2A19');
+    expect(restored.writeMode, BluetoothWriteMode.withoutResponse);
     expect(restored.subscribeCharacteristicUuid, '2A1A');
     expect(restored.webServiceUuid, '180F');
     expect(restored.safetyPolicy.allowedWriteTargetKeys, <String>['180F/2A19']);

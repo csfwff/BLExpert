@@ -314,7 +314,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get disconnected => '未连接';
 
   @override
-  String get writeTarget => '写入目标';
+  String get readCapabilityDescription => '读取：客户端拉取数据';
+
+  @override
+  String get writeCapabilityDescription => '写入响应：客户端推送，服务端返回确认';
+
+  @override
+  String get writeNoResponseCapabilityDescription => '无响应写入：客户端推送，服务端不返回确认';
+
+  @override
+  String get notifyCapabilityDescription => '通知：服务端推送，客户端不返回确认';
+
+  @override
+  String get indicateCapabilityDescription => '指示：服务端推送，客户端返回确认';
 
   @override
   String get selectedLog => '选中日志';

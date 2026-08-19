@@ -84,48 +84,55 @@ class _ConsoleLogViewState extends State<_ConsoleLogView> {
   @override
   Widget build(BuildContext context) {
     final bool dark = AppTheme.of(context).brightness == Brightness.dark;
-    return Stack(
-      children: <Widget>[
-        Container(
-          color: dark
-              ? const Color(0xFF0A111B)
-              : AppTheme.colorsOf(context).card,
-          child: widget.logs.isEmpty
-              ? Center(child: Text(widget.l10n.noMatchingLogs))
-              : ListView.builder(
-                  key: const ValueKey<String>('console-log-list'),
-                  controller: _scrollController,
-                  reverse: false,
-                  padding: const EdgeInsets.all(14),
-                  itemCount: widget.logs.length,
-                  itemBuilder: (_, index) {
-                    final SessionLogRecord entry =
-                        widget.logs[widget.logs.length - index - 1];
-                    return _LogLine(
-                      entry: entry,
-                      l10n: widget.l10n,
-                      selected: identical(entry, widget.selectedLog),
-                      onTap: () => widget.onLogSelected(entry),
-                    );
-                  },
-                ),
-        ),
-        if (_showJumpToLatest)
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: ToolIconButton(
-              key: const ValueKey<String>('console-jump-latest'),
-              tooltip: widget.l10n.backToLatest,
-              variant: ToolButtonVariant.secondary,
-              onPressed: () {
-                widget.onJumpToLatest();
-                _scrollToLatest();
-              },
-              icon: const Icon(AppIcons.verticalAlignBottom, size: 18),
+    return LayoutBuilder(
+      key: const ValueKey<String>('console-log-layout'),
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final bool compact = constraints.maxWidth < _LogLine.compactBreakpoint;
+        return Stack(
+          children: <Widget>[
+            Container(
+              color: dark
+                  ? const Color(0xFF0A111B)
+                  : AppTheme.colorsOf(context).card,
+              child: widget.logs.isEmpty
+                  ? Center(child: Text(widget.l10n.noMatchingLogs))
+                  : ListView.builder(
+                      key: const ValueKey<String>('console-log-list'),
+                      controller: _scrollController,
+                      reverse: false,
+                      padding: const EdgeInsets.all(14),
+                      itemCount: widget.logs.length,
+                      itemBuilder: (_, index) {
+                        final SessionLogRecord entry =
+                            widget.logs[widget.logs.length - index - 1];
+                        return _LogLine(
+                          entry: entry,
+                          l10n: widget.l10n,
+                          compact: compact,
+                          selected: identical(entry, widget.selectedLog),
+                          onTap: () => widget.onLogSelected(entry),
+                        );
+                      },
+                    ),
             ),
-          ),
-      ],
+            if (_showJumpToLatest)
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: ToolIconButton(
+                  key: const ValueKey<String>('console-jump-latest'),
+                  tooltip: widget.l10n.backToLatest,
+                  variant: ToolButtonVariant.secondary,
+                  onPressed: () {
+                    widget.onJumpToLatest();
+                    _scrollToLatest();
+                  },
+                  icon: const Icon(AppIcons.verticalAlignBottom, size: 18),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -147,6 +154,10 @@ class _ConsoleArea extends StatelessWidget {
     required this.sendDisabledReason,
     required this.sendPreview,
     required this.writeTarget,
+    required this.characteristicsOpen,
+    required this.onCharacteristicsVisibilityChanged,
+    required this.inspectorOpen,
+    required this.onInspectorVisibilityChanged,
     required this.l10n,
     required this.selectedLog,
     required this.onLogSelected,
@@ -170,6 +181,10 @@ class _ConsoleArea extends StatelessWidget {
   final String? sendDisabledReason;
   final _ConsoleSendPreview Function(String input, bool hexMode) sendPreview;
   final String? writeTarget;
+  final bool characteristicsOpen;
+  final ValueChanged<bool> onCharacteristicsVisibilityChanged;
+  final bool inspectorOpen;
+  final ValueChanged<bool> onInspectorVisibilityChanged;
   final AppLocalizations l10n;
   final SessionLogRecord? selectedLog;
   final ValueChanged<SessionLogRecord> onLogSelected;
@@ -182,100 +197,128 @@ class _ConsoleArea extends StatelessWidget {
   Widget build(BuildContext context) {
     final shad.ColorScheme colors = AppTheme.colorsOf(context);
     final dark = AppTheme.of(context).brightness == Brightness.dark;
-    final bool compactHeader = MediaQuery.sizeOf(context).width < 680;
+    final bool multiPane = _DebugWorkspaceLayoutScope.multiPaneOf(context);
     return Column(
       children: <Widget>[
-        Container(
-          height: 42,
-          // Reserve space for the floating Inspector control at the top-right.
-          padding: EdgeInsets.fromLTRB(12, 0, compactHeader ? 12 : 60, 0),
-          decoration: BoxDecoration(
-            color: dark ? const Color(0xFF101824) : colors.card,
-            border: Border(
-              bottom: BorderSide(color: AppTheme.colorsOf(context).border),
-            ),
-          ),
-          child: Row(
-            children: <Widget>[
-              Icon(AppIcons.terminalRounded, size: 18, color: colors.secondary),
-              const SizedBox(width: 8),
-              Text(
-                l10n.console,
-                style: AppTheme.textStylesOf(
-                  context,
-                ).titleSmall.copyWith(fontWeight: FontWeight.w700),
+        LayoutBuilder(
+          key: const ValueKey<String>('console-header-layout'),
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final bool compactHeader =
+                constraints.maxWidth < _LogLine.compactBreakpoint;
+            return Container(
+              key: const ValueKey<String>('console-header'),
+              height: 42,
+              padding: EdgeInsets.fromLTRB(12, 0, compactHeader ? 12 : 8, 0),
+              decoration: BoxDecoration(
+                color: dark ? const Color(0xFF101824) : colors.card,
+                border: Border(
+                  bottom: BorderSide(color: AppTheme.colorsOf(context).border),
+                ),
               ),
-              const SizedBox(width: 8),
-              _ConsoleLogFilterBar(
-                filter: logFilter,
-                onChanged: onLogFilterChanged,
-                l10n: l10n,
-              ),
-              const SizedBox(width: 2),
-              if (!compactHeader) ...<Widget>[
-                Flexible(
-                  child: Text(
-                    l10n.retainedLogs(logs.length, discardedLogCount),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.textStylesOf(context).labelSmall,
+              child: Row(
+                children: <Widget>[
+                  if (multiPane && !compactHeader) ...<Widget>[
+                    ToolIconButton(
+                      key: const ValueKey<String>(
+                        'console-characteristics-toggle',
+                      ),
+                      tooltip: characteristicsOpen ? '收起特征面板' : '展开特征面板',
+                      onPressed: () => onCharacteristicsVisibilityChanged(
+                        !characteristicsOpen,
+                      ),
+                      icon: Icon(
+                        characteristicsOpen
+                            ? AppIcons.chevronsLeft
+                            : AppIcons.chevronsRight,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Icon(
+                    AppIcons.terminalRounded,
+                    size: 18,
+                    color: colors.secondary,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Icon(
-                  writeTarget == null
-                      ? AppIcons.warningAmber
-                      : AppIcons.outputOutlined,
-                  size: 15,
-                  color: writeTarget == null
-                      ? colors.destructive
-                      : colors.chart2,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  writeTarget == null
-                      ? '未选择写入特征'
-                      : '写入  ${_shortUuid(writeTarget!)}',
-                  style: AppTheme.textStylesOf(context).labelSmall.copyWith(
-                    fontFamily: 'monospace',
-                    color: writeTarget == null
-                        ? AppTheme.colorsOf(context).destructive
-                        : null,
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.console,
+                    style: AppTheme.textStylesOf(
+                      context,
+                    ).titleSmall.copyWith(fontWeight: FontWeight.w700),
                   ),
-                ),
-              ],
-              const Spacer(),
-              ToolTooltip(
-                message: l10n.autoScroll,
-                showVisual: compactHeader,
-                child: ToolSwitch(
-                  value: autoScroll,
-                  onChanged: onAutoScrollChanged,
-                  label: l10n.autoScroll,
-                ),
+                  const SizedBox(width: 8),
+                  _ConsoleLogFilterBar(
+                    filter: logFilter,
+                    onChanged: onLogFilterChanged,
+                    l10n: l10n,
+                  ),
+                  const SizedBox(width: 2),
+                  if (!compactHeader)
+                    Expanded(
+                      child: Text(
+                        l10n.retainedLogs(logs.length, discardedLogCount),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTheme.textStylesOf(context).labelSmall,
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  Row(
+                    key: const ValueKey<String>('console-header-actions'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      ToolTooltip(
+                        message: l10n.autoScroll,
+                        showVisual: compactHeader,
+                        child: ToolSwitch(
+                          value: autoScroll,
+                          onChanged: onAutoScrollChanged,
+                          label: l10n.autoScroll,
+                        ),
+                      ),
+                      if (!compactHeader) ...<Widget>[
+                        Text(
+                          l10n.autoScroll,
+                          style: AppTheme.textStylesOf(context).bodySmall,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      ToolIconButton(
+                        tooltip: l10n.exportLogs,
+                        onPressed: logs.isEmpty ? null : () => onExport(logs),
+                        icon: const Icon(AppIcons.downloadOutlined, size: 19),
+                      ),
+                      ToolIconButton(
+                        tooltip: l10n.clear,
+                        onPressed: onClear,
+                        icon: const Icon(AppIcons.deleteSweep, size: 19),
+                      ),
+                      if (multiPane && !compactHeader) ...<Widget>[
+                        const SizedBox(width: 4),
+                        ToolIconButton(
+                          key: const ValueKey<String>(
+                            'console-inspector-toggle',
+                          ),
+                          tooltip: inspectorOpen ? '收起上下文面板' : '展开上下文面板',
+                          onPressed: () =>
+                              onInspectorVisibilityChanged(!inspectorOpen),
+                          icon: Icon(
+                            inspectorOpen
+                                ? AppIcons.chevronsRight
+                                : AppIcons.chevronsLeft,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
               ),
-              if (!compactHeader) ...<Widget>[
-                Text(
-                  l10n.autoScroll,
-                  style: AppTheme.textStylesOf(context).bodySmall,
-                ),
-                const SizedBox(width: 4),
-              ],
-              ToolIconButton(
-                tooltip: l10n.exportLogs,
-                onPressed: logs.isEmpty ? null : () => onExport(logs),
-                icon: const Icon(AppIcons.downloadOutlined, size: 19),
-              ),
-              ToolIconButton(
-                tooltip: l10n.clear,
-                onPressed: onClear,
-                icon: const Icon(AppIcons.deleteSweep, size: 19),
-              ),
-            ],
-          ),
+            );
+          },
         ),
         Container(
-          height: 44,
+          height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: dark ? const Color(0xFF101824) : colors.card,
@@ -296,6 +339,7 @@ class _ConsoleArea extends StatelessWidget {
                 ? null
                 : ToolIconButton(
                     tooltip: l10n.clear,
+                    touchSize: 24,
                     onPressed: () {
                       searchController.clear();
                       onSearchChanged('');
@@ -326,8 +370,12 @@ class _ConsoleArea extends StatelessWidget {
                 (input.text.trim().isEmpty ? l10n.emptyInput : null);
             final String? disabledReason = sendDisabledReason ?? inputReason;
             final bool effectiveCanSend = canSend && inputReason == null;
+            final TextStyle compactControlText = TextStyle(
+              fontSize: AppTheme.of(context).typography.xSmall.fontSize ?? 12,
+            );
             return Container(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              key: const ValueKey<String>('console-send-area'),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: dark ? const Color(0xFF101824) : colors.card,
                 border: Border(
@@ -337,31 +385,47 @@ class _ConsoleArea extends StatelessWidget {
               child: Column(
                 children: <Widget>[
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    key: const ValueKey<String>('console-send-input-row'),
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Expanded(
-                        child: ToolTextField(
-                          key: const ValueKey<String>('console-input'),
-                          controller: inputController,
-                          label: l10n.inputPlaceholder,
-                          hintText: l10n.inputPlaceholder,
-                          showLabel: false,
-                          focusNode: inputFocusNode,
-                          minLines: 1,
-                          maxLines: 4,
-                          onSubmitted: (_) => onSend(),
-                          style: const TextStyle(fontFamily: 'monospace'),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 36),
+                          child: ToolTextField(
+                            key: const ValueKey<String>('console-input'),
+                            controller: inputController,
+                            label: l10n.inputPlaceholder,
+                            hintText: l10n.inputPlaceholder,
+                            showLabel: false,
+                            focusNode: inputFocusNode,
+                            minLines: 1,
+                            maxLines: 4,
+                            onSubmitted: (_) => onSend(),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
+                            ),
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              height: 1.35,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       SizedBox(
-                        height: 40,
+                        width: 100,
                         child: ToolButton.primary(
                           key: const ValueKey<String>('console-send-button'),
+                          compact: true,
+                          height: 36,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
                           onPressed: effectiveCanSend ? onSend : null,
                           leading: const Icon(AppIcons.sendOutlined, size: 18),
                           child: Text(
                             l10n.sendData,
+                            style: compactControlText,
                             maxLines: 1,
                             softWrap: false,
                           ),
@@ -370,7 +434,7 @@ class _ConsoleArea extends StatelessWidget {
                     ],
                   ),
                   if (disabledReason != null) ...<Widget>[
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
                     Semantics(
                       liveRegion: true,
                       container: true,
@@ -401,7 +465,7 @@ class _ConsoleArea extends StatelessWidget {
                   ],
                   if (preview.error == null &&
                       preview.payloadLength != null) ...<Widget>[
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Wrap(
@@ -429,39 +493,98 @@ class _ConsoleArea extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 8),
-                  Row(
-                    children: <Widget>[
-                      ToolSegmentedControl<bool>(
-                        key: const ValueKey<String>('console-mode-toggle'),
-                        options: <ToolSegmentOption<bool>>[
-                          ToolSegmentOption(value: true, label: l10n.hexMode),
-                          ToolSegmentOption(value: false, label: l10n.textMode),
-                        ],
-                        value: hexMode,
-                        onChanged: onModeChanged,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        l10n.lineEnding,
-                        style: AppTheme.textStylesOf(context).bodySmall,
-                      ),
-                      const SizedBox(width: 4),
-                      SizedBox(
-                        key: const ValueKey<String>('console-line-ending'),
-                        height: 36,
-                        width: 84,
-                        child: ToolSelect<String>(
-                          value: 'none',
-                          options: <ToolSelectOption<String>>[
-                            ToolSelectOption(value: 'none', label: l10n.none),
-                            ToolSelectOption(value: 'lf', label: l10n.lf),
-                            ToolSelectOption(value: 'crlf', label: l10n.crlf),
-                          ],
-                          onChanged: (_) {},
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 6),
+                  LayoutBuilder(
+                    builder:
+                        (BuildContext context, BoxConstraints constraints) {
+                          final Widget sendControls = Row(
+                            key: const ValueKey<String>(
+                              'console-send-controls',
+                            ),
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              ToolSegmentedControl<bool>(
+                                key: const ValueKey<String>(
+                                  'console-mode-toggle',
+                                ),
+                                options: <ToolSegmentOption<bool>>[
+                                  ToolSegmentOption(
+                                    value: true,
+                                    label: l10n.hexMode,
+                                  ),
+                                  ToolSegmentOption(
+                                    value: false,
+                                    label: l10n.textMode,
+                                  ),
+                                ],
+                                value: hexMode,
+                                onChanged: onModeChanged,
+                                textStyle: compactControlText,
+                                height: 32,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(l10n.lineEnding, style: compactControlText),
+                              const SizedBox(width: 4),
+                              SizedBox(
+                                key: const ValueKey<String>(
+                                  'console-line-ending',
+                                ),
+                                height: 32,
+                                width: 96,
+                                child: ToolSelect<String>(
+                                  value: 'none',
+                                  options: <ToolSelectOption<String>>[
+                                    ToolSelectOption(
+                                      value: 'none',
+                                      label: l10n.none,
+                                    ),
+                                    ToolSelectOption(
+                                      value: 'lf',
+                                      label: l10n.lf,
+                                    ),
+                                    ToolSelectOption(
+                                      value: 'crlf',
+                                      label: l10n.crlf,
+                                    ),
+                                  ],
+                                  onChanged: (_) {},
+                                  textStyle: compactControlText,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  itemPadding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 3,
+                                  ),
+                                  itemHeight: 28,
+                                ),
+                              ),
+                            ],
+                          );
+                          final Widget targetStatus = _ConsoleWriteTargetStatus(
+                            writeTarget: writeTarget,
+                          );
+                          if (constraints.maxWidth < 480) {
+                            return Wrap(
+                              spacing: 12,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: <Widget>[sendControls, targetStatus],
+                            );
+                          }
+                          return Row(
+                            children: <Widget>[
+                              sendControls,
+                              const Spacer(),
+                              targetStatus,
+                            ],
+                          );
+                        },
                   ),
                 ],
               ),
@@ -469,6 +592,46 @@ class _ConsoleArea extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _ConsoleWriteTargetStatus extends StatelessWidget {
+  const _ConsoleWriteTargetStatus({required this.writeTarget});
+
+  final String? writeTarget;
+
+  @override
+  Widget build(BuildContext context) {
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
+    final bool selected = writeTarget != null;
+    final String label = selected
+        ? '写入  ${_shortUuid(writeTarget!)}'
+        : '未选择写入特征';
+    return Semantics(
+      label: label,
+      child: Row(
+        key: const ValueKey<String>('console-write-target-status'),
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          ExcludeSemantics(
+            child: Icon(
+              selected ? AppIcons.outputOutlined : AppIcons.warningAmber,
+              size: 15,
+              color: selected ? colors.chart2 : colors.destructive,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            maxLines: 1,
+            style: AppTheme.textStylesOf(context).labelSmall.copyWith(
+              fontFamily: 'monospace',
+              color: selected ? null : colors.destructive,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

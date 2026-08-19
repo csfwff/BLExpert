@@ -18,6 +18,7 @@ import '../../app/design/tool_tooltip.dart';
 import '../../app/design/tool_toast.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/command_definition.dart';
+import '../../models/bluetooth_write_mode.dart';
 import '../../models/data_mapping.dart';
 import '../../models/device_profile.dart';
 import '../../models/device_safety_policy.dart';
@@ -114,6 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<BluetoothCharacteristicInfo> _characteristics =
       <BluetoothCharacteristicInfo>[];
   final List<SessionLogRecord> _logs = <SessionLogRecord>[];
+  List<SessionLogRecord>? _visibleConsoleLogsCache;
   SessionLogRecord? _selectedLog;
   int _discardedLogCount = 0;
   _ConsoleLogFilter _consoleLogFilter = _ConsoleLogFilter.all;
@@ -125,6 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _hexMode = true;
   bool _autoScroll = true;
   _AppMode _mode = _AppMode.debug;
+  bool _characteristicsOpen = true;
   bool _inspectorOpen = true;
   List<String> _webOptionalServices = <String>[];
   Future<void> _saveWorkspaceChain = Future<void>.value();
@@ -215,6 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (_logs.length > _maxConsoleLogs) {
           _logs.removeRange(_maxConsoleLogs, _logs.length);
         }
+        _invalidateVisibleConsoleLogs();
       });
     } catch (error) {
       debugPrint('会话记录加载失败：$error');
@@ -233,6 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _logs.clear();
       _selectedLog = null;
       _discardedLogCount = 0;
+      _invalidateVisibleConsoleLogs();
     });
     _saveSessionLogsChain = _saveSessionLogsChain
         .then((_) => _sessionLogStore.clear())
@@ -240,8 +245,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<SessionLogRecord> get _visibleConsoleLogs {
+    final List<SessionLogRecord>? cached = _visibleConsoleLogsCache;
+    if (cached != null) return cached;
     final String query = _consoleSearchController.text.trim().toLowerCase();
-    return _logs
+    return _visibleConsoleLogsCache = _logs
         .where((SessionLogRecord entry) {
           final bool matchesKind = switch (_consoleLogFilter) {
             _ConsoleLogFilter.all => true,
@@ -263,11 +270,16 @@ class _HomeScreenState extends State<HomeScreen> {
         .toList(growable: false);
   }
 
+  void _invalidateVisibleConsoleLogs() {
+    _visibleConsoleLogsCache = null;
+  }
+
   void _toggleSessionLogBookmark(SessionLogRecord record) {
     final int index = _logs.indexOf(record);
     if (index < 0) return;
     setState(() {
       _logs[index] = record.copyWith(bookmarked: !record.bookmarked);
+      _invalidateVisibleConsoleLogs();
       _persistSessionLogs();
     });
   }
@@ -1318,13 +1330,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _setWriteCharacteristic(
     BluetoothCharacteristicInfo characteristic,
+    BluetoothWriteMode mode,
   ) async {
     final String? deviceId = _selectedDeviceId;
     if (deviceId == null) {
       return;
     }
     try {
-      await _bluetoothService.setWriteCharacteristic(deviceId, characteristic);
+      await _bluetoothService.setWriteCharacteristic(
+        deviceId,
+        characteristic,
+        mode,
+      );
     } catch (error) {
       _showBluetoothError(error);
       return;
@@ -1335,12 +1352,13 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _characteristics = _characteristics
           .map(
-            (BluetoothCharacteristicInfo item) =>
-                item.copyWith(isWriteTarget: item.key == characteristic.key),
+            (BluetoothCharacteristicInfo item) => item.key == characteristic.key
+                ? item.copyWith(writeMode: mode)
+                : item.copyWith(clearWriteMode: true),
           )
           .toList(growable: false);
     });
-    _saveConnectionDefaults(write: characteristic);
+    _saveConnectionDefaults(write: characteristic, writeMode: mode);
   }
 
   Future<void> _setSubscription(
@@ -1409,14 +1427,28 @@ class _HomeScreenState extends State<HomeScreen> {
           (!write.canWrite && !write.canWriteWithoutResponse)) {
         _addSystemLog('默认写入特征不可用：${profile.writeCharacteristicUuid}');
       } else {
-        await _bluetoothService.setWriteCharacteristic(deviceId, write);
-        restored = restored
-            .map(
-              (BluetoothCharacteristicInfo item) =>
-                  item.copyWith(isWriteTarget: item.key == write.key),
-            )
-            .toList(growable: false);
-        _addSystemLog('已恢复默认写入特征：${write.characteristicId}');
+        final BluetoothWriteMode mode =
+            profile.writeMode ??
+            (write.canWrite
+                ? BluetoothWriteMode.withResponse
+                : BluetoothWriteMode.withoutResponse);
+        final bool modeSupported = switch (mode) {
+          BluetoothWriteMode.withResponse => write.canWrite,
+          BluetoothWriteMode.withoutResponse => write.canWriteWithoutResponse,
+        };
+        if (!modeSupported) {
+          _addSystemLog('默认写入模式不可用：${mode.name}');
+        } else {
+          await _bluetoothService.setWriteCharacteristic(deviceId, write, mode);
+          restored = restored
+              .map(
+                (BluetoothCharacteristicInfo item) => item.key == write.key
+                    ? item.copyWith(writeMode: mode)
+                    : item.copyWith(clearWriteMode: true),
+              )
+              .toList(growable: false);
+          _addSystemLog('已恢复默认写入特征：${write.characteristicId}');
+        }
       }
     }
     final BluetoothCharacteristicInfo? subscribe =
@@ -1472,6 +1504,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _saveConnectionDefaults({
     BluetoothCharacteristicInfo? write,
+    BluetoothWriteMode? writeMode,
     BluetoothCharacteristicInfo? subscribe,
   }) {
     final BluetoothDeviceInfo? device = _selectedDevice;
@@ -1493,6 +1526,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final DeviceProfile updated = profile.copyWith(
       serviceUuid: write?.serviceId ?? subscribe?.serviceId,
       writeCharacteristicUuid: write?.characteristicId,
+      writeMode: writeMode,
       subscribeCharacteristicUuid: subscribe?.characteristicId,
       webServiceUuid: write?.serviceId ?? subscribe?.serviceId,
     );
@@ -1565,20 +1599,31 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text('设备：${device.name}'),
+                        Text(
+                          '设备：${device.name}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         const SizedBox(height: 12),
-                        const Text('选择允许作为写入目标的特征；不选择表示不限制。'),
+                        const Text(
+                          '选择允许作为写入目标的特征；不选择表示不限制。',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         const SizedBox(height: 4),
                         for (final BluetoothCharacteristicInfo characteristic
                             in writable)
                           ToolCheckboxTile(
                             title: Text(
                               characteristic.characteristicId,
-                              softWrap: true,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             subtitle: Text(
                               characteristic.serviceId,
                               style: const TextStyle(fontFamily: 'monospace'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             value: allowedKeys.contains(characteristic.key),
                             onChanged: (bool value) => setDialogState(() {
@@ -1590,32 +1635,83 @@ class _HomeScreenState extends State<HomeScreen> {
                             }),
                           ),
                         const SizedBox(height: 8),
-                        ToolTextField(
-                          controller: maxFrameController,
-                          label: '最终帧最大字节数',
-                          hintText: '留空表示不限制（全局上限 4096）',
-                          keyboardType: TextInputType.number,
-                          validator: (String? value) {
-                            final String trimmed = value?.trim() ?? '';
-                            if (trimmed.isEmpty) return null;
-                            final int? parsed = int.tryParse(trimmed);
-                            if (parsed == null ||
-                                parsed < 1 ||
-                                parsed > ScriptEngineService.maxPacketBytes) {
-                              return '请输入 1 到 ${ScriptEngineService.maxPacketBytes} 的整数。';
-                            }
-                            return null;
-                          },
+                        Row(
+                          key: const ValueKey<String>(
+                            'device-policy-max-frame-row',
+                          ),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const SizedBox(
+                              width: 128,
+                              child: Padding(
+                                padding: EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '最终帧最大字节数',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ToolTextField(
+                                controller: maxFrameController,
+                                label: '最终帧最大字节数',
+                                showLabel: false,
+                                hintText: '留空表示不限制（全局上限 4096）',
+                                keyboardType: TextInputType.number,
+                                validator: (String? value) {
+                                  final String trimmed = value?.trim() ?? '';
+                                  if (trimmed.isEmpty) return null;
+                                  final int? parsed = int.tryParse(trimmed);
+                                  if (parsed == null ||
+                                      parsed < 1 ||
+                                      parsed >
+                                          ScriptEngineService.maxPacketBytes) {
+                                    return '请输入 1 到 ${ScriptEngineService.maxPacketBytes} 的整数。';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
-                        ToolSwitchTile(
-                          title: const Text('只允许带响应写入'),
-                          subtitle: const Text(
-                            '仅支持 Write without response 的特征将被拒绝。',
-                          ),
-                          value: requireWriteWithResponse,
-                          onChanged: (bool value) => setDialogState(
-                            () => requireWriteWithResponse = value,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            key: const ValueKey<String>(
+                              'device-policy-response-row',
+                            ),
+                            children: <Widget>[
+                              ToolSwitch(
+                                key: const ValueKey<String>(
+                                  'device-policy-response-switch',
+                                ),
+                                label: '只允许带响应写入',
+                                value: requireWriteWithResponse,
+                                onChanged: (bool value) => setDialogState(
+                                  () => requireWriteWithResponse = value,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                '只允许带响应写入',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '仅支持 Write without response 的特征将被拒绝。',
+                                  style: AppTheme.textStylesOf(
+                                    context,
+                                  ).bodySmall,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -1744,7 +1840,8 @@ class _HomeScreenState extends State<HomeScreen> {
           DeviceSendPolicy.evaluate(
             policy: _selectedDeviceSafetyPolicy,
             writeTargetKey: writeTarget.key,
-            writeWithResponseAvailable: writeTarget.canWrite,
+            writeWithResponseSelected:
+                writeTarget.writeMode == BluetoothWriteMode.withResponse,
             finalFrameLength: result.bytes.length,
           );
       if (!devicePolicyDecision.allowed) {
@@ -1843,7 +1940,8 @@ class _HomeScreenState extends State<HomeScreen> {
       .map(
         (DeviceSendPolicyReason reason) => switch (reason) {
           DeviceSendPolicyReason.writeTargetNotAllowed => '当前写入特征不在允许列表中',
-          DeviceSendPolicyReason.writeWithResponseRequired => '当前特征不支持带响应写入',
+          DeviceSendPolicyReason.writeWithResponseRequired =>
+            '当前选择的写入模式不是带响应写入',
           DeviceSendPolicyReason.finalFrameTooLarge => '最终帧超过设备配置的字节上限',
         },
       )
@@ -1988,6 +2086,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _discardedLogCount += _logs.length - _maxConsoleLogs;
       _logs.removeRange(_maxConsoleLogs, _logs.length);
     }
+    _invalidateVisibleConsoleLogs();
     _persistSessionLogs();
   }
 
@@ -2346,7 +2445,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final workspace = _workspaceManager.activeWorkspace;
-    final bool compactToolbar = MediaQuery.sizeOf(context).width < 680;
     final bool compactConnectedStyle =
         _connectionOperation == _ConnectionOperation.disconnect ||
         _connectionOperation == null && _selectedDevice?.connected == true;
@@ -2386,111 +2484,123 @@ class _HomeScreenState extends State<HomeScreen> {
         autofocus: true,
         child: shad.Scaffold(
           headers: <Widget>[
-            shad.AppBar(
-              height: 56,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              alignment: Alignment.centerLeft,
-              title: const _AppIdentity(),
-              trailingGap: compactToolbar
-                  ? 4
-                  : _WorkspaceSelector._toolbarControlGap,
-              trailing: <Widget>[
-                _WorkspaceSelector(
-                  workspace: workspace,
-                  workspaces: _workspaceManager.workspaces,
-                  compact: compactToolbar,
-                  onSelected: (String workspaceId) {
-                    setState(() {
-                      _packetDecoder.reset();
-                      _scriptSendRateLimiter.reset();
-                      _pendingReceiveEvents.clear();
-                      _monitoredValues.clear();
-                      _workspaceManager.setActiveWorkspace(workspaceId);
-                      _persistWorkspaces();
-                    });
-                  },
-                  onNew: _createWorkspace,
-                  onDelete: _deleteActiveWorkspace,
-                  onExport: _exportWorkspaces,
-                  onImport: _importWorkspaces,
-                  l10n: l10n,
-                ),
-                if (!compactToolbar) ...<Widget>[
-                  _ConnectionSelector(
-                    devices: _devices,
-                    selectedId: _selectedDeviceId,
-                    connected: _selectedDevice?.connected ?? false,
-                    operation: _connectionOperation,
-                    onSelected: _selectDevice,
-                    onToggleConnection: _toggleConnection,
-                    l10n: l10n,
-                  ),
-                ],
-                if (compactToolbar)
-                  ToolTooltip(
-                    message:
-                        _connectionOperation == _ConnectionOperation.disconnect
-                        ? l10n.disconnecting
-                        : _connectionOperation == _ConnectionOperation.connect
-                        ? l10n.connecting
-                        : _selectedDevice == null
-                        ? l10n.selectDeviceFirst
-                        : _selectedDevice?.connected == true
-                        ? '${l10n.connected} · ${l10n.disconnectDevice}'
-                        : l10n.connectDevice,
-                    child: shad.IconButton(
-                      key: const ValueKey<String>('connection-action-button'),
-                      variance: compactConnectionStyle,
-                      density: shad.ButtonDensity.iconDense,
-                      size: shad.ButtonSize.small,
-                      onPressed:
-                          _selectedDevice == null ||
-                              _connectionOperation != null
-                          ? null
-                          : _toggleConnection,
-                      icon: Icon(
-                        _connectionOperation != null
-                            ? AppIcons.syncOutlined
+            LayoutBuilder(
+              key: const ValueKey<String>('home-toolbar-layout'),
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final bool compactToolbar =
+                    constraints.maxWidth <
+                    _WorkspaceSelector._compactToolbarBreakpoint;
+                return shad.AppBar(
+                  height: 56,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  alignment: Alignment.centerLeft,
+                  title: const _AppIdentity(),
+                  trailingGap: compactToolbar
+                      ? 4
+                      : _WorkspaceSelector._toolbarControlGap,
+                  trailing: <Widget>[
+                    _WorkspaceSelector(
+                      workspace: workspace,
+                      workspaces: _workspaceManager.workspaces,
+                      compact: compactToolbar,
+                      onSelected: (String workspaceId) {
+                        setState(() {
+                          _packetDecoder.reset();
+                          _scriptSendRateLimiter.reset();
+                          _pendingReceiveEvents.clear();
+                          _monitoredValues.clear();
+                          _workspaceManager.setActiveWorkspace(workspaceId);
+                          _persistWorkspaces();
+                        });
+                      },
+                      onNew: _createWorkspace,
+                      onDelete: _deleteActiveWorkspace,
+                      onExport: _exportWorkspaces,
+                      onImport: _importWorkspaces,
+                      l10n: l10n,
+                    ),
+                    if (!compactToolbar) ...<Widget>[
+                      _ConnectionSelector(
+                        devices: _devices,
+                        selectedId: _selectedDeviceId,
+                        connected: _selectedDevice?.connected ?? false,
+                        operation: _connectionOperation,
+                        onSelected: _selectDevice,
+                        onToggleConnection: _toggleConnection,
+                        l10n: l10n,
+                      ),
+                    ],
+                    if (compactToolbar)
+                      ToolTooltip(
+                        message:
+                            _connectionOperation ==
+                                _ConnectionOperation.disconnect
+                            ? l10n.disconnecting
+                            : _connectionOperation ==
+                                  _ConnectionOperation.connect
+                            ? l10n.connecting
+                            : _selectedDevice == null
+                            ? l10n.selectDeviceFirst
                             : _selectedDevice?.connected == true
-                            ? AppIcons.linkOff
-                            : AppIcons.bluetoothOutlined,
+                            ? '${l10n.connected} · ${l10n.disconnectDevice}'
+                            : l10n.connectDevice,
+                        child: shad.IconButton(
+                          key: const ValueKey<String>(
+                            'connection-action-button',
+                          ),
+                          variance: compactConnectionStyle,
+                          density: shad.ButtonDensity.iconDense,
+                          size: shad.ButtonSize.small,
+                          onPressed:
+                              _selectedDevice == null ||
+                                  _connectionOperation != null
+                              ? null
+                              : _toggleConnection,
+                          icon: Icon(
+                            _connectionOperation != null
+                                ? AppIcons.syncOutlined
+                                : _selectedDevice?.connected == true
+                                ? AppIcons.linkOff
+                                : AppIcons.bluetoothOutlined,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                if (compactToolbar)
-                  ToolTooltip(
-                    message: _scanning ? l10n.stopScan : l10n.startScan,
-                    child: shad.IconButton(
-                      key: const ValueKey<String>('scan-button'),
-                      variance: _scanning
-                          ? shad.ButtonVariance.outline
-                          : shad.ButtonVariance.primary,
-                      density: shad.ButtonDensity.iconDense,
-                      size: shad.ButtonSize.small,
-                      onPressed: _toggleScan,
-                      icon: Icon(
-                        _scanning ? AppIcons.stopCircle : AppIcons.radar,
+                    if (compactToolbar)
+                      ToolTooltip(
+                        message: _scanning ? l10n.stopScan : l10n.startScan,
+                        child: shad.IconButton(
+                          key: const ValueKey<String>('scan-button'),
+                          variance: _scanning
+                              ? shad.ButtonVariance.outline
+                              : shad.ButtonVariance.primary,
+                          density: shad.ButtonDensity.iconDense,
+                          size: shad.ButtonSize.small,
+                          onPressed: _toggleScan,
+                          icon: Icon(
+                            _scanning ? AppIcons.stopCircle : AppIcons.radar,
+                          ),
+                        ),
+                      )
+                    else
+                      _ScanButton(
+                        scanning: _scanning,
+                        onPressed: _toggleScan,
+                        l10n: l10n,
                       ),
-                    ),
-                  )
-                else
-                  _ScanButton(
-                    scanning: _scanning,
-                    onPressed: _toggleScan,
-                    l10n: l10n,
-                  ),
-                if (compactToolbar || kIsWeb)
-                  _AppOverflowMenu(
-                    themeMode: widget.themeMode,
-                    onThemeModeChanged: widget.onThemeModeChanged,
-                    onLocaleChanged: widget.onLocaleChanged,
-                    includeAppearance: compactToolbar,
-                    onConfigureWebServices: kIsWeb
-                        ? _configureWebServices
-                        : null,
-                    l10n: l10n,
-                  ),
-              ],
+                    if (compactToolbar || kIsWeb)
+                      _AppOverflowMenu(
+                        themeMode: widget.themeMode,
+                        onThemeModeChanged: widget.onThemeModeChanged,
+                        onLocaleChanged: widget.onLocaleChanged,
+                        includeAppearance: compactToolbar,
+                        onConfigureWebServices: kIsWeb
+                            ? _configureWebServices
+                            : null,
+                        l10n: l10n,
+                      ),
+                  ],
+                );
+              },
             ),
             const shad.Divider(height: 1),
           ],
@@ -2498,9 +2608,8 @@ class _HomeScreenState extends State<HomeScreen> {
             mode: _mode,
             onModeChanged: (mode) => setState(() => _mode = mode),
             l10n: l10n,
+            characteristicsOpen: _characteristicsOpen,
             inspectorOpen: _inspectorOpen,
-            onInspectorVisibilityChanged: (value) =>
-                setState(() => _inspectorOpen = value),
             debugPane: _ConsoleArea(
               logs: _visibleConsoleLogs,
               discardedLogCount: _discardedLogCount,
@@ -2522,14 +2631,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   .where((item) => item.isWriteTarget)
                   .map((item) => item.characteristicId)
                   .firstOrNull,
+              characteristicsOpen: _characteristicsOpen,
+              onCharacteristicsVisibilityChanged: (value) =>
+                  setState(() => _characteristicsOpen = value),
+              inspectorOpen: _inspectorOpen,
+              onInspectorVisibilityChanged: (value) =>
+                  setState(() => _inspectorOpen = value),
               l10n: l10n,
               selectedLog: _selectedLog,
               onLogSelected: (SessionLogRecord record) =>
                   setState(() => _selectedLog = record),
               logFilter: _consoleLogFilter,
-              onLogFilterChanged: (value) =>
-                  setState(() => _consoleLogFilter = value),
-              onSearchChanged: (_) => setState(() {}),
+              onLogFilterChanged: (value) => setState(() {
+                _consoleLogFilter = value;
+                _invalidateVisibleConsoleLogs();
+              }),
+              onSearchChanged: (_) => setState(_invalidateVisibleConsoleLogs),
               onExport: _exportSessionLogs,
             ),
             devicePane: _DeviceToolsPanel(

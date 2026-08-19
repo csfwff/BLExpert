@@ -7,7 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'package:blexpert/app/app_theme.dart';
+import 'package:blexpert/app/design/app_icons.dart';
 import 'package:blexpert/app/design/tool_button.dart';
+import 'package:blexpert/app/design/tool_text_field.dart';
 import 'package:blexpert/app/design/tool_toggle.dart';
 import 'package:blexpert/app/design/tool_tooltip.dart';
 
@@ -212,6 +214,77 @@ void main() {
       find.byType(shad.FocusOutline),
     );
     expect(outline.focused, isTrue);
+  });
+
+  testWidgets('输入框默认使用紧凑内边距并允许局部覆盖', (WidgetTester tester) async {
+    const EdgeInsetsGeometry overridePadding = EdgeInsets.symmetric(
+      horizontal: 8,
+      vertical: 6,
+    );
+    await tester.pumpWidget(
+      _themedHarness(
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ToolTextField(label: '默认'),
+            ToolTextField(
+              label: '覆盖',
+              showLabel: false,
+              padding: overridePadding,
+              style: TextStyle(fontSize: 11, fontFamily: 'monospace'),
+            ),
+            ToolTextField(
+              label: '带图标',
+              showLabel: false,
+              prefix: Icon(AppIcons.search, size: 18),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final List<shad.TextField> fields = tester
+        .widgetList<shad.TextField>(find.byType(shad.TextField))
+        .toList(growable: false);
+    expect(fields, hasLength(3));
+    expect(fields.first.padding, ToolTextField.defaultPadding);
+    expect(fields[1].padding, overridePadding);
+    expect(fields.last.padding, ToolTextField.iconPadding);
+    expect(fields.first.style?.fontSize, 12);
+    expect(fields[1].style?.fontSize, 11);
+    expect(fields[1].style?.fontFamily, 'monospace');
+    expect(fields.last.style?.fontSize, 12);
+    expect(tester.widget<Text>(find.text('默认')).style?.fontSize, 12);
+    final Iterable<shad.Theme> fieldThemes = tester.widgetList<shad.Theme>(
+      find.ancestor(
+        of: find.byType(shad.TextField).first,
+        matching: find.byType(shad.Theme),
+      ),
+    );
+    expect(
+      fieldThemes.any(
+        (shad.Theme theme) => theme.data.density == shad.Density.compactDensity,
+      ),
+      isTrue,
+    );
+    final Iterable<shad.Theme> iconFieldThemes = tester.widgetList<shad.Theme>(
+      find.ancestor(
+        of: find.byType(shad.TextField).last,
+        matching: find.byType(shad.Theme),
+      ),
+    );
+    expect(
+      iconFieldThemes.any(
+        (shad.Theme theme) => theme.data.density == ToolTextField.iconDensity,
+      ),
+      isTrue,
+    );
+    final Rect iconFieldRect = tester.getRect(find.byType(shad.TextField).last);
+    final Rect iconRect = tester.getRect(find.byIcon(AppIcons.search));
+    final Rect placeholderRect = tester.getRect(find.text('带图标'));
+    expect(iconRect.left - iconFieldRect.left, closeTo(4, 0.5));
+    expect(placeholderRect.left - iconRect.right, closeTo(2, 0.5));
   });
 
   testWidgets('Switch 在中间帧移动并在 200ms 到达终态', (WidgetTester tester) async {

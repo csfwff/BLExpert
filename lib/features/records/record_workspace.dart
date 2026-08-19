@@ -98,23 +98,28 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: ToolTextField(
-            controller: _filterController,
-            label: '搜索文本或 HEX',
-            hintText: '搜索文本或 HEX',
-            showLabel: false,
-            onChanged: (_) => setState(() {}),
-            prefix: const Icon(AppIcons.search, size: 18),
-            suffix: _filterController.text.isEmpty
-                ? null
-                : ToolIconButton(
-                    tooltip: '清除筛选',
-                    onPressed: () {
-                      _filterController.clear();
-                      setState(() {});
-                    },
-                    icon: const Icon(AppIcons.clear, size: 18),
-                  ),
+          child: SizedBox(
+            height: 32,
+            child: ToolTextField(
+              key: const ValueKey<String>('session-record-filter'),
+              controller: _filterController,
+              label: '搜索文本或 HEX',
+              hintText: '搜索文本或 HEX',
+              showLabel: false,
+              onChanged: (_) => setState(() {}),
+              prefix: const Icon(AppIcons.search, size: 18),
+              suffix: _filterController.text.isEmpty
+                  ? null
+                  : ToolIconButton(
+                      tooltip: '清除筛选',
+                      touchSize: 24,
+                      onPressed: () {
+                        _filterController.clear();
+                        setState(() {});
+                      },
+                      icon: const Icon(AppIcons.clear, size: 18),
+                    ),
+            ),
           ),
         ),
         SizedBox(
@@ -196,18 +201,25 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
             ),
           ),
         Expanded(
-          child: filteredLogs.isEmpty
-              ? Center(child: Text(widget.l10n.noData))
-              : ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: filteredLogs.length,
-                  separatorBuilder: (_, _) => const shad.Divider(height: 1),
-                  itemBuilder: (_, int index) => _LogLine(
-                    entry: filteredLogs[index],
-                    l10n: widget.l10n,
-                    onToggleBookmark: widget.onToggleBookmark,
-                  ),
-                ),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final bool compact =
+                  constraints.maxWidth < _LogLine.compactBreakpoint;
+              return filteredLogs.isEmpty
+                  ? Center(child: Text(widget.l10n.noData))
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: filteredLogs.length,
+                      separatorBuilder: (_, _) => const shad.Divider(height: 1),
+                      itemBuilder: (_, int index) => _LogLine(
+                        entry: filteredLogs[index],
+                        l10n: widget.l10n,
+                        compact: compact,
+                        onToggleBookmark: widget.onToggleBookmark,
+                      ),
+                    );
+            },
+          ),
         ),
       ],
     );

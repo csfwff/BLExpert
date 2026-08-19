@@ -3,6 +3,7 @@ part of '../home/home_screen.dart';
 class _CharacteristicTile extends StatelessWidget {
   const _CharacteristicTile({
     required this.characteristic,
+    required this.dense,
     required this.onSelectWrite,
     required this.onSubscriptionChanged,
     required this.onRead,
@@ -10,7 +11,9 @@ class _CharacteristicTile extends StatelessWidget {
   });
 
   final BluetoothCharacteristicInfo characteristic;
-  final Future<void> Function(BluetoothCharacteristicInfo) onSelectWrite;
+  final bool dense;
+  final Future<void> Function(BluetoothCharacteristicInfo, BluetoothWriteMode)
+  onSelectWrite;
   final Future<void> Function(
     BluetoothCharacteristicInfo,
     BluetoothSubscriptionMode,
@@ -22,11 +25,28 @@ class _CharacteristicTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool dense = MediaQuery.sizeOf(context).width >= 680;
-    final TextStyle actionTextStyle = AppTheme.of(context).typography.xSmall;
+    const TextStyle actionTextStyle = TextStyle(fontSize: 10);
+    final List<Widget> capabilityMarkers = <Widget>[
+      if (characteristic.canRead)
+        _CapabilityMarker(code: 'R←', label: l10n.readCapabilityDescription),
+      if (characteristic.canWrite)
+        _CapabilityMarker(code: 'W→', label: l10n.writeCapabilityDescription),
+      if (characteristic.canWriteWithoutResponse)
+        _CapabilityMarker(
+          code: 'WNR→',
+          label: l10n.writeNoResponseCapabilityDescription,
+        ),
+      if (characteristic.canNotify)
+        _CapabilityMarker(code: 'N←', label: l10n.notifyCapabilityDescription),
+      if (characteristic.canIndicate)
+        _CapabilityMarker(
+          code: 'I←',
+          label: l10n.indicateCapabilityDescription,
+        ),
+    ];
     return Container(
       margin: const EdgeInsets.only(left: 6),
-      padding: const EdgeInsets.fromLTRB(6, 6, 4, 6),
+      padding: const EdgeInsets.fromLTRB(6, 5, 4, 5),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: AppTheme.colorsOf(context).border),
@@ -47,7 +67,7 @@ class _CharacteristicTile extends StatelessWidget {
                     : AppTheme.colorsOf(context).border,
               ),
               const SizedBox(width: 4),
-              Expanded(
+              Flexible(
                 child: Text(
                   _characteristicTitle(characteristic.characteristicId, l10n) ??
                       _shortUuid(characteristic.characteristicId),
@@ -59,6 +79,16 @@ class _CharacteristicTile extends StatelessWidget {
                   ),
                 ),
               ),
+              if (capabilityMarkers.isNotEmpty) ...<Widget>[
+                const SizedBox(width: 4),
+                ...capabilityMarkers.expand(
+                  (Widget marker) => <Widget>[
+                    marker,
+                    if (marker != capabilityMarkers.last)
+                      const SizedBox(width: 2),
+                  ],
+                ),
+              ],
             ],
           ),
           Text(
@@ -67,23 +97,6 @@ class _CharacteristicTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 10),
           ),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: <Widget>[
-              if (characteristic.canWrite)
-                _CapabilityChip(code: 'W', label: l10n.writeWithResponse),
-              if (characteristic.canWriteWithoutResponse)
-                _CapabilityChip(code: 'NR', label: l10n.writeWithoutResponse),
-              if (characteristic.canRead)
-                _CapabilityChip(code: 'R', label: l10n.read),
-              if (characteristic.canNotify)
-                _CapabilityChip(code: 'N', label: l10n.notify),
-              if (characteristic.canIndicate)
-                _CapabilityChip(code: 'I', label: l10n.indicate),
-            ],
-          ),
           if (characteristic.canRead ||
               characteristic.canWrite ||
               characteristic.canWriteWithoutResponse ||
@@ -91,33 +104,66 @@ class _CharacteristicTile extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Wrap(
-                spacing: 8,
+                spacing: 4,
                 runSpacing: 4,
                 children: <Widget>[
                   if (characteristic.canRead)
-                    ToolTooltip(
-                      message: l10n.readValue,
-                      child: shad.IconButton.ghost(
-                        key: ValueKey<String>(
-                          'characteristic-read-${characteristic.key}',
-                        ),
-                        icon: const Icon(AppIcons.downloadOutlined, size: 18),
-                        size: dense
-                            ? shad.ButtonSize.small
-                            : shad.ButtonSize.normal,
-                        onPressed: () => onRead(characteristic),
+                    ToolButton.outline(
+                      key: ValueKey<String>(
+                        'characteristic-read-${characteristic.key}',
                       ),
+                      compact: dense,
+                      height: 28,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      onPressed: () => onRead(characteristic),
+                      child: const Text('Read', style: actionTextStyle),
                     ),
-                  if (characteristic.canWrite ||
-                      characteristic.canWriteWithoutResponse)
+                  if (characteristic.canWrite)
                     ToolSelectedButton(
                       key: ValueKey<String>(
-                        'characteristic-write-target-${characteristic.key}',
+                        'characteristic-write-${characteristic.key}',
                       ),
-                      value: characteristic.isWriteTarget,
+                      value:
+                          characteristic.writeMode ==
+                          BluetoothWriteMode.withResponse,
                       compact: dense,
-                      onChanged: (_) => onSelectWrite(characteristic),
-                      child: Text(l10n.writeTarget, style: actionTextStyle),
+                      minHeight: 28,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
+                      onChanged: (_) => onSelectWrite(
+                        characteristic,
+                        BluetoothWriteMode.withResponse,
+                      ),
+                      child: const Text('Write', style: actionTextStyle),
+                    ),
+                  if (characteristic.canWriteWithoutResponse)
+                    ToolSelectedButton(
+                      key: ValueKey<String>(
+                        'characteristic-write-no-response-${characteristic.key}',
+                      ),
+                      value:
+                          characteristic.writeMode ==
+                          BluetoothWriteMode.withoutResponse,
+                      compact: dense,
+                      minHeight: 28,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
+                      onChanged: (_) => onSelectWrite(
+                        characteristic,
+                        BluetoothWriteMode.withoutResponse,
+                      ),
+                      child: const Text(
+                        'Write No Response',
+                        maxLines: 1,
+                        style: actionTextStyle,
+                      ),
                     ),
                   if (characteristic.canNotify)
                     ToolSelectedButton(
@@ -129,12 +175,17 @@ class _CharacteristicTile extends StatelessWidget {
                           characteristic.subscriptionMode ==
                               BluetoothSubscriptionMode.notify,
                       compact: dense,
+                      minHeight: 28,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
                       onChanged: (bool selected) => onSubscriptionChanged(
                         characteristic,
                         BluetoothSubscriptionMode.notify,
                         selected,
                       ),
-                      child: Text(l10n.notify, style: actionTextStyle),
+                      child: const Text('Notify', style: actionTextStyle),
                     ),
                   if (characteristic.canIndicate)
                     ToolSelectedButton(
@@ -146,12 +197,17 @@ class _CharacteristicTile extends StatelessWidget {
                           characteristic.subscriptionMode ==
                               BluetoothSubscriptionMode.indicate,
                       compact: dense,
+                      minHeight: 28,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
                       onChanged: (bool selected) => onSubscriptionChanged(
                         characteristic,
                         BluetoothSubscriptionMode.indicate,
                         selected,
                       ),
-                      child: Text(l10n.indicate, style: actionTextStyle),
+                      child: const Text('Indicate', style: actionTextStyle),
                     ),
                 ],
               ),
@@ -162,8 +218,8 @@ class _CharacteristicTile extends StatelessWidget {
   }
 }
 
-class _CapabilityChip extends StatelessWidget {
-  const _CapabilityChip({required this.code, required this.label});
+class _CapabilityMarker extends StatelessWidget {
+  const _CapabilityMarker({required this.code, required this.label});
   final String code;
   final String label;
 
@@ -173,12 +229,23 @@ class _CapabilityChip extends StatelessWidget {
       message: label,
       child: Semantics(
         label: label,
-        child: shad.SecondaryBadge(
-          style: const shad.ButtonStyle.secondary(
-            size: shad.ButtonSize.xSmall,
-            density: shad.ButtonDensity.dense,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+          decoration: BoxDecoration(
+            color: AppTheme.colorsOf(context).secondary,
+            border: Border.all(color: AppTheme.colorsOf(context).border),
+            borderRadius: BorderRadius.circular(2),
           ),
-          child: Text(code, style: const TextStyle(fontSize: 10)),
+          child: Text(
+            code,
+            maxLines: 1,
+            style: TextStyle(
+              color: AppTheme.colorsOf(context).secondaryForeground,
+              fontFamily: 'monospace',
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
       ),
     );

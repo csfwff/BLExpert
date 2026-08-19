@@ -25,6 +25,7 @@ class _WorkspaceSelector extends StatelessWidget {
   static const double _toolbarControlHeight = 36;
   static const double _toolbarControlWidth = 136;
   static const double _toolbarControlGap = 8;
+  static const double _compactToolbarBreakpoint = 760;
 
   void _showWorkspaceMenu(BuildContext context) {
     shad
@@ -90,6 +91,7 @@ class _WorkspaceSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final TextStyle toolbarTextStyle = AppTheme.of(context).typography.xSmall;
     final Widget trigger = SizedBox(
       height: _toolbarControlHeight,
       child: compact
@@ -113,6 +115,7 @@ class _WorkspaceSelector extends StatelessWidget {
                 onPressed: () => _showWorkspaceMenu(context),
                 child: Text(
                   workspace.name,
+                  style: toolbarTextStyle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -146,6 +149,7 @@ class _ScanButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String label = scanning ? l10n.stopScan : l10n.startScan;
+    final TextStyle toolbarTextStyle = AppTheme.of(context).typography.xSmall;
     return SizedBox(
       width: _WorkspaceSelector._toolbarControlWidth,
       height: _WorkspaceSelector._toolbarControlHeight,
@@ -168,7 +172,64 @@ class _ScanButton extends StatelessWidget {
         ),
         child: FittedBox(
           fit: BoxFit.scaleDown,
-          child: Text(label, maxLines: 1, softWrap: false),
+          child: Text(
+            label,
+            style: toolbarTextStyle,
+            maxLines: 1,
+            softWrap: false,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactDeviceSelectItem extends StatelessWidget {
+  const _CompactDeviceSelectItem({required this.value, required this.child});
+
+  final String value;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final shad.SelectPopupHandle? data =
+        shad.Data.maybeOf<shad.SelectPopupHandle>(context);
+    final bool isSelected = data?.isSelected(value) ?? false;
+    final bool hasSelection = data?.hasSelection ?? false;
+
+    return SizedBox(
+      key: ValueKey<String>('bluetooth-device-option-$value'),
+      height: 24,
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (ActivateIntent intent) {
+              data?.selectItem(value, !isSelected);
+              return null;
+            },
+          ),
+        },
+        child: shad.SubFocus(
+          builder: (BuildContext context, shad.SubFocusState state) =>
+              shad.WidgetStatesProvider(
+                states: <WidgetState>{if (state.isFocused) WidgetState.hovered},
+                child: shad.Button(
+                  disableTransition: true,
+                  alignment: AlignmentDirectional.centerStart,
+                  onPressed: () => data?.selectItem(value, !isSelected),
+                  style: const shad.ButtonStyle.ghost().copyWith(
+                    padding: (_, _, _) =>
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    mouseCursor: (_, _, _) => SystemMouseCursors.basic,
+                  ),
+                  trailing: isSelected
+                      ? const Icon(shad.LucideIcons.check, size: 14)
+                      : hasSelection
+                      ? const SizedBox(width: 14)
+                      : null,
+                  child: child,
+                ),
+              ),
         ),
       ),
     );
@@ -196,7 +257,7 @@ class _ConnectionSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final device = devices.where((item) => item.id == selectedId).firstOrNull;
-    final TextStyle deviceTextStyle = AppTheme.of(context).typography.xSmall;
+    final TextStyle toolbarTextStyle = AppTheme.of(context).typography.xSmall;
     final bool busy = operation != null;
     final bool useConnectedStyle =
         operation == _ConnectionOperation.disconnect ||
@@ -250,10 +311,11 @@ class _ConnectionSelector extends StatelessWidget {
               key: const ValueKey<String>('bluetooth-device-selector'),
               value: device?.id,
               enabled: devices.isNotEmpty,
-              placeholder: Text(l10n.noDevice, style: deviceTextStyle),
+              placeholder: Text(l10n.noDevice, style: toolbarTextStyle),
               constraints: const BoxConstraints.tightFor(
                 height: _WorkspaceSelector._toolbarControlHeight,
               ),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               popupConstraints: const BoxConstraints(maxHeight: 280),
               popoverAlignment: Alignment.bottomCenter,
               popoverAnchorAlignment: Alignment.topCenter,
@@ -263,7 +325,7 @@ class _ConnectionSelector extends StatelessWidget {
                 );
                 return Text(
                   item.name,
-                  style: deviceTextStyle,
+                  style: toolbarTextStyle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 );
@@ -273,16 +335,15 @@ class _ConnectionSelector extends StatelessWidget {
                 items: shad.SelectItemList(
                   children: devices
                       .map(
-                        (BluetoothDeviceInfo item) =>
-                            shad.SelectItemButton<String>(
-                              value: item.id,
-                              child: Text(
-                                item.name,
-                                style: deviceTextStyle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
+                        (BluetoothDeviceInfo item) => _CompactDeviceSelectItem(
+                          value: item.id,
+                          child: Text(
+                            item.name,
+                            style: toolbarTextStyle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       )
                       .toList(growable: false),
                 ),
@@ -312,7 +373,12 @@ class _ConnectionSelector extends StatelessWidget {
                     ),
               child: FittedBox(
                 fit: BoxFit.scaleDown,
-                child: Text(buttonLabel, maxLines: 1, softWrap: false),
+                child: Text(
+                  buttonLabel,
+                  style: toolbarTextStyle,
+                  maxLines: 1,
+                  softWrap: false,
+                ),
               ),
             ),
           ),

@@ -15,7 +15,8 @@ class _DeviceToolsPanel extends StatefulWidget {
   final List<BluetoothCharacteristicInfo> characteristics;
   final bool connected;
   final DeviceSafetyPolicy safetyPolicy;
-  final Future<void> Function(BluetoothCharacteristicInfo) onSelectWrite;
+  final Future<void> Function(BluetoothCharacteristicInfo, BluetoothWriteMode)
+  onSelectWrite;
   final Future<void> Function(
     BluetoothCharacteristicInfo,
     BluetoothSubscriptionMode,
@@ -32,17 +33,19 @@ class _DeviceToolsPanel extends StatefulWidget {
 
 class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
   final TextEditingController _filterController = TextEditingController();
+  final ScrollController _characteristicScrollController = ScrollController();
   bool _operableOnly = false;
 
   @override
   void dispose() {
     _filterController.dispose();
+    _characteristicScrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool dense = MediaQuery.sizeOf(context).width >= 680;
+    final bool multiPane = _DebugWorkspaceLayoutScope.multiPaneOf(context);
     final TextStyle hintStyle = AppTheme.textStylesOf(context).bodySmall;
     final TextStyle actionTextStyle = AppTheme.of(context).typography.xSmall;
     final List<BluetoothCharacteristicInfo> filteredCharacteristics =
@@ -58,157 +61,223 @@ class _DeviceToolsPanelState extends State<_DeviceToolsPanel> {
           )
           .add(characteristic);
     }
-    return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-      color: AppTheme.colorsOf(context).muted,
-      child: ListView(
-        children: <Widget>[
-          Row(
+    final bool showCharacteristicList =
+        widget.connected && widget.characteristics.isNotEmpty;
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final bool dense = multiPane || constraints.maxWidth >= 680;
+        return Container(
+          key: const ValueKey<String>('characteristic-panel'),
+          color: AppTheme.colorsOf(context).muted,
+          child: Column(
             children: <Widget>[
-              Expanded(
-                child: Text(
-                  widget.l10n.characteristics,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTheme.textStylesOf(
-                    context,
-                  ).titleSmall.copyWith(fontWeight: FontWeight.w700),
+              Padding(
+                key: const ValueKey<String>(
+                  'characteristic-panel-pinned-header',
+                ),
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
+                child: Column(
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            widget.l10n.characteristics,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTheme.textStylesOf(
+                              context,
+                            ).titleSmall.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            ExcludeSemantics(
+                              child: Icon(
+                                widget.connected
+                                    ? AppIcons.bluetoothConnected
+                                    : AppIcons.bluetoothOutlined,
+                                key: const ValueKey<String>(
+                                  'characteristic-connection-status-icon',
+                                ),
+                                size: 14,
+                                color: widget.connected
+                                    ? AppTheme.colorsOf(context).chart2
+                                    : AppTheme.colorsOf(
+                                        context,
+                                      ).mutedForeground,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              widget.connected
+                                  ? widget.l10n.connected
+                                  : widget.l10n.disconnected,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.end,
+                              style: AppTheme.textStylesOf(context).labelSmall,
+                            ),
+                          ],
+                        ),
+                        ToolTooltip(
+                          message: '设备发送策略',
+                          child: shad.IconButton.ghost(
+                            icon: Icon(
+                              widget
+                                          .safetyPolicy
+                                          .allowedWriteTargetKeys
+                                          .isNotEmpty ||
+                                      widget.safetyPolicy.maxFinalFrameBytes !=
+                                          null ||
+                                      widget
+                                          .safetyPolicy
+                                          .requireWriteWithResponse
+                                  ? AppIcons.shield
+                                  : AppIcons.shieldOutlined,
+                              size: 19,
+                            ),
+                            size: dense
+                                ? shad.ButtonSize.small
+                                : shad.ButtonSize.normal,
+                            onPressed:
+                                widget.connected &&
+                                    widget.characteristics.isNotEmpty
+                                ? widget.onEditSafetyPolicy
+                                : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    if (!widget.connected)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            widget.l10n.connectToDiscoverCharacteristics,
+                            style: hintStyle,
+                          ),
+                        ),
+                      ),
+                    if (widget.connected && widget.characteristics.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            widget.l10n.noCharacteristics,
+                            style: hintStyle,
+                          ),
+                        ),
+                      ),
+                    if (showCharacteristicList)
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.all(2),
+                              child: SizedBox(
+                                key: const ValueKey<String>(
+                                  'characteristic-filter',
+                                ),
+                                height: 32,
+                                child: ToolTextField(
+                                  controller: _filterController,
+                                  label: widget.l10n.filterCharacteristics,
+                                  hintText: widget.l10n.filterCharacteristics,
+                                  showLabel: false,
+                                  onChanged: (_) => setState(() {}),
+                                  prefix: const Icon(AppIcons.search, size: 18),
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          ToolTooltip(
+                            message: widget.l10n.operableOnly,
+                            child: ToolSelectedButton(
+                              key: const ValueKey<String>(
+                                'operable-characteristics-filter',
+                              ),
+                              value: _operableOnly,
+                              compact: dense,
+                              onChanged: (bool value) =>
+                                  setState(() => _operableOnly = value),
+                              child: Text('R/W', style: actionTextStyle),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 6),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  ExcludeSemantics(
-                    child: Icon(
-                      widget.connected
-                          ? AppIcons.bluetoothConnected
-                          : AppIcons.bluetoothOutlined,
-                      key: const ValueKey<String>(
-                        'characteristic-connection-status-icon',
+              if (showCharacteristicList)
+                Expanded(
+                  child: shad.Scrollbar(
+                    key: const ValueKey<String>(
+                      'characteristic-list-scrollbar',
+                    ),
+                    controller: _characteristicScrollController,
+                    thumbVisibility: true,
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(
+                        context,
+                      ).copyWith(scrollbars: false),
+                      child: ListView(
+                        key: const ValueKey<String>('characteristic-list'),
+                        controller: _characteristicScrollController,
+                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                        children: <Widget>[
+                          if (filteredCharacteristics.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                widget.l10n.noMatchingCharacteristics,
+                                style: hintStyle,
+                              ),
+                            )
+                          else
+                            ...byService.entries.expand(
+                              (
+                                MapEntry<
+                                  String,
+                                  List<BluetoothCharacteristicInfo>
+                                >
+                                entry,
+                              ) => <Widget>[
+                                _ServiceTreeHeader(
+                                  serviceId: entry.key,
+                                  title: _serviceTitle(entry.key, widget.l10n),
+                                ),
+                                ...entry.value.map(
+                                  (
+                                    BluetoothCharacteristicInfo characteristic,
+                                  ) => _CharacteristicTile(
+                                    characteristic: characteristic,
+                                    dense: dense,
+                                    onSelectWrite: widget.onSelectWrite,
+                                    onSubscriptionChanged:
+                                        widget.onSubscriptionChanged,
+                                    onRead: widget.onRead,
+                                    l10n: widget.l10n,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
                       ),
-                      size: 14,
-                      color: widget.connected
-                          ? AppTheme.colorsOf(context).chart2
-                          : AppTheme.colorsOf(context).mutedForeground,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    widget.connected
-                        ? widget.l10n.connected
-                        : widget.l10n.disconnected,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: AppTheme.textStylesOf(context).labelSmall,
-                  ),
-                ],
-              ),
-              ToolTooltip(
-                message: '设备发送策略',
-                child: shad.IconButton.ghost(
-                  icon: Icon(
-                    widget.safetyPolicy.allowedWriteTargetKeys.isNotEmpty ||
-                            widget.safetyPolicy.maxFinalFrameBytes != null ||
-                            widget.safetyPolicy.requireWriteWithResponse
-                        ? AppIcons.shield
-                        : AppIcons.shieldOutlined,
-                    size: 19,
-                  ),
-                  size: dense ? shad.ButtonSize.small : shad.ButtonSize.normal,
-                  onPressed:
-                      widget.connected && widget.characteristics.isNotEmpty
-                      ? widget.onEditSafetyPolicy
-                      : null,
                 ),
-              ),
             ],
           ),
-          const SizedBox(height: 4),
-          if (!widget.connected)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                widget.l10n.connectToDiscoverCharacteristics,
-                style: hintStyle,
-              ),
-            )
-          else if (widget.characteristics.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(widget.l10n.noCharacteristics, style: hintStyle),
-            )
-          else ...<Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: SizedBox(
-                    key: const ValueKey<String>('characteristic-filter'),
-                    height: 36,
-                    child: ToolTextField(
-                      controller: _filterController,
-                      label: widget.l10n.filterCharacteristics,
-                      hintText: widget.l10n.filterCharacteristics,
-                      showLabel: false,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      onChanged: (_) => setState(() {}),
-                      prefix: const Icon(AppIcons.search, size: 18),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                ToolTooltip(
-                  message: widget.l10n.operableOnly,
-                  child: ToolSelectedButton(
-                    key: const ValueKey<String>(
-                      'operable-characteristics-filter',
-                    ),
-                    value: _operableOnly,
-                    compact: dense,
-                    onChanged: (bool value) =>
-                        setState(() => _operableOnly = value),
-                    child: Text('R/W', style: actionTextStyle),
-                  ),
-                ),
-              ],
-            ),
-            if (filteredCharacteristics.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  widget.l10n.noMatchingCharacteristics,
-                  style: hintStyle,
-                ),
-              )
-            else
-              ...byService.entries.expand(
-                (
-                  MapEntry<String, List<BluetoothCharacteristicInfo>> entry,
-                ) => <Widget>[
-                  _ServiceTreeHeader(
-                    serviceId: entry.key,
-                    title: _serviceTitle(entry.key, widget.l10n),
-                  ),
-                  ...entry.value.map(
-                    (BluetoothCharacteristicInfo characteristic) =>
-                        _CharacteristicTile(
-                          characteristic: characteristic,
-                          onSelectWrite: widget.onSelectWrite,
-                          onSubscriptionChanged: widget.onSubscriptionChanged,
-                          onRead: widget.onRead,
-                          l10n: widget.l10n,
-                        ),
-                  ),
-                ],
-              ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 

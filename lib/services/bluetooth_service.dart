@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:universal_ble/universal_ble.dart';
 
+import '../models/bluetooth_write_mode.dart';
 import 'linux_device_trust.dart';
 import 'linux_value_bridge.dart';
 import 'web_bluetooth_scan_guard.dart';
@@ -63,7 +64,7 @@ class BluetoothCharacteristicInfo {
     required this.canNotify,
     required this.canIndicate,
     required this.isSubscribed,
-    required this.isWriteTarget,
+    this.writeMode,
     this.subscriptionMode,
   });
 
@@ -75,16 +76,18 @@ class BluetoothCharacteristicInfo {
   final bool canNotify;
   final bool canIndicate;
   final bool isSubscribed;
-  final bool isWriteTarget;
+  final BluetoothWriteMode? writeMode;
   final BluetoothSubscriptionMode? subscriptionMode;
 
   bool get canSubscribe => canNotify || canIndicate;
+  bool get isWriteTarget => writeMode != null;
 
   String get key => '$serviceId/$characteristicId';
 
   BluetoothCharacteristicInfo copyWith({
     bool? isSubscribed,
-    bool? isWriteTarget,
+    BluetoothWriteMode? writeMode,
+    bool clearWriteMode = false,
     BluetoothSubscriptionMode? subscriptionMode,
   }) {
     return BluetoothCharacteristicInfo(
@@ -96,7 +99,7 @@ class BluetoothCharacteristicInfo {
       canNotify: canNotify,
       canIndicate: canIndicate,
       isSubscribed: isSubscribed ?? this.isSubscribed,
-      isWriteTarget: isWriteTarget ?? this.isWriteTarget,
+      writeMode: clearWriteMode ? null : (writeMode ?? this.writeMode),
       subscriptionMode: subscriptionMode ?? this.subscriptionMode,
     );
   }
@@ -121,6 +124,7 @@ abstract class BluetoothService {
   Future<void> setWriteCharacteristic(
     String deviceId,
     BluetoothCharacteristicInfo characteristic,
+    BluetoothWriteMode mode,
   );
 
   Future<void> setCharacteristicSubscription(
@@ -314,15 +318,13 @@ class UniversalBleService implements BluetoothService {
     if (characteristic == null) {
       throw StateError('No write characteristic selected for $deviceId.');
     }
+    final BluetoothWriteMode mode = characteristic.writeMode!;
     await UniversalBle.write(
       deviceId,
       characteristic.serviceId,
       characteristic.characteristicId,
       Uint8List.fromList(bytes),
-      // Prefer acknowledged writes when both modes are available so the
-      // debugger reports transport failures instead of silently losing data.
-      withoutResponse:
-          !characteristic.canWrite && characteristic.canWriteWithoutResponse,
+      withoutResponse: mode == BluetoothWriteMode.withoutResponse,
     );
   }
 
@@ -375,7 +377,6 @@ class UniversalBleService implements BluetoothService {
                   CharacteristicProperty.indicate,
                 ),
                 isSubscribed: false,
-                isWriteTarget: false,
               ),
         ];
     _characteristics[deviceId] = characteristics;
@@ -457,20 +458,21 @@ class UniversalBleService implements BluetoothService {
   Future<void> setWriteCharacteristic(
     String deviceId,
     BluetoothCharacteristicInfo characteristic,
+    BluetoothWriteMode mode,
   ) async {
-    if (!characteristic.canWrite && !characteristic.canWriteWithoutResponse) {
+    final bool supported = switch (mode) {
+      BluetoothWriteMode.withResponse => characteristic.canWrite,
+      BluetoothWriteMode.withoutResponse =>
+        characteristic.canWriteWithoutResponse,
+    };
+    if (!supported) {
       throw ArgumentError.value(
-        characteristic,
-        'characteristic',
-        'Characteristic is not writable.',
+        mode,
+        'mode',
+        'The characteristic does not support this write mode.',
       );
     }
-    _updateCharacteristic(
-      deviceId,
-      characteristic.key,
-      (BluetoothCharacteristicInfo item) =>
-          item.copyWith(isWriteTarget: item.key == characteristic.key),
-    );
+    _setWriteTarget(deviceId, characteristic.key, mode);
   }
 
   @override
@@ -777,6 +779,23 @@ class UniversalBleService implements BluetoothService {
         .toList(growable: false);
   }
 
+  void _setWriteTarget(String deviceId, String key, BluetoothWriteMode mode) {
+    final List<BluetoothCharacteristicInfo>? current =
+        _characteristics[deviceId];
+    if (current == null) {
+      throw StateError(
+        'Characteristics have not been discovered for $deviceId.',
+      );
+    }
+    _characteristics[deviceId] = current
+        .map(
+          (BluetoothCharacteristicInfo item) => item.key == key
+              ? item.copyWith(writeMode: mode)
+              : item.copyWith(clearWriteMode: true),
+        )
+        .toList(growable: false);
+  }
+
   @override
   Future<void> dispose() async {
     await _linuxValueBridge.dispose();
@@ -802,6 +821,7 @@ class MockBluetoothService implements BluetoothService {
 
   final Object? connectError;
   final List<List<int>> sentPackets = <List<int>>[];
+  final List<BluetoothWriteMode> sentWriteModes = <BluetoothWriteMode>[];
 
   final StreamController<List<BluetoothDeviceInfo>> _scannedDevicesController =
       StreamController<List<BluetoothDeviceInfo>>.broadcast();
@@ -829,7 +849,6 @@ class MockBluetoothService implements BluetoothService {
             canNotify: true,
             canIndicate: false,
             isSubscribed: false,
-            isWriteTarget: false,
           ),
           const BluetoothCharacteristicInfo(
             serviceId: '0000FFF0-0000-1000-8000-00805F9B34FB',
@@ -840,7 +859,6 @@ class MockBluetoothService implements BluetoothService {
             canNotify: false,
             canIndicate: false,
             isSubscribed: false,
-            isWriteTarget: false,
           ),
           const BluetoothCharacteristicInfo(
             serviceId: '0000FFF0-0000-1000-8000-00805F9B34FB',
@@ -851,7 +869,6 @@ class MockBluetoothService implements BluetoothService {
             canNotify: true,
             canIndicate: true,
             isSubscribed: false,
-            isWriteTarget: false,
           ),
         ],
       };
@@ -882,13 +899,21 @@ class MockBluetoothService implements BluetoothService {
   Future<void> setWriteCharacteristic(
     String deviceId,
     BluetoothCharacteristicInfo characteristic,
+    BluetoothWriteMode mode,
   ) async {
-    _updateCharacteristic(
-      deviceId,
-      characteristic.key,
-      (BluetoothCharacteristicInfo item) =>
-          item.copyWith(isWriteTarget: item.key == characteristic.key),
-    );
+    final bool supported = switch (mode) {
+      BluetoothWriteMode.withResponse => characteristic.canWrite,
+      BluetoothWriteMode.withoutResponse =>
+        characteristic.canWriteWithoutResponse,
+    };
+    if (!supported) {
+      throw ArgumentError.value(
+        mode,
+        'mode',
+        'The characteristic does not support this write mode.',
+      );
+    }
+    _setWriteTarget(deviceId, characteristic.key, mode);
   }
 
   @override
@@ -933,13 +958,15 @@ class MockBluetoothService implements BluetoothService {
 
   @override
   Future<void> sendData(String deviceId, List<int> bytes) async {
-    final bool hasWriteTarget =
+    final BluetoothCharacteristicInfo? writeTarget =
         (_characteristics[deviceId] ?? const <BluetoothCharacteristicInfo>[])
-            .any((BluetoothCharacteristicInfo item) => item.isWriteTarget);
-    if (!hasWriteTarget) {
+            .where((BluetoothCharacteristicInfo item) => item.isWriteTarget)
+            .firstOrNull;
+    if (writeTarget == null) {
       throw StateError('No write characteristic selected for $deviceId.');
     }
     sentPackets.add(List<int>.unmodifiable(bytes));
+    sentWriteModes.add(writeTarget.writeMode!);
     _incomingControllers
         .putIfAbsent(
           deviceId,
@@ -1019,6 +1046,23 @@ class MockBluetoothService implements BluetoothService {
         .map(
           (BluetoothCharacteristicInfo item) =>
               item.key == key ? update(item) : item,
+        )
+        .toList(growable: false);
+  }
+
+  void _setWriteTarget(String deviceId, String key, BluetoothWriteMode mode) {
+    final List<BluetoothCharacteristicInfo>? current =
+        _characteristics[deviceId];
+    if (current == null) {
+      throw StateError(
+        'Characteristics have not been discovered for $deviceId.',
+      );
+    }
+    _characteristics[deviceId] = current
+        .map(
+          (BluetoothCharacteristicInfo item) => item.key == key
+              ? item.copyWith(writeMode: mode)
+              : item.copyWith(clearWriteMode: true),
         )
         .toList(growable: false);
   }

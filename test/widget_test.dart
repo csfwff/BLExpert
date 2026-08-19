@@ -9,8 +9,10 @@ import 'package:blexpert/app/app_theme.dart';
 import 'package:blexpert/app/design/app_icons.dart';
 import 'package:blexpert/app/design/tool_button.dart';
 import 'package:blexpert/app/design/tool_select.dart';
+import 'package:blexpert/app/design/tool_text_field.dart';
 import 'package:blexpert/app/design/tool_toggle.dart';
 import 'package:blexpert/app/design/tool_tooltip.dart';
+import 'package:blexpert/models/bluetooth_write_mode.dart';
 import 'package:blexpert/models/command_definition.dart';
 import 'package:blexpert/services/bluetooth_service.dart';
 
@@ -191,6 +193,34 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets('设备选择下拉使用紧凑选项密度', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('bluetooth-device-selector')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    final Finder option = find.byKey(
+      const ValueKey<String>('bluetooth-device-option-ble-001'),
+    );
+    expect(option, findsOneWidget);
+    expect(tester.getSize(option).height, 24);
+    expect(
+      tester.getSize(find.byType(shad.SelectPopup<String>)).width,
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('bluetooth-device-selector')),
+          )
+          .width,
+    );
+    final Text label = tester.widget<Text>(
+      find.descendant(of: option, matching: find.text('BLE 温度传感器')),
+    );
+    expect(label.style?.fontSize, 12);
+  });
+
   testWidgets('首页工具栏选择器与操作按钮使用统一尺寸和间距', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
@@ -218,7 +248,30 @@ void main() {
         matching: find.text('BLE 温度传感器'),
       ),
     );
-    expect(deviceLabel.style?.fontSize, lessThanOrEqualTo(12));
+    final List<Text> toolbarLabels = <Text>[
+      tester.widget<Text>(
+        find.descendant(of: controls[0], matching: find.text('默认工作区')),
+      ),
+      deviceLabel,
+      tester.widget<Text>(
+        find.descendant(of: controls[2], matching: find.text('连接设备')),
+      ),
+      tester.widget<Text>(
+        find.descendant(of: controls[3], matching: find.text('开始扫描')),
+      ),
+    ];
+    for (final Text label in toolbarLabels) {
+      expect(label.style?.fontSize, 12);
+    }
+    final shad.Button workspaceButton = tester.widget<shad.Button>(controls[0]);
+    final EdgeInsetsGeometry workspacePadding = workspaceButton.style.padding(
+      tester.element(controls[0]),
+      <WidgetState>{},
+    );
+    final shad.Select<String> deviceSelect = tester.widget<shad.Select<String>>(
+      controls[1],
+    );
+    expect(deviceSelect.padding, workspacePadding);
 
     expect(
       tester
@@ -413,6 +466,26 @@ void main() {
     );
     expect(sendLabel.maxLines, 1);
     expect(sendLabel.softWrap, isFalse);
+    final Finder writeTargetStatus = find.byKey(
+      const ValueKey<String>('console-write-target-status'),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('console-send-area')),
+        matching: writeTargetStatus,
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getRect(writeTargetStatus)
+          .overlaps(
+            tester.getRect(
+              find.byKey(const ValueKey<String>('console-mode-toggle')),
+            ),
+          ),
+      isFalse,
+    );
     await openWorkspaceSelector(tester);
     expect(
       tester.getSize(find.byType(shad.DropdownMenu)).width,
@@ -425,30 +498,281 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Inspector 开关不遮挡控制台清空操作', (WidgetTester tester) async {
+  testWidgets('窗口缩放时调试区按可用宽度切换且不产生溢出', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+    await tester.tap(findToolTooltip('连接设备'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('debug-workspace-pane-layout')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey<String>('log-line-wide')), findsWidgets);
+
+    tester.view.physicalSize = const Size(1160, 900);
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('debug-workspace-tab-layout')),
+      findsOneWidget,
+    );
+    expect(findToolTooltip('收起特征面板'), findsNothing);
+    expect(findToolTooltip('收起上下文面板'), findsNothing);
+    expect(
+      tester
+          .getRect(find.byKey(const ValueKey<String>('console-header-actions')))
+          .right,
+      closeTo(
+        tester
+                .getRect(find.byKey(const ValueKey<String>('console-header')))
+                .right -
+            8,
+        0.1,
+      ),
+    );
+    expect(tester.takeException(), isNull);
+
+    tester.view.physicalSize = const Size(720, 900);
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('bluetooth-device-selector')),
+      findsNothing,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey<String>('workspace-selector')))
+          .width,
+      lessThan(136),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('app-mode-navigation-mobile')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey<String>('log-line-wide')), findsWidgets);
+    expect(tester.takeException(), isNull);
+
+    tester.view.physicalSize = const Size(500, 900);
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('log-line-compact')),
+      findsWidgets,
+    );
+    expect(
+      tester
+          .getRect(find.byKey(const ValueKey<String>('console-header-actions')))
+          .right,
+      closeTo(
+        tester
+                .getRect(find.byKey(const ValueKey<String>('console-header')))
+                .right -
+            12,
+        0.1,
+      ),
+    );
+    expect(tester.takeException(), isNull);
+
+    tester.view.physicalSize = const Size(1200, 900);
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('debug-workspace-pane-layout')),
+      findsOneWidget,
+    );
+    expect(findToolTooltip('收起特征面板'), findsOneWidget);
+    expect(findToolTooltip('收起上下文面板'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('控制台右侧操作与 Inspector 开关保持对齐和稳定边距', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    final Rect clearButton = tester.getRect(findToolTooltip('清空'));
-    final Rect inspectorToggle = tester.getRect(findToolTooltip('收起上下文面板'));
+    void expectTrailingActionsAligned(String inspectorTooltip) {
+      final Rect header = tester.getRect(
+        find.byKey(const ValueKey<String>('console-header')),
+      );
+      final Rect actionGroup = tester.getRect(
+        find.byKey(const ValueKey<String>('console-header-actions')),
+      );
+      final Rect autoScroll = tester.getRect(findToolTooltip('自动滚动'));
+      final Rect exportButton = tester.getRect(findToolTooltip('导出日志'));
+      final Rect clearButton = tester.getRect(findToolTooltip('清空'));
+      final Rect inspectorToggle = tester.getRect(
+        findToolTooltip(inspectorTooltip),
+      );
 
-    expect(clearButton.overlaps(inspectorToggle), isFalse);
-    expect(clearButton.right, lessThanOrEqualTo(inspectorToggle.left - 4));
+      expect(actionGroup.right, closeTo(header.right - 8, 0.1));
+      expect(inspectorToggle.right, closeTo(header.right - 8, 0.1));
+      expect(clearButton.right, closeTo(inspectorToggle.left - 4, 0.1));
+      expect(autoScroll.center.dy, closeTo(inspectorToggle.center.dy, 0.1));
+      expect(exportButton.center.dy, closeTo(inspectorToggle.center.dy, 0.1));
+      expect(clearButton.center.dy, closeTo(inspectorToggle.center.dy, 0.1));
+      expect(clearButton.overlaps(inspectorToggle), isFalse);
+    }
+
+    expectTrailingActionsAligned('收起上下文面板');
+
+    await tester.tap(findToolTooltip('收起上下文面板'));
+    await tester.pumpAndSettle();
+
+    expect(findToolTooltip('收起上下文面板'), findsNothing);
+    expectTrailingActionsAligned('展开上下文面板');
+  });
+
+  testWidgets('桌面特征面板可收起和展开且控制台右侧操作位置稳定', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    final Finder panel = find.byKey(
+      const ValueKey<String>('characteristic-panel'),
+    );
+    final Finder header = find.byKey(const ValueKey<String>('console-header'));
+    final Finder actions = find.byKey(
+      const ValueKey<String>('console-header-actions'),
+    );
+    final double initialHeaderLeft = tester.getRect(header).left;
+    final double initialActionsRight = tester.getRect(actions).right;
+
+    expect(panel, findsOneWidget);
+    expect(findToolTooltip('收起特征面板'), findsOneWidget);
+
+    await tester.tap(findToolTooltip('收起特征面板'));
+    await tester.pumpAndSettle();
+
+    expect(panel, findsNothing);
+    expect(findToolTooltip('展开特征面板'), findsOneWidget);
+    expect(tester.getRect(header).left, lessThan(initialHeaderLeft));
+    expect(tester.getRect(actions).right, closeTo(initialActionsRight, 0.1));
+
+    await tester.tap(findToolTooltip('展开特征面板'));
+    await tester.pumpAndSettle();
+
+    expect(panel, findsOneWidget);
+    expect(findToolTooltip('收起特征面板'), findsOneWidget);
+    expect(tester.getRect(header).left, closeTo(initialHeaderLeft, 0.1));
+    expect(tester.getRect(actions).right, closeTo(initialActionsRight, 0.1));
   });
 
   testWidgets('发送区模式与行尾控件使用紧凑统一尺寸', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
-    final Rect modeToggle = tester.getRect(
-      find.byKey(const ValueKey<String>('console-mode-toggle')),
+    final Finder input = find.byKey(const ValueKey<String>('console-input'));
+    final Finder sendButton = find.byKey(
+      const ValueKey<String>('console-send-button'),
     );
-    final Rect lineEnding = tester.getRect(
-      find.byKey(const ValueKey<String>('console-line-ending')),
+    final Finder modeToggle = find.byKey(
+      const ValueKey<String>('console-mode-toggle'),
+    );
+    final Finder lineEnding = find.byKey(
+      const ValueKey<String>('console-line-ending'),
     );
 
-    expect(modeToggle.height, lessThanOrEqualTo(40));
-    expect(lineEnding.height, 36);
-    expect(modeToggle.center.dy, closeTo(lineEnding.center.dy, 2));
-    expect(modeToggle.width, lessThan(140));
+    expect(tester.getSize(input).height, 36);
+    expect(tester.getSize(sendButton), const Size(100, 36));
+    expect(
+      tester.getRect(input).top,
+      closeTo(tester.getRect(sendButton).top, 0.1),
+    );
+    final ToolTextField inputField = tester.widget<ToolTextField>(input);
+    expect(inputField.padding, ToolTextField.defaultPadding);
+    expect(inputField.style?.fontSize, 12);
+    expect(inputField.style?.fontFamily, 'monospace');
+    final ToolButton send = tester.widget<ToolButton>(sendButton);
+    expect(send.compact, isTrue);
+    expect(send.padding, const EdgeInsets.symmetric(horizontal: 10));
+    final Text sendText = tester.widget<Text>(
+      find.descendant(of: sendButton, matching: find.text('发送数据')),
+    );
+    expect(sendText.style?.fontSize, 12);
+    final Rect modeToggleRect = tester.getRect(modeToggle);
+    final Rect lineEndingRect = tester.getRect(lineEnding);
+    expect(modeToggleRect.height, 32);
+    expect(lineEndingRect.height, 32);
+    expect(lineEndingRect.width, 96);
+    expect(modeToggleRect.center.dy, closeTo(lineEndingRect.center.dy, 2));
+    expect(modeToggleRect.width, lessThan(140));
+    final Text modeLabel = tester.widget<Text>(
+      find.descendant(of: modeToggle, matching: find.text('HEX')),
+    );
+    expect(modeLabel.style?.fontSize, 12);
+    final ToolSegmentedControl<bool> segmentedControl = tester
+        .widget<ToolSegmentedControl<bool>>(modeToggle);
+    expect(
+      segmentedControl.padding,
+      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    );
+    expect(segmentedControl.height, 32);
+    final ToolSelect<String> lineEndingSelect = tester
+        .widget<ToolSelect<String>>(
+          find.descendant(
+            of: lineEnding,
+            matching: find.byType(ToolSelect<String>),
+          ),
+        );
+    expect(
+      lineEndingSelect.padding,
+      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    );
+    expect(
+      lineEndingSelect.itemPadding,
+      const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+    );
+    expect(lineEndingSelect.itemHeight, 28);
+    final Text lineEndingValue = tester.widget<Text>(
+      find.descendant(of: lineEnding, matching: find.text('无')),
+    );
+    expect(lineEndingValue.style?.fontSize, 12);
+    await tester.tap(lineEnding);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    for (final String value in <String>['none', 'lf', 'crlf']) {
+      expect(
+        tester
+            .getSize(find.byKey(ValueKey<String>('tool-select-option-$value')))
+            .height,
+        28,
+      );
+    }
+    final Finder crlfLabel = find.descendant(
+      of: find.byKey(const ValueKey<String>('tool-select-option-crlf')),
+      matching: find.text('CRLF'),
+    );
+    final Text crlf = tester.widget<Text>(crlfLabel);
+    expect(crlf.maxLines, 1);
+    expect(crlf.softWrap, isFalse);
+    final TextStyle effectiveCrlfStyle = DefaultTextStyle.of(
+      tester.element(crlfLabel),
+    ).style.merge(crlf.style);
+    final TextPainter crlfPainter = TextPainter(
+      text: TextSpan(text: 'CRLF', style: effectiveCrlfStyle),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    expect(
+      tester.getSize(crlfLabel).width,
+      greaterThanOrEqualTo(crlfPainter.width),
+    );
+    final Finder writeTargetStatus = find.byKey(
+      const ValueKey<String>('console-write-target-status'),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('console-header')),
+        matching: writeTargetStatus,
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('console-send-area')),
+        matching: writeTargetStatus,
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.getRect(writeTargetStatus).center.dy,
+      closeTo(modeToggleRect.center.dy, 2),
+    );
   });
 
   testWidgets('未连接时发送区说明禁用原因', (WidgetTester tester) async {
@@ -825,12 +1149,12 @@ void main() {
 
     await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('写入目标'));
+    await tester.tap(find.text('Write'));
     await tester.pumpAndSettle();
     expect(
       tester
           .widget<ToolSelectedButton>(
-            find.widgetWithText(ToolSelectedButton, '写入目标'),
+            find.widgetWithText(ToolSelectedButton, 'Write'),
           )
           .value,
       isTrue,
@@ -890,7 +1214,7 @@ void main() {
 
     await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('写入目标'));
+    await tester.tap(find.text('Write'));
     await tester.pumpAndSettle();
     await tester.tap(findToolTooltip('设备发送策略'));
     await tester.pumpAndSettle();
@@ -913,7 +1237,7 @@ void main() {
 
     await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('写入目标'));
+    await tester.tap(find.text('Write'));
     await tester.pumpAndSettle();
     await tester.tap(findToolTooltip('设备发送策略'));
     await tester.pumpAndSettle();
@@ -939,6 +1263,31 @@ void main() {
     expect(saveSize.height, 34);
     expect(cancelSize.width, greaterThan(64));
     expect(saveSize.width, greaterThan(64));
+
+    final Rect responseSwitchRect = tester.getRect(
+      find.byKey(const ValueKey<String>('device-policy-response-switch')),
+    );
+    final Rect responseTitleRect = tester.getRect(find.text('只允许带响应写入'));
+    expect(responseSwitchRect.right, lessThan(responseTitleRect.left));
+    expect(
+      (responseSwitchRect.center.dy - responseTitleRect.center.dy).abs(),
+      lessThanOrEqualTo(1),
+    );
+
+    final Finder maxFrameRow = find.byKey(
+      const ValueKey<String>('device-policy-max-frame-row'),
+    );
+    final Rect maxFrameLabelRect = tester.getRect(
+      find.descendant(of: maxFrameRow, matching: find.text('最终帧最大字节数')),
+    );
+    final Rect maxFrameInputRect = tester.getRect(
+      find.descendant(of: maxFrameRow, matching: find.byType(shad.TextField)),
+    );
+    expect(maxFrameLabelRect.right, lessThan(maxFrameInputRect.left));
+    expect(
+      (maxFrameLabelRect.center.dy - maxFrameInputRect.center.dy).abs(),
+      lessThanOrEqualTo(1),
+    );
   });
 
   testWidgets('可在左侧新增协议定义', (WidgetTester tester) async {
@@ -992,7 +1341,7 @@ void main() {
     await tester.tap(find.widgetWithText(ToolSelectedButton, 'R/W'));
     await tester.pump();
 
-    await tester.tap(find.text('写入目标'));
+    await tester.tap(find.text('Write'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ToolSelectedButton, 'Notify').first);
     await tester.pumpAndSettle();
@@ -1052,11 +1401,47 @@ void main() {
     final Finder filter = find.byKey(
       const ValueKey<String>('characteristic-filter'),
     );
+    final Finder panel = find.byKey(
+      const ValueKey<String>('characteristic-panel'),
+    );
+    final Finder pinnedHeader = find.byKey(
+      const ValueKey<String>('characteristic-panel-pinned-header'),
+    );
+    final Finder characteristicList = find.byKey(
+      const ValueKey<String>('characteristic-list'),
+    );
+    final Finder listScrollbar = find.byKey(
+      const ValueKey<String>('characteristic-list-scrollbar'),
+    );
+    expect(
+      find.descendant(of: characteristicList, matching: pinnedHeader),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: characteristicList, matching: filter),
+      findsNothing,
+    );
+    expect(tester.getRect(listScrollbar).right, tester.getRect(panel).right);
+    expect(
+      tester.getRect(filter).left - tester.getRect(panel).left,
+      greaterThanOrEqualTo(10),
+    );
     final shad.TextField filterField = tester.widget<shad.TextField>(
       find.descendant(of: filter, matching: find.byType(shad.TextField)),
     );
     expect(filterField.style?.fontSize, 12);
     expect(tester.getSize(filter).height, lessThanOrEqualTo(36));
+    await tester.tap(filter);
+    await tester.pump();
+    final shad.FocusOutline filterFocusOutline = tester
+        .widget<shad.FocusOutline>(
+          find.descendant(of: filter, matching: find.byType(shad.FocusOutline)),
+        );
+    expect(filterFocusOutline.focused, isTrue);
+    expect(
+      tester.getRect(filter).left - tester.getRect(pinnedHeader).left,
+      greaterThanOrEqualTo(2),
+    );
 
     final shad.Button scanButton = tester.widget<shad.Button>(
       find.byKey(const ValueKey<String>('scan-button')),
@@ -1073,12 +1458,37 @@ void main() {
     expect(operableOnly.compact, isTrue);
     expect(operableOnly.emphasis, ToolSelectedEmphasis.subtle);
 
-    final ToolSelectedButton writeTarget = tester.widget<ToolSelectedButton>(
-      find.widgetWithText(ToolSelectedButton, '写入目标'),
+    final ToolSelectedButton writeMode = tester.widget<ToolSelectedButton>(
+      find.widgetWithText(ToolSelectedButton, 'Write'),
     );
-    expect(writeTarget.compact, isTrue);
-    expect(writeTarget.emphasis, ToolSelectedEmphasis.subtle);
-    for (final String label in <String>['R/W', '写入目标', 'Notify', 'Indicate']) {
+    expect(writeMode.compact, isTrue);
+    expect(writeMode.emphasis, ToolSelectedEmphasis.subtle);
+    expect(writeMode.minHeight, 28);
+    expect(
+      writeMode.padding,
+      const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+    );
+    expect(find.text('R←'), findsOneWidget);
+    expect(find.text('W→'), findsOneWidget);
+    expect(find.text('WNR→'), findsOneWidget);
+    expect(find.text('N←'), findsNWidgets(2));
+    expect(find.text('I←'), findsOneWidget);
+    for (final String description in <String>[
+      '读取：客户端拉取数据',
+      '写入响应：客户端推送，服务端返回确认',
+      '无响应写入：客户端推送，服务端不返回确认',
+      '通知：服务端推送，客户端不返回确认',
+      '指示：服务端推送，客户端返回确认',
+    ]) {
+      expect(findToolTooltip(description), findsWidgets);
+    }
+    for (final String label in <String>[
+      'R/W',
+      'Write',
+      'Write No Response',
+      'Notify',
+      'Indicate',
+    ]) {
       final Text actionLabel = tester.widget<Text>(
         find.descendant(
           of: find.widgetWithText(ToolSelectedButton, label).first,
@@ -1087,6 +1497,23 @@ void main() {
       );
       expect(actionLabel.style?.fontSize, lessThanOrEqualTo(12));
     }
+    final ToolButton readButton = tester.widget<ToolButton>(
+      find.widgetWithText(ToolButton, 'Read'),
+    );
+    expect(readButton.height, 28);
+    for (final String label in <String>[
+      'Write',
+      'Write No Response',
+      'Notify',
+      'Indicate',
+    ]) {
+      expect(
+        tester
+            .getSize(find.widgetWithText(ToolSelectedButton, label).first)
+            .height,
+        28,
+      );
+    }
   });
 
   testWidgets('点击控制台日志后 Inspector 显示帧详情', (WidgetTester tester) async {
@@ -1094,16 +1521,24 @@ void main() {
 
     await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(ToolSelectedButton, '写入目标'), findsOneWidget);
-    await tester.tap(find.text('写入目标'));
+    expect(find.widgetWithText(ToolSelectedButton, 'Write'), findsOneWidget);
+    await tester.tap(find.text('Write'));
     await tester.pumpAndSettle();
     expect(
       tester
           .widget<ToolSelectedButton>(
-            find.widgetWithText(ToolSelectedButton, '写入目标'),
+            find.widgetWithText(ToolSelectedButton, 'Write'),
           )
           .value,
       isTrue,
+    );
+    expect(find.text('写入  0000FFF1'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('console-send-area')),
+        matching: find.text('写入  0000FFF1'),
+      ),
+      findsOneWidget,
     );
     await tester.enterText(
       find.byKey(const ValueKey<String>('console-input')),
@@ -1132,6 +1567,12 @@ void main() {
 
     final Finder detailsButton = findToolTooltip('查看日志详情');
     expect(detailsButton, findsWidgets);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('console-log-details-button')).first,
+      ),
+      const Size.square(32),
+    );
     await tester.tap(detailsButton.first);
     await tester.pump();
     expect(find.text('选中日志'), findsOneWidget);
@@ -1143,12 +1584,12 @@ void main() {
 
     await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('写入目标'));
+    await tester.tap(find.text('Write'));
     await tester.pumpAndSettle();
     expect(
       tester
           .widget<ToolSelectedButton>(
-            find.widgetWithText(ToolSelectedButton, '写入目标'),
+            find.widgetWithText(ToolSelectedButton, 'Write'),
           )
           .value,
       isTrue,
@@ -1180,6 +1621,22 @@ void main() {
     await tester.tap(findToolTooltip('筛选日志'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
+    final Finder filterMenu = find.byKey(
+      const ValueKey<String>('console-log-filter-menu'),
+    );
+    final Finder selectedIndicator = find.byKey(
+      const ValueKey<String>('console-log-filter-indicator-all'),
+    );
+    final Finder allFilterLabel = find.descendant(
+      of: find.byKey(const ValueKey<String>('console-log-filter-option-all')),
+      matching: find.byType(Text),
+    );
+    expect(tester.getSize(filterMenu).width, 136);
+    expect(
+      tester.getRect(allFilterLabel).left -
+          tester.getRect(selectedIndicator).right,
+      4,
+    );
     await tester.tap(find.text('TX').last);
     await tester.pumpAndSettle();
     expect(find.text('没有匹配的日志'), findsNothing);
@@ -1192,24 +1649,59 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('仅支持无响应写入的特征可设为写入目标', (WidgetTester tester) async {
-    await pumpDesktopApp(tester);
+  testWidgets('用户可在两种写入模式间互斥选择并按实际模式发送', (WidgetTester tester) async {
+    final MockBluetoothService bluetoothService = MockBluetoothService();
+    await pumpDesktopApp(tester, bluetoothService: bluetoothService);
 
     await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
 
-    final Finder writeTargets = find.text('写入目标');
-    expect(writeTargets, findsNWidgets(1));
-    await tester.tap(writeTargets);
-    await tester.pumpAndSettle();
+    final Finder write = find.widgetWithText(ToolSelectedButton, 'Write');
+    final Finder writeNoResponse = find.widgetWithText(
+      ToolSelectedButton,
+      'Write No Response',
+    );
+    expect(write, findsOneWidget);
+    expect(writeNoResponse, findsOneWidget);
 
+    await tester.tap(writeNoResponse);
+    await tester.pumpAndSettle();
+    expect(tester.widget<ToolSelectedButton>(writeNoResponse).value, isTrue);
+    expect(tester.widget<ToolSelectedButton>(write).value, isFalse);
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('console-input')),
+      'AA',
+    );
+    await tester.pump();
     expect(
       tester
-          .widget<ToolSelectedButton>(
-            find.widgetWithText(ToolSelectedButton, '写入目标'),
+          .widget<ToolButton>(
+            find.byKey(const ValueKey<String>('console-send-button')),
           )
-          .value,
-      isTrue,
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('console-send-button')));
+    await tester.pumpAndSettle();
+    expect(
+      bluetoothService.sentWriteModes.last,
+      BluetoothWriteMode.withoutResponse,
+    );
+
+    await tester.tap(write);
+    await tester.pumpAndSettle();
+    expect(tester.widget<ToolSelectedButton>(write).value, isTrue);
+    expect(tester.widget<ToolSelectedButton>(writeNoResponse).value, isFalse);
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('console-input')),
+      'BB',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey<String>('console-send-button')));
+    await tester.pumpAndSettle();
+    expect(
+      bluetoothService.sentWriteModes.last,
+      BluetoothWriteMode.withResponse,
     );
   });
 
@@ -1218,7 +1710,7 @@ void main() {
 
     await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('写入目标'));
+    await tester.tap(find.text('Write'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
@@ -1269,7 +1761,7 @@ void main() {
 
     await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('写入目标'));
+    await tester.tap(find.text('Write'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
@@ -1352,12 +1844,19 @@ void main() {
     await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'records');
-    await tester.enterText(
-      find.byType(shad.TextField),
-      'session-record-filter-test',
+    final Finder recordFilter = find.byKey(
+      const ValueKey<String>('session-record-filter'),
     );
+    final double emptyFilterHeight = tester.getSize(recordFilter).height;
+    await tester.enterText(recordFilter, 'session-record-filter-test');
     await tester.pumpAndSettle();
 
+    expect(emptyFilterHeight, 32);
+    expect(tester.getSize(recordFilter).height, emptyFilterHeight);
+    expect(
+      tester.getSize(findToolTooltip('清除筛选')).height,
+      lessThanOrEqualTo(24),
+    );
     expect(find.textContaining('1/'), findsOneWidget);
     await tester.tap(findToolTooltip('添加书签'));
     await tester.pumpAndSettle();
@@ -1376,7 +1875,7 @@ void main() {
 
     await tester.tap(findToolTooltip('连接设备'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('写入目标'));
+    await tester.tap(find.text('Write'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));

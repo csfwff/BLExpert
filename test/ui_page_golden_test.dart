@@ -56,7 +56,7 @@ void main() {
 
       await tester.tap(findToolTooltip('连接设备'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('写入目标'));
+      await tester.tap(find.text('Write'));
       await tester.pumpAndSettle();
       await tester.tap(findToolTooltip('清空'));
       await tester.pumpAndSettle();
@@ -64,11 +64,11 @@ void main() {
       expect(find.byType(shad.NavigationRail), findsOneWidget);
       expect(find.byType(ToolSelectedButton), findsAtLeastNWidgets(4));
       expect(find.byType(ToolSwitch), findsAtLeastNWidgets(1));
-      expect(find.text('写入目标'), findsOneWidget);
+      expect(find.text('Write'), findsOneWidget);
       expect(
         tester
             .widget<ToolSelectedButton>(
-              find.widgetWithText(ToolSelectedButton, '写入目标'),
+              find.widgetWithText(ToolSelectedButton, 'Write'),
             )
             .value,
         isTrue,

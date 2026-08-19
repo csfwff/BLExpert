@@ -1,0 +1,1 @@
+enum BluetoothWriteMode { withResponse, withoutResponse }

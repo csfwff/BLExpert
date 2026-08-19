@@ -22,6 +22,10 @@ class ToolSelect<T> extends StatelessWidget {
     required this.onChanged,
     this.label,
     this.errorText,
+    this.textStyle,
+    this.padding,
+    this.itemPadding,
+    this.itemHeight,
   });
 
   final T value;
@@ -29,6 +33,10 @@ class ToolSelect<T> extends StatelessWidget {
   final ValueChanged<T> onChanged;
   final String? label;
   final String? errorText;
+  final TextStyle? textStyle;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? itemPadding;
+  final double? itemHeight;
 
   ToolSelectOption<T> _optionFor(T value) {
     return options.firstWhere(
@@ -45,8 +53,14 @@ class ToolSelect<T> extends StatelessWidget {
       onChanged: (T? next) {
         if (next != null) onChanged(next);
       },
-      itemBuilder: (BuildContext context, T item) =>
-          Text(_optionFor(item).label),
+      padding: padding,
+      itemBuilder: (BuildContext context, T item) => Text(
+        _optionFor(item).label,
+        style: textStyle,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+      ),
       popupConstraints: const BoxConstraints(maxHeight: 180),
       popoverAlignment: Alignment.bottomCenter,
       popoverAnchorAlignment: Alignment.topCenter,
@@ -54,10 +68,29 @@ class ToolSelect<T> extends StatelessWidget {
         items: shad.SelectItemList(
           children: options
               .map(
-                (ToolSelectOption<T> option) => shad.SelectItemButton<T>(
-                  value: option.value,
-                  child: Text(option.label),
-                ),
+                (ToolSelectOption<T> option) => itemPadding == null
+                    ? shad.SelectItemButton<T>(
+                        value: option.value,
+                        child: Text(
+                          option.label,
+                          style: textStyle,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      )
+                    : _ToolSelectItem<T>(
+                        value: option.value,
+                        height: itemHeight,
+                        padding: itemPadding!,
+                        child: Text(
+                          option.label,
+                          style: textStyle,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
               )
               .toList(growable: false),
         ),
@@ -93,6 +126,62 @@ class ToolSelect<T> extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _ToolSelectItem<T> extends StatelessWidget {
+  const _ToolSelectItem({
+    required this.value,
+    required this.padding,
+    required this.child,
+    this.height,
+  });
+
+  final T value;
+  final EdgeInsetsGeometry padding;
+  final Widget child;
+  final double? height;
+
+  @override
+  Widget build(BuildContext context) {
+    final shad.SelectPopupHandle? data =
+        shad.Data.maybeOf<shad.SelectPopupHandle>(context);
+    final bool isSelected = data?.isSelected(value) ?? false;
+    final bool hasSelection = data?.hasSelection ?? false;
+    return SizedBox(
+      key: ValueKey<String>('tool-select-option-$value'),
+      height: height,
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (ActivateIntent intent) {
+              data?.selectItem(value, !isSelected);
+              return null;
+            },
+          ),
+        },
+        child: shad.SubFocus(
+          builder: (BuildContext context, shad.SubFocusState state) =>
+              shad.WidgetStatesProvider(
+                states: <WidgetState>{if (state.isFocused) WidgetState.hovered},
+                child: shad.Button(
+                  disableTransition: true,
+                  alignment: AlignmentDirectional.centerStart,
+                  onPressed: () => data?.selectItem(value, !isSelected),
+                  style: const shad.ButtonStyle.ghost().copyWith(
+                    padding: (_, _, _) => padding,
+                  ),
+                  trailing: isSelected
+                      ? const Icon(shad.LucideIcons.check, size: 14)
+                      : hasSelection
+                      ? const SizedBox(width: 14)
+                      : null,
+                  child: child,
+                ),
+              ),
+        ),
+      ),
     );
   }
 }

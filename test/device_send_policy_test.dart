@@ -8,7 +8,7 @@ void main() {
     final DeviceSendPolicyDecision decision = DeviceSendPolicy.evaluate(
       policy: const DeviceSafetyPolicy(),
       writeTargetKey: 'service/characteristic',
-      writeWithResponseAvailable: false,
+      writeWithResponseSelected: false,
       finalFrameLength: 2048,
     );
 
@@ -21,7 +21,7 @@ void main() {
         allowedWriteTargetKeys: <String>['service/allowed'],
       ),
       writeTargetKey: 'service/rejected',
-      writeWithResponseAvailable: true,
+      writeWithResponseSelected: true,
       finalFrameLength: 1,
     );
 
@@ -38,7 +38,7 @@ void main() {
         requireWriteWithResponse: true,
       ),
       writeTargetKey: 'service/characteristic',
-      writeWithResponseAvailable: false,
+      writeWithResponseSelected: false,
       finalFrameLength: 21,
     );
 

@@ -317,7 +317,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get disconnected => 'Disconnected';
 
   @override
-  String get writeTarget => 'Write target';
+  String get readCapabilityDescription => 'Read: the client retrieves data';
+
+  @override
+  String get writeCapabilityDescription =>
+      'Write with response: the client sends data and the server confirms receipt';
+
+  @override
+  String get writeNoResponseCapabilityDescription =>
+      'Write without response: the client sends data without a server confirmation';
+
+  @override
+  String get notifyCapabilityDescription =>
+      'Notify: the server sends data without a client confirmation';
+
+  @override
+  String get indicateCapabilityDescription =>
+      'Indicate: the server sends data and the client confirms receipt';
 
   @override
   String get selectedLog => 'Selected log';

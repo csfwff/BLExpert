@@ -13,6 +13,8 @@ class _ConsoleLogFilterBar extends StatelessWidget {
   final ValueChanged<_ConsoleLogFilter> onChanged;
   final AppLocalizations l10n;
 
+  static const double _menuWidth = 136;
+
   @override
   Widget build(BuildContext context) {
     return ToolIconButton(
@@ -21,21 +23,25 @@ class _ConsoleLogFilterBar extends StatelessWidget {
           .showDropdown<void>(
             context: context,
             widthConstraint: shad.PopoverConstraint.flexible,
-            builder: (BuildContext context) => shad.DropdownMenu(
-              children: <shad.MenuItem>[
-                shad.MenuRadioGroup<_ConsoleLogFilter>(
-                  value: filter,
-                  onChanged: (BuildContext context, _ConsoleLogFilter value) =>
-                      onChanged(value),
-                  children: <shad.MenuRadio<_ConsoleLogFilter>>[
-                    _item(_ConsoleLogFilter.all, l10n.allFilter),
-                    _item(_ConsoleLogFilter.tx, l10n.txFilter),
-                    _item(_ConsoleLogFilter.rx, l10n.rxFilter),
-                    _item(_ConsoleLogFilter.system, l10n.systemFilter),
-                    _item(_ConsoleLogFilter.error, l10n.errorFilter),
-                  ],
-                ),
-              ],
+            builder: (BuildContext context) => SizedBox(
+              key: const ValueKey<String>('console-log-filter-menu'),
+              width: _menuWidth,
+              child: shad.MenuGroup(
+                direction: Axis.vertical,
+                onDismissed: () => shad.closeOverlay(context),
+                builder: (BuildContext context, List<Widget> children) =>
+                    shad.MenuPopup(
+                      padding: const EdgeInsets.all(2),
+                      children: children,
+                    ),
+                children: <shad.MenuItem>[
+                  _item(_ConsoleLogFilter.all, l10n.allFilter),
+                  _item(_ConsoleLogFilter.tx, l10n.txFilter),
+                  _item(_ConsoleLogFilter.rx, l10n.rxFilter),
+                  _item(_ConsoleLogFilter.system, l10n.systemFilter),
+                  _item(_ConsoleLogFilter.error, l10n.errorFilter),
+                ],
+              ),
             ),
           )
           .future,
@@ -43,10 +49,31 @@ class _ConsoleLogFilterBar extends StatelessWidget {
     );
   }
 
-  shad.MenuRadio<_ConsoleLogFilter> _item(
-    _ConsoleLogFilter value,
-    String label,
-  ) {
-    return shad.MenuRadio<_ConsoleLogFilter>(value: value, child: Text(label));
+  shad.MenuButton _item(_ConsoleLogFilter value, String label) {
+    final bool selected = filter == value;
+    return shad.MenuButton(
+      key: ValueKey<String>('console-log-filter-option-${value.name}'),
+      onPressed: (_) => onChanged(value),
+      child: Semantics(
+        selected: selected,
+        inMutuallyExclusiveGroup: true,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ExcludeSemantics(
+              child: shad.Radio(
+                key: ValueKey<String>(
+                  'console-log-filter-indicator-${value.name}',
+                ),
+                value: selected,
+                size: 12,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(label, maxLines: 1, style: const TextStyle(fontSize: 12)),
+          ],
+        ),
+      ),
+    );
   }
 }

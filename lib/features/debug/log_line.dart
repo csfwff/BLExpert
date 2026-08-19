@@ -4,15 +4,19 @@ class _LogLine extends StatelessWidget {
   const _LogLine({
     required this.entry,
     required this.l10n,
+    required this.compact,
     this.selected = false,
     this.onTap,
     this.onToggleBookmark,
   });
   final SessionLogRecord entry;
   final AppLocalizations l10n;
+  final bool compact;
   final bool selected;
   final VoidCallback? onTap;
   final ValueChanged<SessionLogRecord>? onToggleBookmark;
+
+  static const double compactBreakpoint = 520;
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +29,32 @@ class _LogLine extends StatelessWidget {
     };
     final String payload = entry.message ?? _toHex(entry.data);
     final String timestamp = entry.timestamp.toIso8601String().split('T').last;
+    final Widget direction = Container(
+      width: 34,
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(
+        entry.shortDirection,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+    final Widget content = shad.SelectableText(
+      payload,
+      style: TextStyle(
+        fontFamily: 'monospace',
+        fontSize: 12,
+        height: 1.45,
+        color: entry.kind == SessionLogKind.error ? color : null,
+      ),
+    );
     final Widget? bookmarkButton = onToggleBookmark == null
         ? null
         : ToolIconButton(
@@ -40,10 +70,11 @@ class _LogLine extends StatelessWidget {
     final Widget? detailsButton = onTap == null
         ? null
         : ToolIconButton(
+            key: const ValueKey<String>('console-log-details-button'),
             tooltip: l10n.viewLogDetails,
             onPressed: onTap,
-            icon: const Icon(AppIcons.subjectOutlined, size: 18),
-            touchSize: 44,
+            icon: const Icon(AppIcons.subjectOutlined, size: 16),
+            touchSize: 32,
           );
     return Semantics(
       label: '${entry.directionLabel(l10n)} $timestamp，$payload',
@@ -57,37 +88,9 @@ class _LogLine extends StatelessWidget {
             color: selected ? colors.secondary.withValues(alpha: 0.45) : null,
             border: Border(left: BorderSide(color: color, width: 2)),
           ),
-          child: LayoutBuilder(
-            builder: (BuildContext context, BoxConstraints constraints) {
-              final bool compact = constraints.maxWidth < 520;
-              final Widget direction = Container(
-                width: 34,
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.13),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: Text(
-                  entry.shortDirection,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              );
-              final Widget content = shad.SelectableText(
-                payload,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  height: 1.45,
-                  color: entry.kind == SessionLogKind.error ? color : null,
-                ),
-              );
-              if (compact) {
-                return Column(
+          child: compact
+              ? Column(
+                  key: const ValueKey<String>('log-line-compact'),
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Row(
@@ -136,57 +139,55 @@ class _LogLine extends StatelessWidget {
                     const SizedBox(height: 4),
                     content,
                   ],
-                );
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  SizedBox(
-                    width: 90,
-                    child: Text(
-                      timestamp,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        color: colors.border,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  direction,
-                  if (entry.characteristicId != null) ...<Widget>[
-                    const SizedBox(width: 8),
+                )
+              : Row(
+                  key: const ValueKey<String>('log-line-wide'),
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
                     SizedBox(
-                      width: 66,
+                      width: 90,
                       child: Text(
-                        _shortUuid(entry.characteristicId!),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        timestamp,
+                        style: TextStyle(
                           fontFamily: 'monospace',
-                          fontSize: 10,
+                          fontSize: 11,
+                          color: colors.border,
                         ),
                       ),
                     ),
-                  ],
-                  if (entry.data.isNotEmpty) ...<Widget>[
                     const SizedBox(width: 8),
-                    SizedBox(
-                      width: 32,
-                      child: Text(
-                        '${entry.data.length} B',
-                        style: AppTheme.textStylesOf(context).labelSmall,
+                    direction,
+                    if (entry.characteristicId != null) ...<Widget>[
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 66,
+                        child: Text(
+                          _shortUuid(entry.characteristicId!),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 10,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
+                    if (entry.data.isNotEmpty) ...<Widget>[
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 32,
+                        child: Text(
+                          '${entry.data.length} B',
+                          style: AppTheme.textStylesOf(context).labelSmall,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 10),
+                    Expanded(child: content),
+                    ?detailsButton,
+                    ?bookmarkButton,
                   ],
-                  const SizedBox(width: 10),
-                  Expanded(child: content),
-                  ?detailsButton,
-                  ?bookmarkButton,
-                ],
-              );
-            },
-          ),
+                ),
         ),
       ),
     );

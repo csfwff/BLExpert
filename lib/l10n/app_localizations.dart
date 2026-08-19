@@ -656,11 +656,35 @@ abstract class AppLocalizations {
   /// **'Disconnected'**
   String get disconnected;
 
-  /// No description provided for @writeTarget.
+  /// No description provided for @readCapabilityDescription.
   ///
   /// In en, this message translates to:
-  /// **'Write target'**
-  String get writeTarget;
+  /// **'Read: the client retrieves data'**
+  String get readCapabilityDescription;
+
+  /// No description provided for @writeCapabilityDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Write with response: the client sends data and the server confirms receipt'**
+  String get writeCapabilityDescription;
+
+  /// No description provided for @writeNoResponseCapabilityDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Write without response: the client sends data without a server confirmation'**
+  String get writeNoResponseCapabilityDescription;
+
+  /// No description provided for @notifyCapabilityDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Notify: the server sends data without a client confirmation'**
+  String get notifyCapabilityDescription;
+
+  /// No description provided for @indicateCapabilityDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Indicate: the server sends data and the client confirms receipt'**
+  String get indicateCapabilityDescription;
 
   /// No description provided for @selectedLog.
   ///

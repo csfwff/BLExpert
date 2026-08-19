@@ -149,8 +149,8 @@ class _AppWorkspaceShell extends StatelessWidget {
     required this.mode,
     required this.onModeChanged,
     required this.l10n,
+    required this.characteristicsOpen,
     required this.inspectorOpen,
-    required this.onInspectorVisibilityChanged,
     required this.debugPane,
     required this.devicePane,
     required this.inspectorPane,
@@ -162,8 +162,8 @@ class _AppWorkspaceShell extends StatelessWidget {
   final _AppMode mode;
   final ValueChanged<_AppMode> onModeChanged;
   final AppLocalizations l10n;
+  final bool characteristicsOpen;
   final bool inspectorOpen;
-  final ValueChanged<bool> onInspectorVisibilityChanged;
   final Widget debugPane;
   final Widget devicePane;
   final Widget inspectorPane;
@@ -181,76 +181,87 @@ class _AppWorkspaceShell extends StatelessWidget {
             devicePane: devicePane,
             consolePane: debugPane,
             inspectorPane: inspectorPane,
+            characteristicsOpen: characteristicsOpen,
             inspectorOpen: inspectorOpen,
-            onInspectorVisibilityChanged: onInspectorVisibilityChanged,
           ),
           _AppMode.configure => configurationPane,
           _AppMode.records => recordPane,
           _AppMode.settings => settingsPane,
         };
-        if (desktop) {
-          return Row(
-            children: <Widget>[
+        return Row(
+          children: <Widget>[
+            if (desktop) ...<Widget>[
               _ModeRail(value: mode, onChanged: onModeChanged, l10n: l10n),
               const shad.VerticalDivider(width: 1),
-              Expanded(child: content),
             ],
-          );
-        }
-        final List<({IconData icon, String label})> mobileItems =
-            <({IconData icon, String label})>[
-              (icon: AppIcons.terminalOutlined, label: l10n.debug),
-              (icon: AppIcons.tuneOutlined, label: l10n.configure),
-              (icon: AppIcons.historyOutlined, label: l10n.records),
-              (icon: AppIcons.settingsOutlined, label: l10n.settings),
-            ];
-        return Column(
-          children: <Widget>[
-            Expanded(child: content),
-            const shad.Divider(height: 1),
-            SafeArea(
-              top: false,
-              child: shad.NavigationBar(
-                key: const ValueKey<String>('app-mode-navigation-mobile'),
-                expanded: true,
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                spacing: 0,
+            Expanded(
+              key: const ValueKey<String>('app-workspace-content-shell'),
+              child: Column(
                 children: <Widget>[
-                  for (int index = 0; index < mobileItems.length; index++)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: ToolSelectedButton(
-                          key: ValueKey<String>(
-                            'app-mode-${_AppMode.values[index].name}',
-                          ),
-                          value: mode == _AppMode.values[index],
-                          onChanged: (bool selected) {
-                            if (selected) {
-                              onModeChanged(_AppMode.values[index]);
-                            }
-                          },
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Icon(mobileItems[index].icon, size: 20),
-                              const SizedBox(height: 4),
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  mobileItems[index].label,
-                                  maxLines: 1,
-                                  softWrap: false,
-                                  style: AppTheme.textStylesOf(
-                                    context,
-                                  ).labelSmall,
+                  Expanded(child: content),
+                  if (!desktop) ...<Widget>[
+                    const shad.Divider(height: 1),
+                    SafeArea(
+                      top: false,
+                      child: shad.NavigationBar(
+                        key: const ValueKey<String>(
+                          'app-mode-navigation-mobile',
+                        ),
+                        expanded: true,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 6,
+                        ),
+                        spacing: 0,
+                        children: <Widget>[
+                          for (
+                            int index = 0;
+                            index < _AppMode.values.length;
+                            index++
+                          )
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
+                                child: ToolSelectedButton(
+                                  key: ValueKey<String>(
+                                    'app-mode-${_AppMode.values[index].name}',
+                                  ),
+                                  value: mode == _AppMode.values[index],
+                                  onChanged: (bool selected) {
+                                    if (selected) {
+                                      onModeChanged(_AppMode.values[index]);
+                                    }
+                                  },
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      Icon(
+                                        _mobileModeItems(l10n)[index].icon,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          _mobileModeItems(l10n)[index].label,
+                                          maxLines: 1,
+                                          softWrap: false,
+                                          style: AppTheme.textStylesOf(
+                                            context,
+                                          ).labelSmall,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
+                            ),
+                        ],
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -259,6 +270,15 @@ class _AppWorkspaceShell extends StatelessWidget {
       },
     );
   }
+
+  List<({IconData icon, String label})> _mobileModeItems(
+    AppLocalizations l10n,
+  ) => <({IconData icon, String label})>[
+    (icon: AppIcons.terminalOutlined, label: l10n.debug),
+    (icon: AppIcons.tuneOutlined, label: l10n.configure),
+    (icon: AppIcons.historyOutlined, label: l10n.records),
+    (icon: AppIcons.settingsOutlined, label: l10n.settings),
+  ];
 }
 
 class _ModeRail extends StatelessWidget {
@@ -539,31 +559,61 @@ class _DebugWorkspace extends StatefulWidget {
     required this.devicePane,
     required this.consolePane,
     required this.inspectorPane,
+    required this.characteristicsOpen,
     required this.inspectorOpen,
-    required this.onInspectorVisibilityChanged,
   });
 
   final Widget devicePane;
   final Widget consolePane;
   final Widget inspectorPane;
+  final bool characteristicsOpen;
   final bool inspectorOpen;
-  final ValueChanged<bool> onInspectorVisibilityChanged;
 
   @override
   State<_DebugWorkspace> createState() => _DebugWorkspaceState();
 }
 
+class _DebugWorkspaceLayoutScope extends InheritedWidget {
+  const _DebugWorkspaceLayoutScope({
+    required this.multiPane,
+    required super.child,
+  });
+
+  final bool multiPane;
+
+  static bool multiPaneOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_DebugWorkspaceLayoutScope>()
+          ?.multiPane ??
+      false;
+
+  @override
+  bool updateShouldNotify(_DebugWorkspaceLayoutScope oldWidget) =>
+      multiPane != oldWidget.multiPane;
+}
+
 class _DebugWorkspaceState extends State<_DebugWorkspace> {
+  static const double _devicePaneWidth = 240;
+  static const double _inspectorPaneWidth = 320;
+  static const double _dividerWidth = 1;
+  static const double _multiPaneMinWidth =
+      _devicePaneWidth +
+      _inspectorPaneWidth +
+      _LogLine.compactBreakpoint +
+      _dividerWidth * 2;
+
   int _tabIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        if (constraints.maxWidth < 680) {
+        if (constraints.maxWidth < _multiPaneMinWidth) {
           return Column(
+            key: const ValueKey<String>('debug-workspace-tab-layout'),
             children: <Widget>[
               shad.Tabs(
+                key: const ValueKey<String>('debug-workspace-tabs'),
                 index: _tabIndex,
                 expand: true,
                 onChanged: (int value) => setState(() => _tabIndex = value),
@@ -577,9 +627,18 @@ class _DebugWorkspaceState extends State<_DebugWorkspace> {
                 child: IndexedStack(
                   index: _tabIndex,
                   children: <Widget>[
-                    widget.consolePane,
-                    widget.devicePane,
-                    widget.inspectorPane,
+                    _DebugWorkspaceLayoutScope(
+                      multiPane: false,
+                      child: widget.consolePane,
+                    ),
+                    _DebugWorkspaceLayoutScope(
+                      multiPane: false,
+                      child: widget.devicePane,
+                    ),
+                    _DebugWorkspaceLayoutScope(
+                      multiPane: false,
+                      child: widget.inspectorPane,
+                    ),
                   ],
                 ),
               ),
@@ -587,34 +646,33 @@ class _DebugWorkspaceState extends State<_DebugWorkspace> {
           );
         }
         return Row(
+          key: const ValueKey<String>('debug-workspace-pane-layout'),
           children: <Widget>[
-            SizedBox(width: 240, child: widget.devicePane),
-            const shad.VerticalDivider(width: 1),
+            if (widget.characteristicsOpen) ...<Widget>[
+              SizedBox(
+                width: _devicePaneWidth,
+                child: _DebugWorkspaceLayoutScope(
+                  multiPane: true,
+                  child: widget.devicePane,
+                ),
+              ),
+              const shad.VerticalDivider(width: 1),
+            ],
             Expanded(
-              child: Stack(
-                children: <Widget>[
-                  Positioned.fill(child: widget.consolePane),
-                  Positioned(
-                    top: 6,
-                    right: 8,
-                    child: ToolIconButton(
-                      tooltip: widget.inspectorOpen ? '收起上下文面板' : '展开上下文面板',
-                      onPressed: () => widget.onInspectorVisibilityChanged(
-                        !widget.inspectorOpen,
-                      ),
-                      icon: Icon(
-                        widget.inspectorOpen
-                            ? AppIcons.chevronsRight
-                            : AppIcons.chevronsLeft,
-                      ),
-                    ),
-                  ),
-                ],
+              child: _DebugWorkspaceLayoutScope(
+                multiPane: true,
+                child: widget.consolePane,
               ),
             ),
             if (widget.inspectorOpen) ...<Widget>[
               const shad.VerticalDivider(width: 1),
-              SizedBox(width: 320, child: widget.inspectorPane),
+              SizedBox(
+                width: _inspectorPaneWidth,
+                child: _DebugWorkspaceLayoutScope(
+                  multiPane: true,
+                  child: widget.inspectorPane,
+                ),
+              ),
             ],
           ],
         );

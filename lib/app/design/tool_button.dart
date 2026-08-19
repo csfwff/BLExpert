@@ -197,6 +197,8 @@ class ToolSelectedButton extends StatefulWidget {
     this.compact = true,
     this.enabled = true,
     this.onPressed,
+    this.minHeight,
+    this.padding,
   });
 
   final bool value;
@@ -206,6 +208,8 @@ class ToolSelectedButton extends StatefulWidget {
   final bool compact;
   final bool enabled;
   final VoidCallback? onPressed;
+  final double? minHeight;
+  final EdgeInsetsGeometry? padding;
 
   @override
   State<ToolSelectedButton> createState() => _ToolSelectedButtonState();
@@ -241,10 +245,12 @@ class _ToolSelectedButtonState extends State<ToolSelectedButton> {
         : colors.foreground;
     final Color borderColor = widget.value ? colors.primary : colors.border;
     final Duration duration = AppMotion.resolve(context, AppMotion.standard);
-    final EdgeInsets padding = EdgeInsets.symmetric(
-      horizontal: widget.compact ? 10 : 14,
-      vertical: widget.compact ? 7 : 9,
-    );
+    final EdgeInsetsGeometry padding =
+        widget.padding ??
+        EdgeInsets.symmetric(
+          horizontal: widget.compact ? 10 : 14,
+          vertical: widget.compact ? 7 : 9,
+        );
     return Semantics(
       button: true,
       selected: widget.value,
@@ -265,7 +271,9 @@ class _ToolSelectedButtonState extends State<ToolSelectedButton> {
         child: AnimatedContainer(
           duration: duration,
           curve: Curves.easeOutCubic,
-          constraints: BoxConstraints(minHeight: widget.compact ? 36 : 40),
+          constraints: BoxConstraints(
+            minHeight: widget.minHeight ?? (widget.compact ? 36 : 40),
+          ),
           padding: padding,
           decoration: BoxDecoration(
             color: _stateOverlay(baseColor, colors),
@@ -328,16 +336,22 @@ class ToolSegmentedControl<T> extends StatelessWidget {
     required this.value,
     required this.options,
     required this.onChanged,
+    this.textStyle,
+    this.padding,
+    this.height = 36,
   });
 
   final T value;
   final List<ToolSegmentOption<T>> options;
   final ValueChanged<T> onChanged;
+  final TextStyle? textStyle;
+  final EdgeInsetsGeometry? padding;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 36,
+      height: height,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: options
@@ -347,6 +361,8 @@ class ToolSegmentedControl<T> extends StatelessWidget {
                 child: ToolSelectedButton(
                   value: value == option.value,
                   onChanged: (_) => onChanged(option.value),
+                  padding: padding,
+                  minHeight: height,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
@@ -357,7 +373,13 @@ class ToolSegmentedControl<T> extends StatelessWidget {
                         ),
                         const SizedBox(width: 5),
                       ],
-                      Text(option.label),
+                      Text(
+                        option.label,
+                        style: textStyle,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
