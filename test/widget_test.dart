@@ -1193,6 +1193,21 @@ void main() {
     expect(tester.getRect(item).right, tester.getRect(panel).right);
     expect(tester.getRect(scrollbar).left, tester.getRect(item).left);
     expect(tester.getRect(scrollbar).right, tester.getRect(item).right);
+    final Finder frameScroll = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'quick-command-frame-scroll-',
+          ),
+    );
+    final Finder sendButton = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget is ToolIconButton &&
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'quick-command-send-',
+          ),
+    );
     final Finder quickCommandsTitleFinder = find.descendant(
       of: header,
       matching: find.text('快捷指令'),
@@ -1236,7 +1251,7 @@ void main() {
     final ToolTextField parameterField = tester.widget<ToolTextField>(
       parameterInput,
     );
-    expect(tester.getSize(parameterCell).width, 40);
+    expect(tester.getSize(parameterCell).width, 36);
     expect(tester.getSize(parameterInput).height, 24);
     expect(
       parameterField.padding,
@@ -1257,6 +1272,25 @@ void main() {
       tester.getRect(parameterCell).center.dx,
     );
     expect(tester.getRect(parameterInput).center.dy, firstByteRect.center.dy);
+    expect(
+      tester.getRect(sendButton).center.dy,
+      tester.getRect(parameterInput).center.dy,
+    );
+    expect(
+      tester.getRect(frameScroll).bottom -
+          tester.getRect(parameterInput).bottom,
+      8,
+    );
+    expect(
+      tester.getRect(parameterCell).right -
+          tester.getRect(parameterInput).right,
+      0,
+    );
+    expect(
+      tester.getRect(find.text('01')).left -
+          tester.getRect(parameterCell).right,
+      greaterThanOrEqualTo(4),
+    );
   });
 
   testWidgets('命令编辑器按字段显示保存校验错误', (WidgetTester tester) async {
@@ -1421,6 +1455,8 @@ void main() {
       (iconRect.center.dy - titleRect.center.dy).abs(),
       lessThanOrEqualTo(1),
     );
+    final Rect deviceSummaryRect = tester.getRect(find.text('设备：BLE 温度传感器'));
+    expect(deviceSummaryRect.left, titleRect.left);
 
     final Finder cancel = find.widgetWithText(ToolButton, '取消');
     final Finder save = find.widgetWithText(ToolButton, '保存');

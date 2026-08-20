@@ -205,12 +205,20 @@ class _CommandTileState extends State<_CommandTile> {
                     ),
                     controller: _frameScrollController,
                     thumbVisibility: true,
-                    thickness: 4,
+                    thickness: _frameScrollbarThickness,
                     scrollbarOrientation: ScrollbarOrientation.bottom,
                     child: SingleChildScrollView(
+                      key: ValueKey<String>(
+                        'quick-command-frame-scroll-${command.id}',
+                      ),
                       controller: _frameScrollController,
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.fromLTRB(6, 0, 44, 4),
+                      padding: const EdgeInsets.fromLTRB(
+                        6,
+                        _frameRowTopInset,
+                        44,
+                        _frameScrollbarReservedHeight,
+                      ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: _buildFrameCells(
@@ -222,11 +230,15 @@ class _CommandTileState extends State<_CommandTile> {
                   ),
                 ),
                 Positioned(
+                  top: hasParameters
+                      ? _parameterLabelHeight + _frameCellGap
+                      : 0,
                   right: 4,
                   child: ToolIconButton(
+                    key: ValueKey<String>('quick-command-send-${command.id}'),
                     tooltip: '${widget.l10n.sendCommand} ${command.name}',
                     variant: ToolButtonVariant.primary,
-                    touchSize: 32,
+                    touchSize: _sendButtonSize,
                     onPressed: sendEnabled ? _send : null,
                     icon: const Icon(AppIcons.sendOutlined, size: 16),
                   ),
@@ -320,7 +332,7 @@ class _CommandTileState extends State<_CommandTile> {
         parameter.type == CommandParameterType.enumValue &&
         parameter.options.isNotEmpty;
     return Padding(
-      padding: const EdgeInsets.only(right: 2),
+      padding: const EdgeInsets.only(right: _frameCellSpacing),
       child: SizedBox(
         key: ValueKey<String>(
           'quick-command-parameter-cell-${widget.command.id}-${parameter.key}',
@@ -425,7 +437,7 @@ class _FixedFrameCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(right: 2),
+      padding: const EdgeInsets.only(right: _frameCellSpacing),
       child: SizedBox(
         width: 26,
         child: Column(
@@ -508,4 +520,11 @@ bool _usesNumericKeyboard(CommandParameterType type) => switch (type) {
 const double _parameterLabelHeight = 12;
 const double _frameCellGap = 2;
 const double _frameControlHeight = 24;
-const double _parameterInputWidth = 40;
+const double _parameterInputWidth = 36;
+const double _frameCellSpacing = 4;
+const double _sendButtonSize = 32;
+const double _frameRowTopInset = (_sendButtonSize - _frameControlHeight) / 2;
+const double _frameScrollbarThickness = 4;
+const double _frameScrollbarClearance = 4;
+const double _frameScrollbarReservedHeight =
+    _frameScrollbarThickness + _frameScrollbarClearance;

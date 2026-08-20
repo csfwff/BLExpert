@@ -1615,7 +1615,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ToolAlertDialog(
               icon: AppIcons.shieldOutlined,
               title: '设备发送策略',
-              centerTitleIcon: true,
               content: SizedBox(
                 width: 520,
                 child: Form(

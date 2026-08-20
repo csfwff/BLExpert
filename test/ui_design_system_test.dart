@@ -8,6 +8,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'package:blexpert/app/app_theme.dart';
 import 'package:blexpert/app/design/app_icons.dart';
+import 'package:blexpert/app/design/tool_alert_dialog.dart';
 import 'package:blexpert/app/design/tool_button.dart';
 import 'package:blexpert/app/design/tool_text_field.dart';
 import 'package:blexpert/app/design/tool_toggle.dart';
@@ -285,6 +286,54 @@ void main() {
     final Rect placeholderRect = tester.getRect(find.text('带图标'));
     expect(iconRect.left - iconFieldRect.left, closeTo(4, 0.5));
     expect(placeholderRect.left - iconRect.right, closeTo(2, 0.5));
+  });
+
+  testWidgets('工具弹窗统一对齐标题图标并保留正文缩进', (WidgetTester tester) async {
+    const List<(IconData, String)> dialogs = <(IconData, String)>[
+      (AppIcons.bluetoothSearching, 'Web 服务 UUID'),
+      (AppIcons.deleteOutline, '删除工作区'),
+      (AppIcons.warningAmber, '启用未信任脚本？'),
+      (AppIcons.terminalOutlined, '新建指令'),
+      (AppIcons.dataObject, '新建响应映射'),
+      (AppIcons.shieldOutlined, '设备发送策略'),
+      (AppIcons.warningAmber, '确认受保护发送'),
+      (AppIcons.uploadFile, '导出工作区'),
+      (AppIcons.downloadOutlined, '导入工作区'),
+      (AppIcons.verifiedUser, '选择允许发送的指令'),
+    ];
+
+    for (final (IconData icon, String title) in dialogs) {
+      await tester.pumpWidget(
+        _themedHarness(
+          child: ToolAlertDialog(
+            icon: icon,
+            title: title,
+            content: const SizedBox(
+              key: ValueKey<String>('dialog-test-content'),
+              width: 240,
+              child: Text('弹窗正文'),
+            ),
+            actions: const <Widget>[],
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final Rect iconRect = tester.getRect(
+        find.byKey(const ValueKey<String>('tool-alert-dialog-icon')),
+      );
+      final Rect titleRect = tester.getRect(find.text(title));
+      final Rect contentRect = tester.getRect(
+        find.byKey(const ValueKey<String>('dialog-test-content')),
+      );
+      expect(
+        (iconRect.center.dy - titleRect.center.dy).abs(),
+        lessThanOrEqualTo(1),
+        reason: title,
+      );
+      expect(titleRect.left - iconRect.right, 8, reason: title);
+      expect(contentRect.left, titleRect.left, reason: title);
+    }
   });
 
   testWidgets('Switch 在中间帧移动并在 200ms 到达终态', (WidgetTester tester) async {
