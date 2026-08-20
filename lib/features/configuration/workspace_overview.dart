@@ -90,78 +90,110 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
               children: <Widget>[
                 Row(
                   children: <Widget>[
-                    Icon(AppIcons.folderOutlined, color: colors.primary),
-                    const SizedBox(width: 10),
+                    Icon(
+                      AppIcons.folderOutlined,
+                      size: 18,
+                      color: colors.primary,
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         widget.l10n.workspaceSettings,
-                        style: AppTheme.textStylesOf(
-                          context,
-                        ).titleLarge.copyWith(fontWeight: FontWeight.w700),
+                        style: AppTheme.textStylesOf(context).titleMedium,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                ToolTextField(
-                  key: const ValueKey<String>('workspace-name-field'),
-                  controller: _nameController,
-                  label: widget.l10n.workspace,
-                  textInputAction: TextInputAction.next,
-                  validator: (String? value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return widget.l10n.requiredField(widget.l10n.workspace);
-                    }
-                    return null;
+                const SizedBox(height: 16),
+                LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    final bool stacked = constraints.maxWidth < 560;
+                    return Column(
+                      children: <Widget>[
+                        _ConfigurationFormRow(
+                          key: const ValueKey<String>('workspace-name-row'),
+                          label: widget.l10n.workspace,
+                          stacked: stacked,
+                          child: ToolTextField(
+                            key: const ValueKey<String>('workspace-name-field'),
+                            controller: _nameController,
+                            label: widget.l10n.workspace,
+                            showLabel: false,
+                            hintText: '',
+                            textInputAction: TextInputAction.next,
+                            validator: (String? value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return widget.l10n.requiredField(
+                                  widget.l10n.workspace,
+                                );
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        _ConfigurationFormRow(
+                          key: const ValueKey<String>(
+                            'workspace-device-model-row',
+                          ),
+                          label: widget.l10n.deviceModel,
+                          stacked: stacked,
+                          child: ToolTextField(
+                            key: const ValueKey<String>(
+                              'workspace-device-model-field',
+                            ),
+                            controller: _deviceModelController,
+                            label: widget.l10n.deviceModel,
+                            showLabel: false,
+                            hintText: '',
+                            textInputAction: TextInputAction.next,
+                          ),
+                        ),
+                        _ConfigurationFormRow(
+                          key: const ValueKey<String>(
+                            'workspace-description-row',
+                          ),
+                          label: widget.l10n.description,
+                          stacked: stacked,
+                          alignLabelToTop: true,
+                          child: ToolTextField(
+                            key: const ValueKey<String>(
+                              'workspace-description-field',
+                            ),
+                            controller: _descriptionController,
+                            label: widget.l10n.description,
+                            showLabel: false,
+                            hintText: '',
+                            minLines: 3,
+                            maxLines: 5,
+                          ),
+                        ),
+                        _ConfigurationFormRow(
+                          key: const ValueKey<String>('workspace-tags-row'),
+                          label: widget.l10n.tags,
+                          stacked: stacked,
+                          child: ToolTextField(
+                            key: const ValueKey<String>('workspace-tags-field'),
+                            controller: _tagsController,
+                            label: widget.l10n.tags,
+                            showLabel: false,
+                            hintText: '',
+                            textInputAction: TextInputAction.done,
+                          ),
+                        ),
+                      ],
+                    );
                   },
                 ),
-                const SizedBox(height: 14),
-                ToolTextField(
-                  key: const ValueKey<String>('workspace-device-model-field'),
-                  controller: _deviceModelController,
-                  label: widget.l10n.deviceModel,
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 14),
-                ToolTextField(
-                  key: const ValueKey<String>('workspace-description-field'),
-                  controller: _descriptionController,
-                  label: widget.l10n.description,
-                  minLines: 3,
-                  maxLines: 5,
-                ),
-                const SizedBox(height: 14),
-                ToolTextField(
-                  key: const ValueKey<String>('workspace-tags-field'),
-                  controller: _tagsController,
-                  label: widget.l10n.tags,
-                  textInputAction: TextInputAction.done,
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: <Widget>[
-                    Icon(
-                      AppIcons.devicesOther,
-                      size: 20,
-                      color: colors.secondary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(widget.l10n.workspaceDevices),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${widget.workspace.devices.length}',
-                      style: AppTheme.textStylesOf(
-                        context,
-                      ).labelLarge.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
                 Align(
                   alignment: Alignment.centerRight,
                   child: ToolButton.primary(
+                    key: const ValueKey<String>('workspace-save-button'),
                     onPressed: _save,
                     leading: const Icon(AppIcons.saveOutlined),
+                    compact: true,
+                    height: 34,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(widget.l10n.save),
                   ),
                 ),
@@ -170,6 +202,60 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ConfigurationFormRow extends StatelessWidget {
+  const _ConfigurationFormRow({
+    super.key,
+    required this.label,
+    required this.child,
+    required this.stacked,
+    this.alignLabelToTop = false,
+  });
+
+  final String label;
+  final Widget child;
+  final bool stacked;
+  final bool alignLabelToTop;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle labelStyle = AppTheme.textStylesOf(context).labelMedium;
+    if (stacked) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(label, style: labelStyle),
+            ),
+            child,
+          ],
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: alignLabelToTop
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
+        children: <Widget>[
+          SizedBox(
+            width: 96,
+            child: Padding(
+              padding: EdgeInsets.only(top: alignLabelToTop ? 8 : 0),
+              child: Text(label, style: labelStyle),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: child),
+        ],
+      ),
     );
   }
 }

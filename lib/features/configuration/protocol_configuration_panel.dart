@@ -102,40 +102,63 @@ class _ProtocolConfigurationPanelState
     return ListView(
       padding: const EdgeInsets.all(18),
       children: <Widget>[
-        Text(
-          l10n.protocolProfiles,
-          style: AppTheme.textStylesOf(
-            context,
-          ).titleMedium.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 12),
-        ToolTextField(
-          controller: _protocolNameController,
-          label: l10n.protocolName,
-          onChanged: (_) => _updateProtocol(),
-        ),
-        ToolTextField(
-          controller: _descriptionController,
-          label: l10n.description,
-          onChanged: (_) => _updateProtocol(),
-          minLines: 1,
-          maxLines: 3,
-        ),
-        const SizedBox(height: 14),
-        ToolSegmentedControl<_ProtocolMode>(
-          options: <ToolSegmentOption<_ProtocolMode>>[
-            ToolSegmentOption(
-              value: _ProtocolMode.standard,
-              icon: const Icon(AppIcons.accountTree),
-              label: l10n.standardProtocol,
+        Align(
+          key: const ValueKey<String>('protocol-metadata-section'),
+          alignment: Alignment.topLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final bool stacked = constraints.maxWidth < 560;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      l10n.protocolProfiles,
+                      style: AppTheme.textStylesOf(context).titleMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    _ConfigurationFormRow(
+                      key: const ValueKey<String>('protocol-name-row'),
+                      label: l10n.protocolName,
+                      stacked: stacked,
+                      child: ToolTextField(
+                        key: const ValueKey<String>('protocol-name-field'),
+                        controller: _protocolNameController,
+                        label: l10n.protocolName,
+                        showLabel: false,
+                        hintText: '',
+                        onChanged: (_) => _updateProtocol(),
+                      ),
+                    ),
+                    _ConfigurationFormRow(
+                      key: const ValueKey<String>('protocol-description-row'),
+                      label: l10n.description,
+                      stacked: stacked,
+                      alignLabelToTop: true,
+                      child: ToolTextField(
+                        key: const ValueKey<String>(
+                          'protocol-description-field',
+                        ),
+                        controller: _descriptionController,
+                        label: l10n.description,
+                        showLabel: false,
+                        hintText: '',
+                        onChanged: (_) => _updateProtocol(),
+                        minLines: 1,
+                        maxLines: 3,
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
-            ToolSegmentOption(
-              value: _ProtocolMode.script,
-              icon: const Icon(AppIcons.codeOutlined),
-              label: l10n.scriptProtocolMode,
-            ),
-          ],
-          value: _mode,
+          ),
+        ),
+        const SizedBox(height: 18),
+        _ProtocolModeSection(
+          mode: _mode,
+          l10n: l10n,
           onChanged: (_ProtocolMode mode) {
             setState(() => _mode = mode);
             _updateScript(
@@ -143,9 +166,7 @@ class _ProtocolConfigurationPanelState
             );
           },
         ),
-        const SizedBox(height: 12),
-        _ProtocolModeNote(mode: _mode, l10n: l10n),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         if (_mode == _ProtocolMode.standard)
           _StandardProtocolEditor(
             protocol: widget.protocol,
@@ -166,8 +187,89 @@ class _ProtocolConfigurationPanelState
   }
 }
 
+class _ProtocolModeSection extends StatelessWidget {
+  const _ProtocolModeSection({
+    required this.mode,
+    required this.l10n,
+    required this.onChanged,
+  });
+
+  final _ProtocolMode mode;
+  final AppLocalizations l10n;
+  final ValueChanged<_ProtocolMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget control = ToolSegmentedControl<_ProtocolMode>(
+      key: const ValueKey<String>('protocol-mode-control'),
+      options: <ToolSegmentOption<_ProtocolMode>>[
+        ToolSegmentOption(
+          value: _ProtocolMode.standard,
+          icon: const Icon(AppIcons.accountTree),
+          label: l10n.standardProtocol,
+        ),
+        ToolSegmentOption(
+          value: _ProtocolMode.script,
+          icon: const Icon(AppIcons.codeOutlined),
+          label: l10n.scriptProtocolMode,
+        ),
+      ],
+      value: mode,
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      textStyle: AppTheme.of(context).typography.xSmall,
+      onChanged: onChanged,
+    );
+    return Container(
+      key: const ValueKey<String>('protocol-mode-section'),
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        border: Border.symmetric(
+          horizontal: BorderSide(color: AppTheme.colorsOf(context).border),
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final bool stacked = constraints.maxWidth < 520;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              if (stacked) ...<Widget>[
+                Text(
+                  l10n.protocolMode,
+                  style: AppTheme.textStylesOf(context).titleSmall,
+                ),
+                const SizedBox(height: 8),
+                control,
+              ] else
+                Row(
+                  key: const ValueKey<String>('protocol-mode-header'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      l10n.protocolMode,
+                      style: AppTheme.textStylesOf(context).titleSmall,
+                    ),
+                    const SizedBox(width: 16),
+                    control,
+                  ],
+                ),
+              const SizedBox(height: 8),
+              _ProtocolModeNote(
+                key: const ValueKey<String>('protocol-mode-note'),
+                mode: mode,
+                l10n: l10n,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _ProtocolModeNote extends StatelessWidget {
-  const _ProtocolModeNote({required this.mode, required this.l10n});
+  const _ProtocolModeNote({super.key, required this.mode, required this.l10n});
 
   final _ProtocolMode mode;
   final AppLocalizations l10n;
@@ -176,7 +278,7 @@ class _ProtocolModeNote extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool standard = mode == _ProtocolMode.standard;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: standard
             ? AppTheme.colorsOf(context).secondary

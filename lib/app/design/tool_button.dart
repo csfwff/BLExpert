@@ -367,10 +367,7 @@ class ToolSegmentedControl<T> extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       if (option.icon != null) ...<Widget>[
-                        IconTheme(
-                          data: const IconThemeData(size: 16),
-                          child: option.icon!,
-                        ),
+                        option.icon!,
                         const SizedBox(width: 5),
                       ],
                       Text(

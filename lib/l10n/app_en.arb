@@ -195,6 +195,7 @@
   ,"deleteProtocol": "Delete protocol"
   ,"noProtocolProfiles": "This workspace has no protocol definitions yet."
   ,"protocolName": "Protocol name"
+  ,"protocolMode": "Protocol mode"
   ,"protocolHeader": "Header HEX"
   ,"protocolFooter": "Footer HEX"
   ,"sendFrame": "Send frame"

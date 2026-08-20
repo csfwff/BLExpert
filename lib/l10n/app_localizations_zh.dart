@@ -522,6 +522,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get protocolName => '协议名称';
 
   @override
+  String get protocolMode => '协议模式';
+
+  @override
   String get protocolHeader => '协议头 HEX';
 
   @override

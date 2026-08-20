@@ -195,6 +195,7 @@
   ,"deleteProtocol": "删除协议"
   ,"noProtocolProfiles": "当前工作区还没有协议定义。"
   ,"protocolName": "协议名称"
+  ,"protocolMode": "协议模式"
   ,"protocolHeader": "协议头 HEX"
   ,"protocolFooter": "协议尾 HEX"
   ,"sendFrame": "发送帧"

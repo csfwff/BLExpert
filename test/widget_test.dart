@@ -1009,6 +1009,79 @@ void main() {
     );
   });
 
+  testWidgets('工作区设置使用紧凑标题和单项横向表单行', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+    await selectAppMode(tester, 'configure');
+
+    final Text title = tester.widget<Text>(find.text('工作区设置'));
+    expect(title.style?.fontSize, 16);
+
+    final Finder nameRow = find.byKey(
+      const ValueKey<String>('workspace-name-row'),
+    );
+    final Finder modelRow = find.byKey(
+      const ValueKey<String>('workspace-device-model-row'),
+    );
+    final Finder descriptionRow = find.byKey(
+      const ValueKey<String>('workspace-description-row'),
+    );
+    final Finder tagsRow = find.byKey(
+      const ValueKey<String>('workspace-tags-row'),
+    );
+    final List<Finder> rows = <Finder>[
+      nameRow,
+      modelRow,
+      descriptionRow,
+      tagsRow,
+    ];
+    for (final Finder row in rows) {
+      expect(
+        find.descendant(of: row, matching: find.byType(ToolTextField)),
+        findsOneWidget,
+      );
+    }
+    expect(
+      tester.getRect(modelRow).top,
+      greaterThan(tester.getRect(nameRow).top),
+    );
+    expect(
+      tester.getRect(descriptionRow).top,
+      greaterThan(tester.getRect(modelRow).top),
+    );
+    expect(
+      tester.getRect(tagsRow).top,
+      greaterThan(tester.getRect(descriptionRow).top),
+    );
+
+    final Rect nameLabel = tester.getRect(
+      find.descendant(of: nameRow, matching: find.text('工作区')).first,
+    );
+    final Rect nameField = tester.getRect(
+      find.byKey(const ValueKey<String>('workspace-name-field')),
+    );
+    expect(nameLabel.center.dy, closeTo(nameField.center.dy, 1));
+    expect(nameLabel.right, lessThan(nameField.left));
+    expect(find.text('设备配置'), findsNothing);
+
+    final Finder saveButton = find.byKey(
+      const ValueKey<String>('workspace-save-button'),
+    );
+    final ToolButton save = tester.widget<ToolButton>(saveButton);
+    expect(tester.getSize(saveButton).height, 34);
+    expect(save.compact, isTrue);
+    expect(save.padding, const EdgeInsets.symmetric(horizontal: 16));
+
+    tester.view.physicalSize = const Size(520, 812);
+    await tester.pumpAndSettle();
+    final Rect narrowLabel = tester.getRect(
+      find.descendant(of: nameRow, matching: find.text('工作区')).first,
+    );
+    final Rect narrowField = tester.getRect(
+      find.byKey(const ValueKey<String>('workspace-name-field')),
+    );
+    expect(narrowLabel.bottom, lessThanOrEqualTo(narrowField.top));
+  });
+
   testWidgets('配置导航在宽屏和窄屏均可切换协议页', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
@@ -1036,6 +1109,121 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('设备型号'), findsOneWidget);
+  });
+
+  testWidgets('协议配置使用单项表单行和紧凑模式切换', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+    await selectAppMode(tester, 'configure');
+    await tester.tap(
+      find.byKey(const ValueKey<String>('configuration-section-1')),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder nameRow = find.byKey(
+      const ValueKey<String>('protocol-name-row'),
+    );
+    final Finder descriptionRow = find.byKey(
+      const ValueKey<String>('protocol-description-row'),
+    );
+    final Finder modeSection = find.byKey(
+      const ValueKey<String>('protocol-mode-section'),
+    );
+    expect(
+      tester.getRect(descriptionRow).top,
+      greaterThan(tester.getRect(nameRow).top),
+    );
+    expect(
+      tester.getRect(modeSection).top,
+      greaterThan(tester.getRect(descriptionRow).bottom),
+    );
+
+    final Rect nameLabel = tester.getRect(
+      find.descendant(of: nameRow, matching: find.text('协议名称')),
+    );
+    final Rect nameField = tester.getRect(
+      find.byKey(const ValueKey<String>('protocol-name-field')),
+    );
+    expect(nameLabel.right, lessThan(nameField.left));
+    expect(nameLabel.center.dy, closeTo(nameField.center.dy, 1));
+
+    final Rect modeLabel = tester.getRect(
+      find.descendant(of: modeSection, matching: find.text('协议模式')),
+    );
+    final Finder modeControl = find.byKey(
+      const ValueKey<String>('protocol-mode-control'),
+    );
+    final Rect modeControlRect = tester.getRect(modeControl);
+    expect(modeLabel.right, lessThanOrEqualTo(modeControlRect.left));
+    expect(modeControlRect.left - modeLabel.right, closeTo(16, 1));
+    expect(modeControlRect.height, 32);
+    final List<ToolSelectedButton> modeButtons = tester
+        .widgetList<ToolSelectedButton>(
+          find.descendant(
+            of: modeControl,
+            matching: find.byType(ToolSelectedButton),
+          ),
+        )
+        .toList(growable: false);
+    expect(modeButtons, hasLength(2));
+    expect(
+      modeButtons.every(
+        (ToolSelectedButton button) =>
+            button.padding ==
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      ),
+      isTrue,
+    );
+    expect(tester.widget<Text>(find.text('普通协议')).style?.fontSize, 12);
+    expect(
+      tester
+          .getRect(find.byKey(const ValueKey<String>('protocol-mode-note')))
+          .left,
+      tester.getRect(modeSection).left,
+    );
+
+    final Finder standardIcon = find.descendant(
+      of: modeControl,
+      matching: find.byIcon(AppIcons.accountTree),
+    );
+    final Finder scriptIcon = find.descendant(
+      of: modeControl,
+      matching: find.byIcon(AppIcons.codeOutlined),
+    );
+    final shad.ColorScheme modeColors = AppTheme.colorsOf(
+      tester.element(standardIcon),
+    );
+    expect(
+      IconTheme.of(tester.element(standardIcon)).color,
+      modeColors.secondaryForeground,
+    );
+    expect(
+      IconTheme.of(tester.element(scriptIcon)).color,
+      modeColors.foreground,
+    );
+    await tester.tap(find.text('脚本协议'));
+    await tester.pumpAndSettle();
+    expect(
+      IconTheme.of(tester.element(standardIcon)).color,
+      modeColors.foreground,
+    );
+    expect(
+      IconTheme.of(tester.element(scriptIcon)).color,
+      modeColors.secondaryForeground,
+    );
+
+    tester.view.physicalSize = const Size(520, 812);
+    await tester.pumpAndSettle();
+    final Rect narrowLabel = tester.getRect(
+      find.descendant(of: nameRow, matching: find.text('协议名称')),
+    );
+    final Rect narrowField = tester.getRect(
+      find.byKey(const ValueKey<String>('protocol-name-field')),
+    );
+    expect(narrowLabel.bottom, lessThanOrEqualTo(narrowField.top));
+    final Rect narrowModeLabel = tester.getRect(
+      find.descendant(of: modeSection, matching: find.text('协议模式')),
+    );
+    expect(narrowModeLabel.bottom, lessThan(tester.getRect(modeControl).top));
   });
 
   testWidgets('新建工作区直接进入配置表单', (WidgetTester tester) async {

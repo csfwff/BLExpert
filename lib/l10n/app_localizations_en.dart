@@ -532,6 +532,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get protocolName => 'Protocol name';
 
   @override
+  String get protocolMode => 'Protocol mode';
+
+  @override
   String get protocolHeader => 'Header HEX';
 
   @override

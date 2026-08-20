@@ -1052,6 +1052,12 @@ abstract class AppLocalizations {
   /// **'Protocol name'**
   String get protocolName;
 
+  /// No description provided for @protocolMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Protocol mode'**
+  String get protocolMode;
+
   /// No description provided for @protocolHeader.
   ///
   /// In en, this message translates to:
