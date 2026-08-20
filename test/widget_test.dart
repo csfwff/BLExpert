@@ -1133,22 +1133,130 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const ValueKey<String>('command-payload-field')),
-      'AA 55 01',
+      'AA BB {{level}} 01',
+    );
+    await tester.tap(findToolTooltip('新增参数'));
+    await tester.pump();
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (Widget widget) => widget is ToolTextField && widget.label == 'key',
+      ),
+      'level',
+    );
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (Widget widget) => widget is ToolTextField && widget.label == '名称',
+      ),
+      '级别',
+    );
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (Widget widget) => widget is ToolTextField && widget.label == '默认值',
+      ),
+      '55',
     );
     await tester.tap(find.widgetWithText(ToolButton, '保存').first);
     await tester.pumpAndSettle();
 
     expect(find.text('查询'), findsOneWidget);
     expect(find.text('查询状态'), findsWidgets);
-    expect(find.text('AA 55 01'), findsOneWidget);
+    expect(find.text('AA BB {{level}} 01'), findsOneWidget);
 
     await tester.tap(findToolTooltip('快捷入口'));
     await tester.pumpAndSettle();
     await selectAppMode(tester, 'debug');
-    expect(find.bySemanticsLabel('查询状态：AA 55 01'), findsOneWidget);
+    expect(find.bySemanticsLabel('查询状态：AA BB {{level}} 01'), findsOneWidget);
     expect(find.text('AA'), findsOneWidget);
-    expect(find.text('55'), findsOneWidget);
+    expect(find.text('BB'), findsOneWidget);
     expect(find.text('01'), findsOneWidget);
+    final Finder panel = find.byKey(
+      const ValueKey<String>('quick-commands-panel'),
+    );
+    final Finder header = find.byKey(
+      const ValueKey<String>('quick-commands-header'),
+    );
+    final Finder item = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'quick-command-item-',
+          ),
+    );
+    final Finder scrollbar = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'quick-command-scrollbar-',
+          ),
+    );
+    expect(tester.getRect(item).left, tester.getRect(panel).left);
+    expect(tester.getRect(item).right, tester.getRect(panel).right);
+    expect(tester.getRect(scrollbar).left, tester.getRect(item).left);
+    expect(tester.getRect(scrollbar).right, tester.getRect(item).right);
+    final Finder quickCommandsTitleFinder = find.descendant(
+      of: header,
+      matching: find.text('快捷指令'),
+    );
+    expect(
+      tester.getRect(quickCommandsTitleFinder).left -
+          tester.getRect(panel).left,
+      8,
+    );
+    final Text quickCommandsTitle = tester.widget<Text>(
+      quickCommandsTitleFinder,
+    );
+    expect(quickCommandsTitle.style?.fontSize, 12);
+    final Text fixedByte = tester.widget<Text>(find.text('AA'));
+    expect(fixedByte.style?.fontSize, 11);
+    final Rect firstByteRect = tester.getRect(find.text('AA'));
+    final Rect secondByteRect = tester.getRect(find.text('BB'));
+    expect(secondByteRect.left - firstByteRect.right, lessThanOrEqualTo(16));
+    final Finder parameterCell = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'quick-command-parameter-cell-',
+          ),
+    );
+    final Finder parameterLabel = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'quick-command-parameter-label-',
+          ),
+    );
+    final Finder parameterInput = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget is ToolTextField &&
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'quick-command-parameter-',
+          ),
+    );
+    final ToolTextField parameterField = tester.widget<ToolTextField>(
+      parameterInput,
+    );
+    expect(tester.getSize(parameterCell).width, 40);
+    expect(tester.getSize(parameterInput).height, 24);
+    expect(
+      parameterField.padding,
+      const EdgeInsets.symmetric(horizontal: 1, vertical: 0),
+    );
+    expect(parameterField.style?.fontSize, 11);
+    expect(parameterField.placeholderStyle?.fontSize, 9);
+    final Text parameterLabelText = tester.widget<Text>(
+      find.descendant(of: parameterLabel, matching: find.text('级别')),
+    );
+    expect(parameterLabelText.style?.fontSize, 9);
+    expect(
+      tester.getRect(parameterLabel).center.dx,
+      tester.getRect(parameterCell).center.dx,
+    );
+    expect(
+      tester.getRect(parameterInput).center.dx,
+      tester.getRect(parameterCell).center.dx,
+    );
+    expect(tester.getRect(parameterInput).center.dy, firstByteRect.center.dy);
   });
 
   testWidgets('命令编辑器按字段显示保存校验错误', (WidgetTester tester) async {

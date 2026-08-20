@@ -40,6 +40,7 @@ class ToolTextField extends StatelessWidget {
     this.textInputAction,
     this.textAlign = TextAlign.start,
     this.style,
+    this.placeholderStyle,
     this.inputFormatters,
     this.enabled = true,
     this.prefix,
@@ -65,6 +66,7 @@ class ToolTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final TextAlign textAlign;
   final TextStyle? style;
+  final TextStyle? placeholderStyle;
   final List<TextInputFormatter>? inputFormatters;
   final bool enabled;
   final Widget? prefix;
@@ -105,7 +107,7 @@ class ToolTextField extends StatelessWidget {
         enabled: enabled,
         placeholder: hintText == null && showLabel
             ? null
-            : Text(hintText ?? label),
+            : Text(hintText ?? label, style: placeholderStyle),
         features: <shad.InputFeature>[
           if (prefix != null)
             shad.InputFeature.leading(

@@ -31,36 +31,53 @@ class _QuickCommandsPanel extends StatelessWidget {
           .add(command);
     }
     return ListView(
-      padding: const EdgeInsets.all(14),
+      key: const ValueKey<String>('quick-commands-panel'),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                l10n.quickCommands,
-                style: AppTheme.textStylesOf(
-                  context,
-                ).titleMedium.copyWith(fontWeight: FontWeight.w700),
+        Padding(
+          key: const ValueKey<String>('quick-commands-header'),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  l10n.quickCommands,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         if (quickCommands.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 28),
-            child: Center(child: Text(l10n.noQuickCommands)),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 18),
+            child: Center(
+              child: Text(
+                l10n.noQuickCommands,
+                style: AppTheme.textStylesOf(context).bodySmall,
+              ),
+            ),
           )
         else
           ...byGroup.entries.expand(
             (MapEntry<String, List<CommandDefinition>> entry) => <Widget>[
               if (entry.key != '-') ...<Widget>[
-                const shad.Divider(height: 24),
-                Text(
-                  entry.key,
-                  style: AppTheme.textStylesOf(context).labelLarge,
+                const shad.Divider(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    entry.key,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 3),
               ],
               ...entry.value.map(
                 (CommandDefinition command) => _CommandTile(
@@ -165,7 +182,8 @@ class _CommandTileState extends State<_CommandTile> {
     final bool sendEnabled = widget.canSend && command.enabled;
     final bool hasParameters = command.parameters.isNotEmpty;
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 6, 8),
+      key: ValueKey<String>('quick-command-item-${command.id}'),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: AppTheme.colorsOf(context).border),
@@ -176,18 +194,25 @@ class _CommandTileState extends State<_CommandTile> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            Stack(
+              alignment: Alignment.centerRight,
               children: <Widget>[
-                Expanded(
+                SizedBox(
+                  width: double.infinity,
                   child: shad.Scrollbar(
+                    key: ValueKey<String>(
+                      'quick-command-scrollbar-${command.id}',
+                    ),
                     controller: _frameScrollController,
                     thumbVisibility: true,
+                    thickness: 4,
+                    scrollbarOrientation: ScrollbarOrientation.bottom,
                     child: SingleChildScrollView(
                       controller: _frameScrollController,
                       scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.fromLTRB(6, 0, 44, 4),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: _buildFrameCells(
                           command,
                           showParameterLabels: hasParameters,
@@ -196,12 +221,15 @@ class _CommandTileState extends State<_CommandTile> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
-                ToolIconButton(
-                  tooltip: '${widget.l10n.sendCommand} ${command.name}',
-                  variant: ToolButtonVariant.primary,
-                  onPressed: sendEnabled ? _send : null,
-                  icon: const Icon(AppIcons.sendOutlined, size: 18),
+                Positioned(
+                  right: 4,
+                  child: ToolIconButton(
+                    tooltip: '${widget.l10n.sendCommand} ${command.name}',
+                    variant: ToolButtonVariant.primary,
+                    touchSize: 32,
+                    onPressed: sendEnabled ? _send : null,
+                    icon: const Icon(AppIcons.sendOutlined, size: 16),
+                  ),
                 ),
               ],
             ),
@@ -212,7 +240,7 @@ class _CommandTileState extends State<_CommandTile> {
                   _validationError!,
                   style: TextStyle(
                     color: AppTheme.colorsOf(context).destructive,
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
               ),
@@ -292,68 +320,97 @@ class _CommandTileState extends State<_CommandTile> {
         parameter.type == CommandParameterType.enumValue &&
         parameter.options.isNotEmpty;
     return Padding(
-      padding: const EdgeInsets.only(right: 4),
+      padding: const EdgeInsets.only(right: 2),
       child: SizedBox(
-        width: isChoice ? 76 : _parameterInputWidth(parameter),
+        key: ValueKey<String>(
+          'quick-command-parameter-cell-${widget.command.id}-${parameter.key}',
+        ),
+        width: _parameterInputWidth,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
-            ToolTooltip(
-              message: label,
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTheme.textStylesOf(context).labelSmall,
+            SizedBox(
+              key: ValueKey<String>(
+                'quick-command-parameter-label-${widget.command.id}-${parameter.key}',
+              ),
+              width: double.infinity,
+              height: _parameterLabelHeight,
+              child: Center(
+                child: ToolTooltip(
+                  message: label,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 9),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 2),
-            if (isChoice)
-              ToolSelect<String>(
-                value:
-                    parameter.options.any(
-                      (CommandParameterOption option) =>
-                          option.value == _controllers[parameter.key]!.text,
+            const SizedBox(height: _frameCellGap),
+            SizedBox(
+              height: _frameControlHeight,
+              child: isChoice
+                  ? ToolSelect<String>(
+                      key: ValueKey<String>(
+                        'quick-command-parameter-${widget.command.id}-${parameter.key}',
+                      ),
+                      value:
+                          parameter.options.any(
+                            (CommandParameterOption option) =>
+                                option.value ==
+                                _controllers[parameter.key]!.text,
+                          )
+                          ? _controllers[parameter.key]!.text
+                          : parameter.options.first.value,
+                      options: parameter.options
+                          .map(
+                            (CommandParameterOption option) =>
+                                ToolSelectOption<String>(
+                                  value: option.value,
+                                  label: option.label,
+                                ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (String value) =>
+                          _controllers[parameter.key]!.text = value,
+                      textStyle: const TextStyle(fontSize: 11),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 1,
+                        vertical: 0,
+                      ),
+                      itemPadding: const EdgeInsets.symmetric(
+                        horizontal: 3,
+                        vertical: 1,
+                      ),
+                      itemHeight: 24,
                     )
-                    ? _controllers[parameter.key]!.text
-                    : parameter.options.first.value,
-                options: parameter.options
-                    .map(
-                      (CommandParameterOption option) =>
-                          ToolSelectOption<String>(
-                            value: option.value,
-                            label: option.label,
-                          ),
-                    )
-                    .toList(growable: false),
-                onChanged: (String value) =>
-                    _controllers[parameter.key]!.text = value,
-              )
-            else
-              ToolTextField(
-                controller: _controllers[parameter.key],
-                label: label,
-                showLabel: false,
-                keyboardType: _usesNumericKeyboard(parameter.type)
-                    ? TextInputType.number
-                    : TextInputType.text,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-              ),
+                  : ToolTextField(
+                      key: ValueKey<String>(
+                        'quick-command-parameter-${widget.command.id}-${parameter.key}',
+                      ),
+                      controller: _controllers[parameter.key],
+                      label: label,
+                      showLabel: false,
+                      keyboardType: _usesNumericKeyboard(parameter.type)
+                          ? TextInputType.number
+                          : TextInputType.text,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 1,
+                        vertical: 0,
+                      ),
+                      style: const TextStyle(fontSize: 11),
+                      placeholderStyle: const TextStyle(fontSize: 9),
+                    ),
+            ),
           ],
         ),
       ),
     );
   }
-
-  double _parameterInputWidth(CommandParameter parameter) =>
-      switch (parameter.type) {
-        CommandParameterType.uint32 || CommandParameterType.int32 => 62,
-        CommandParameterType.uint16 || CommandParameterType.int16 => 52,
-        CommandParameterType.ascii || CommandParameterType.utf8 => 88,
-        CommandParameterType.hex => 52,
-        _ => 38,
-      };
 }
 
 class _FixedFrameCell extends StatelessWidget {
@@ -368,26 +425,27 @@ class _FixedFrameCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(right: 4),
+      padding: const EdgeInsets.only(right: 2),
       child: SizedBox(
-        width: 32,
+        width: 26,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
             if (showParameterLabelSpace) ...<Widget>[
-              const SizedBox(height: 16),
-              const SizedBox(height: 2),
+              const SizedBox(height: _parameterLabelHeight),
+              const SizedBox(height: _frameCellGap),
             ],
             SizedBox(
-              height: 38,
+              height: _frameControlHeight,
               child: Align(
                 alignment: Alignment.center,
                 child: Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTheme.textStylesOf(context).bodySmall.copyWith(
+                  style: const TextStyle(
                     fontFamily: 'monospace',
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -415,17 +473,18 @@ class _RawFrameCell extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         if (showParameterLabelSpace) ...<Widget>[
-          const SizedBox(height: 16),
-          const SizedBox(height: 2),
+          const SizedBox(height: _parameterLabelHeight),
+          const SizedBox(height: _frameCellGap),
         ],
         SizedBox(
-          height: 38,
+          height: _frameControlHeight,
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
               value,
-              style: AppTheme.textStylesOf(context).bodySmall.copyWith(
+              style: const TextStyle(
                 fontFamily: 'monospace',
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -445,3 +504,8 @@ bool _usesNumericKeyboard(CommandParameterType type) => switch (type) {
   CommandParameterType.int32 => true,
   _ => false,
 };
+
+const double _parameterLabelHeight = 12;
+const double _frameCellGap = 2;
+const double _frameControlHeight = 24;
+const double _parameterInputWidth = 40;
