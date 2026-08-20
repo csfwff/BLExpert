@@ -132,6 +132,8 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _webOptionalServices = <String>[];
   Future<void> _saveWorkspaceChain = Future<void>.value();
   Future<void> _saveSessionLogsChain = Future<void>.value();
+  Timer? _sessionLogPersistTimer;
+  Timer? _logRebuildTimer;
   final List<BluetoothIncomingData> _pendingReceiveEvents =
       <BluetoothIncomingData>[];
   bool _processingReceiveEvents = false;
@@ -184,6 +186,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _inputController.dispose();
     _consoleSearchController.dispose();
     _inputFocusNode.dispose();
+    _logRebuildTimer?.cancel();
+    _flushSessionLogsPersistence();
     _scriptEngine.dispose();
     unawaited(_bluetoothService.dispose());
     super.dispose();
@@ -226,13 +230,35 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _persistSessionLogs() {
+    // RX traffic can produce multiple records per frame. Debounce persistence
+    // so JSON encoding and preference writes do not compete with layout/paint.
+    _sessionLogPersistTimer?.cancel();
+    _sessionLogPersistTimer = Timer(const Duration(milliseconds: 250), () {
+      _sessionLogPersistTimer = null;
+      _flushSessionLogsPersistence();
+    });
+  }
+
+  void _flushSessionLogsPersistence() {
+    _sessionLogPersistTimer?.cancel();
+    _sessionLogPersistTimer = null;
     final List<SessionLogRecord> snapshot = List<SessionLogRecord>.from(_logs);
     _saveSessionLogsChain = _saveSessionLogsChain
         .then((_) => _sessionLogStore.save(snapshot))
         .catchError((Object error) => debugPrint('会话记录保存失败：$error'));
   }
 
+  void _updateLogState(VoidCallback mutation) {
+    mutation();
+    if (_logRebuildTimer != null) return;
+    _logRebuildTimer = Timer(const Duration(milliseconds: 16), () {
+      _logRebuildTimer = null;
+      if (mounted) setState(() {});
+    });
+  }
+
   void _clearLogs() {
+    _sessionLogPersistTimer?.cancel();
     setState(() {
       _logs.clear();
       _selectedLog = null;
@@ -343,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _enqueueIncomingData(BluetoothIncomingData event) {
     if (_pendingReceiveEvents.length >= _maxPendingReceiveEvents) {
       final String? transactionId = _consumePendingTransaction();
-      setState(() {
+      _updateLogState(() {
         _logs.insert(
           0,
           SessionLogRecord(
@@ -419,7 +445,7 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
         if (mounted) {
-          setState(() {
+          _updateLogState(() {
             _logs.insert(
               0,
               SessionLogRecord(
@@ -471,7 +497,7 @@ class _HomeScreenState extends State<HomeScreen> {
               );
         if (parsed != null) parsedResponses.add(parsed);
       }
-      setState(() {
+      _updateLogState(() {
         _logs.insert(
           0,
           SessionLogRecord(
@@ -1895,7 +1921,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       await _bluetoothService.sendData(device.id, result.bytes);
       if (!mounted) return;
-      setState(() {
+      _updateLogState(() {
         _logs.insert(
           0,
           SessionLogRecord(
@@ -2044,7 +2070,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     final String message = _bluetoothErrorMessage(error);
-    setState(() {
+    _updateLogState(() {
       _logs.insert(
         0,
         SessionLogRecord.error(
@@ -2066,7 +2092,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) {
       return;
     }
-    setState(() {
+    _updateLogState(() {
       _logs.insert(
         0,
         SessionLogRecord.system(

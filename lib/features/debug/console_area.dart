@@ -61,14 +61,23 @@ class _ConsoleLogViewState extends State<_ConsoleLogView> {
   void didUpdateWidget(covariant _ConsoleLogView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.autoScroll && widget.logs.length > oldWidget.logs.length) {
+      // Incoming frames can arrive several times per second. Animating every
+      // append queues overlapping scroll animations and makes resizing the
+      // surrounding workspace feel sticky.
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
     }
   }
 
-  void _scrollToLatest() {
+  void _scrollToLatest({bool animate = false}) {
     if (!mounted || !_scrollController.hasClients) return;
+    final double target = _scrollController.position.maxScrollExtent;
+    if ((target - _scrollController.position.pixels).abs() < 0.5) return;
+    if (!animate) {
+      _scrollController.jumpTo(target);
+      return;
+    }
     _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
+      target,
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
     );
@@ -125,7 +134,7 @@ class _ConsoleLogViewState extends State<_ConsoleLogView> {
                   variant: ToolButtonVariant.secondary,
                   onPressed: () {
                     widget.onJumpToLatest();
-                    _scrollToLatest();
+                    _scrollToLatest(animate: true);
                   },
                   icon: const Icon(AppIcons.verticalAlignBottom, size: 18),
                 ),

@@ -628,15 +628,15 @@ class _DebugWorkspaceState extends State<_DebugWorkspace> {
                   children: <Widget>[
                     _DebugWorkspaceLayoutScope(
                       multiPane: false,
-                      child: widget.consolePane,
+                      child: RepaintBoundary(child: widget.consolePane),
                     ),
                     _DebugWorkspaceLayoutScope(
                       multiPane: false,
-                      child: widget.devicePane,
+                      child: RepaintBoundary(child: widget.devicePane),
                     ),
                     _DebugWorkspaceLayoutScope(
                       multiPane: false,
-                      child: widget.inspectorPane,
+                      child: RepaintBoundary(child: widget.inspectorPane),
                     ),
                   ],
                 ),
@@ -652,7 +652,7 @@ class _DebugWorkspaceState extends State<_DebugWorkspace> {
                 width: _devicePaneWidth,
                 child: _DebugWorkspaceLayoutScope(
                   multiPane: true,
-                  child: widget.devicePane,
+                  child: RepaintBoundary(child: widget.devicePane),
                 ),
               ),
               const shad.VerticalDivider(width: 1),
@@ -660,7 +660,7 @@ class _DebugWorkspaceState extends State<_DebugWorkspace> {
             Expanded(
               child: _DebugWorkspaceLayoutScope(
                 multiPane: true,
-                child: widget.consolePane,
+                child: RepaintBoundary(child: widget.consolePane),
               ),
             ),
             if (widget.inspectorOpen) ...<Widget>[
@@ -669,7 +669,7 @@ class _DebugWorkspaceState extends State<_DebugWorkspace> {
                 width: _inspectorPaneWidth,
                 child: _DebugWorkspaceLayoutScope(
                   multiPane: true,
-                  child: widget.inspectorPane,
+                  child: RepaintBoundary(child: widget.inspectorPane),
                 ),
               ),
             ],
