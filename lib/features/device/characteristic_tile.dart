@@ -95,7 +95,7 @@ class _CharacteristicTile extends StatelessWidget {
             characteristic.characteristicId,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 10),
+            style: AppFonts.monoStyle.copyWith(fontSize: 10),
           ),
           if (characteristic.canRead ||
               characteristic.canWrite ||
@@ -241,7 +241,8 @@ class _CapabilityMarker extends StatelessWidget {
             maxLines: 1,
             style: TextStyle(
               color: AppTheme.colorsOf(context).secondaryForeground,
-              fontFamily: 'monospace',
+              fontFamily: AppFonts.mono,
+              package: AppFonts.shadcnPackage,
               fontSize: 9,
               fontWeight: FontWeight.w700,
             ),

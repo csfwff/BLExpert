@@ -97,7 +97,7 @@ class _SelectedLogDetails extends StatelessWidget {
           const SizedBox(height: 4),
           shad.SelectableText(
             frame,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            style: AppFonts.monoStyle.copyWith(fontSize: 12),
           ),
         ],
       ),

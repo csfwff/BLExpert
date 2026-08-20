@@ -295,7 +295,7 @@ class _ScriptProtocolEditor extends StatelessWidget {
           minLines: 16,
           maxLines: 28,
           onChanged: (_) => onChanged(),
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          style: AppFonts.monoStyle.copyWith(fontSize: 12),
         ),
         const SizedBox(height: 14),
         ToolTextField(
@@ -304,7 +304,7 @@ class _ScriptProtocolEditor extends StatelessWidget {
           minLines: 16,
           maxLines: 28,
           onChanged: (_) => onChanged(),
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          style: AppFonts.monoStyle.copyWith(fontSize: 12),
         ),
       ],
     );
@@ -334,7 +334,7 @@ class _ScriptMethodContract extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(title, style: const TextStyle(fontFamily: 'monospace')),
+          Text(title, style: AppFonts.monoStyle),
           const SizedBox(height: 3),
           Text(details, style: AppTheme.textStylesOf(context).bodySmall),
           const SizedBox(height: 5),
@@ -342,7 +342,7 @@ class _ScriptMethodContract extends StatelessWidget {
             signature,
             style: AppTheme.textStylesOf(
               context,
-            ).labelSmall.copyWith(fontFamily: 'monospace'),
+            ).labelSmall.merge(AppFonts.monoStyle),
           ),
         ],
       ),
@@ -391,7 +391,7 @@ class _ScriptBuiltinLibrary extends StatelessWidget {
                 function,
                 style: AppTheme.textStylesOf(
                   context,
-                ).labelSmall.copyWith(fontFamily: 'monospace'),
+                ).labelSmall.merge(AppFonts.monoStyle),
               ),
             ),
           ),

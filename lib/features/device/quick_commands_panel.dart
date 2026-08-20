@@ -456,7 +456,8 @@ class _FixedFrameCell extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: AppFonts.mono,
+                    package: AppFonts.shadcnPackage,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -495,7 +496,8 @@ class _RawFrameCell extends StatelessWidget {
             child: Text(
               value,
               style: const TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: AppFonts.mono,
+                package: AppFonts.shadcnPackage,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),

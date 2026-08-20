@@ -233,7 +233,7 @@ class _CommandLibraryTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: AppTheme.textStylesOf(
                       context,
-                    ).bodySmall.copyWith(fontFamily: 'monospace'),
+                    ).bodySmall.merge(AppFonts.monoStyle),
                   ),
                   if (command.notes.isNotEmpty)
                     Padding(

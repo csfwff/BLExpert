@@ -342,7 +342,7 @@ class _ConsoleArea extends StatelessWidget {
             hintText: l10n.searchLogs,
             showLabel: false,
             onChanged: onSearchChanged,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            style: AppFonts.monoStyle.copyWith(fontSize: 12),
             prefix: const Icon(AppIcons.search, size: 17),
             suffix: searchController.text.isEmpty
                 ? null
@@ -415,7 +415,8 @@ class _ConsoleArea extends StatelessWidget {
                               vertical: 4,
                             ),
                             style: const TextStyle(
-                              fontFamily: 'monospace',
+                              fontFamily: AppFonts.mono,
+                              package: AppFonts.shadcnPackage,
                               fontSize: 12,
                               height: 1.35,
                             ),
@@ -494,7 +495,8 @@ class _ConsoleArea extends StatelessWidget {
                                   ),
                             style: AppTheme.textStylesOf(context).labelSmall
                                 .copyWith(
-                                  fontFamily: 'monospace',
+                                  fontFamily: AppFonts.mono,
+                                  package: AppFonts.shadcnPackage,
                                   color: colors.mutedForeground,
                                 ),
                           ),
@@ -635,7 +637,8 @@ class _ConsoleWriteTargetStatus extends StatelessWidget {
             label,
             maxLines: 1,
             style: AppTheme.textStylesOf(context).labelSmall.copyWith(
-              fontFamily: 'monospace',
+              fontFamily: AppFonts.mono,
+              package: AppFonts.shadcnPackage,
               color: selected ? null : colors.destructive,
             ),
           ),

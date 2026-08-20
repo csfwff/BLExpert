@@ -1646,7 +1646,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             subtitle: Text(
                               characteristic.serviceId,
-                              style: const TextStyle(fontFamily: 'monospace'),
+                              style: AppFonts.monoStyle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -2009,7 +2009,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       '业务载荷：${_formatHexForLog(businessPayload)}',
                       '最终帧：${_formatHexForLog(finalFrame)}',
                     ].join('\n'),
-                    style: const TextStyle(fontFamily: 'monospace'),
+                    style: AppFonts.monoStyle,
                   ),
                 ),
               ),
@@ -2195,10 +2195,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 480),
             child: SingleChildScrollView(
-              child: shad.SelectableText(
-                jsonText,
-                style: const TextStyle(fontFamily: 'monospace'),
-              ),
+              child: shad.SelectableText(jsonText, style: AppFonts.monoStyle),
             ),
           ),
         ),
@@ -2254,7 +2251,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         preview = null;
                         validationError = null;
                       }),
-                      style: const TextStyle(fontFamily: 'monospace'),
+                      style: AppFonts.monoStyle,
                     ),
                     const SizedBox(height: 14),
                     Text(
@@ -2449,10 +2446,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 480),
             child: SingleChildScrollView(
-              child: shad.SelectableText(
-                jsonText,
-                style: const TextStyle(fontFamily: 'monospace'),
-              ),
+              child: shad.SelectableText(jsonText, style: AppFonts.monoStyle),
             ),
           ),
         ),

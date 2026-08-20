@@ -224,15 +224,15 @@ void main() {
     );
     await tester.pumpWidget(
       _themedHarness(
-        child: const Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            ToolTextField(label: '默认'),
+            const ToolTextField(label: '默认'),
             ToolTextField(
               label: '覆盖',
               showLabel: false,
               padding: overridePadding,
-              style: TextStyle(fontSize: 11, fontFamily: 'monospace'),
+              style: AppFonts.monoStyle.copyWith(fontSize: 11),
             ),
             ToolTextField(
               label: '带图标',
@@ -254,7 +254,10 @@ void main() {
     expect(fields.last.padding, ToolTextField.iconPadding);
     expect(fields.first.style?.fontSize, 12);
     expect(fields[1].style?.fontSize, 11);
-    expect(fields[1].style?.fontFamily, 'monospace');
+    expect(
+      fields[1].style?.fontFamily,
+      'packages/shadcn_flutter/${AppFonts.mono}',
+    );
     expect(fields.last.style?.fontSize, 12);
     expect(tester.widget<Text>(find.text('默认')).style?.fontSize, 12);
     final Iterable<shad.Theme> fieldThemes = tester.widgetList<shad.Theme>(

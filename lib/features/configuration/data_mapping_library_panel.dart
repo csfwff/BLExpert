@@ -70,7 +70,8 @@ class _DataMappingLibraryPanel extends StatelessWidget {
                             mapping.fields.length,
                           ),
                           style: const TextStyle(
-                            fontFamily: 'monospace',
+                            fontFamily: AppFonts.mono,
+                            package: AppFonts.shadcnPackage,
                             fontSize: 12,
                           ),
                         ),

@@ -735,7 +735,10 @@ void main() {
     final ToolTextField inputField = tester.widget<ToolTextField>(input);
     expect(inputField.padding, ToolTextField.defaultPadding);
     expect(inputField.style?.fontSize, 12);
-    expect(inputField.style?.fontFamily, 'monospace');
+    expect(
+      inputField.style?.fontFamily,
+      'packages/shadcn_flutter/${AppFonts.mono}',
+    );
     final ToolButton send = tester.widget<ToolButton>(sendButton);
     expect(send.compact, isTrue);
     expect(send.padding, const EdgeInsets.symmetric(horizontal: 10));

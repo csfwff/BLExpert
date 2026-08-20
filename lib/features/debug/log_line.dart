@@ -49,7 +49,8 @@ class _LogLine extends StatelessWidget {
     final Widget content = shad.SelectableText(
       payload,
       style: TextStyle(
-        fontFamily: 'monospace',
+        fontFamily: AppFonts.mono,
+        package: AppFonts.shadcnPackage,
         fontSize: 12,
         height: 1.45,
         color: entry.kind == SessionLogKind.error ? color : null,
@@ -98,7 +99,8 @@ class _LogLine extends StatelessWidget {
                         Text(
                           timestamp,
                           style: TextStyle(
-                            fontFamily: 'monospace',
+                            fontFamily: AppFonts.mono,
+                            package: AppFonts.shadcnPackage,
                             fontSize: 11,
                             color: colors.border,
                           ),
@@ -113,7 +115,8 @@ class _LogLine extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: AppFonts.mono,
+                                package: AppFonts.shadcnPackage,
                                 fontSize: 10,
                               ),
                             ),
@@ -149,7 +152,8 @@ class _LogLine extends StatelessWidget {
                       child: Text(
                         timestamp,
                         style: TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: AppFonts.mono,
+                          package: AppFonts.shadcnPackage,
                           fontSize: 11,
                           color: colors.border,
                         ),
@@ -166,7 +170,8 @@ class _LogLine extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontFamily: 'monospace',
+                            fontFamily: AppFonts.mono,
+                            package: AppFonts.shadcnPackage,
                             fontSize: 10,
                           ),
                         ),

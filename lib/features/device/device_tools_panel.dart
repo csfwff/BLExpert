@@ -336,7 +336,8 @@ class _ServiceTreeHeader extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: AppFonts.mono,
+                package: AppFonts.shadcnPackage,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
               ),

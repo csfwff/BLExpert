@@ -1,6 +1,18 @@
 import 'package:flutter/widgets.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
+abstract final class AppFonts {
+  static const String sans = 'NotoSansSC';
+  static const String mono = 'GeistMono';
+  static const String shadcnPackage = 'shadcn_flutter';
+
+  static const TextStyle sansStyle = TextStyle(fontFamily: sans);
+  static const TextStyle monoStyle = TextStyle(
+    fontFamily: mono,
+    package: shadcnPackage,
+  );
+}
+
 abstract final class AppMotion {
   static const Duration fast = Duration(milliseconds: 120);
   static const Duration standard = Duration(milliseconds: 200);
@@ -62,6 +74,12 @@ shad.ThemeData buildAppTheme(
   Brightness brightness, {
   TargetPlatform? platform,
 }) {
+  const shad.Typography baseTypography = shad.Typography.geist();
+  final shad.Typography typography = baseTypography.copyWith(
+    sans: () => AppFonts.sansStyle,
+    mono: () => AppFonts.monoStyle,
+    inlineCode: () => baseTypography.inlineCode.merge(AppFonts.monoStyle),
+  );
   final bool dark = brightness == Brightness.dark;
   final shad.ColorScheme scheme = shad.ColorScheme(
     brightness: brightness,
@@ -96,6 +114,7 @@ shad.ThemeData buildAppTheme(
   );
   return shad.ThemeData(
     colorScheme: scheme,
+    typography: typography,
     radius: 0.5,
     platform: platform,
     surfaceOpacity: 1,
