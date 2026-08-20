@@ -21,6 +21,7 @@ class ToolSelect<T> extends StatelessWidget {
     required this.options,
     required this.onChanged,
     this.label,
+    this.showLabel = true,
     this.errorText,
     this.textStyle,
     this.padding,
@@ -32,6 +33,7 @@ class ToolSelect<T> extends StatelessWidget {
   final List<ToolSelectOption<T>> options;
   final ValueChanged<T> onChanged;
   final String? label;
+  final bool showLabel;
   final String? errorText;
   final TextStyle? textStyle;
   final EdgeInsetsGeometry? padding;
@@ -103,11 +105,11 @@ class ToolSelect<T> extends StatelessWidget {
       value: selected.label,
       child: select,
     );
-    if (label == null && errorText == null) return semantics;
+    if ((!showLabel || label == null) && errorText == null) return semantics;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        if (label != null) ...<Widget>[
+        if (showLabel && label != null) ...<Widget>[
           Text(label!, style: AppTheme.textStylesOf(context).labelMedium),
           const SizedBox(height: 4),
         ],

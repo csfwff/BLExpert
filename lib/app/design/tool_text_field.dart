@@ -84,6 +84,9 @@ class ToolTextField extends StatelessWidget {
       density: () => hasInputIcon ? iconDensity : shad.Density.compactDensity,
     );
     final TextStyle inputTextStyle = appTheme.typography.xSmall.merge(style);
+    final TextStyle effectivePlaceholderStyle = inputTextStyle
+        .copyWith(color: colors.mutedForeground)
+        .merge(placeholderStyle);
     final TextStyle labelTextStyle = appTheme.typography.xSmall.copyWith(
       color: colors.foreground,
       fontWeight: FontWeight.w500,
@@ -107,7 +110,7 @@ class ToolTextField extends StatelessWidget {
         enabled: enabled,
         placeholder: hintText == null && showLabel
             ? null
-            : Text(hintText ?? label, style: placeholderStyle),
+            : Text(hintText ?? label, style: effectivePlaceholderStyle),
         features: <shad.InputFeature>[
           if (prefix != null)
             shad.InputFeature.leading(

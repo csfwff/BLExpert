@@ -1181,6 +1181,94 @@ void main() {
       tester.getRect(modeSection).left,
     );
 
+    final Finder sendSection = find.byKey(
+      const ValueKey<String>('protocol-send-section'),
+    );
+    final Finder receiveSection = find.byKey(
+      const ValueKey<String>('protocol-receive-section'),
+    );
+    final Finder sendAddButton = find.byKey(
+      const ValueKey<String>('protocol-send-add-segment'),
+    );
+    final Finder receiveAddButton = find.byKey(
+      const ValueKey<String>('protocol-receive-add-segment'),
+    );
+    expect(tester.getRect(sendSection).left, tester.getRect(modeSection).left);
+    expect(
+      tester.getRect(sendSection).right,
+      tester.getRect(modeSection).right,
+    );
+    expect(
+      tester.getRect(sendAddButton).left,
+      tester.getRect(sendSection).left,
+    );
+    expect(
+      tester.getRect(receiveAddButton).left,
+      tester.getRect(receiveSection).left,
+    );
+    final Finder sendEmptyState = find.descendant(
+      of: sendSection,
+      matching: find.text('尚未配置片段。'),
+    );
+    final Finder receiveEmptyState = find.descendant(
+      of: receiveSection,
+      matching: find.text('尚未配置片段。'),
+    );
+    expect(
+      tester.getRect(sendAddButton).top,
+      greaterThan(tester.getRect(sendEmptyState).bottom),
+    );
+    expect(
+      tester.getRect(receiveAddButton).top,
+      greaterThan(tester.getRect(receiveEmptyState).bottom),
+    );
+
+    await tester.tap(sendAddButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    final Rect addMenuRect = tester.getRect(find.byType(shad.DropdownMenu));
+    final Rect openAddButtonRect = tester.getRect(sendAddButton);
+    expect(addMenuRect.left, lessThan(openAddButtonRect.right));
+    expect(addMenuRect.right, greaterThan(openAddButtonRect.left));
+    expect(addMenuRect.top, greaterThanOrEqualTo(openAddButtonRect.bottom));
+    expect(addMenuRect.top - openAddButtonRect.bottom, lessThanOrEqualTo(8));
+    await tester.tap(find.text('固定 HEX').last);
+    await tester.pumpAndSettle();
+
+    final Finder sendSegment = find.byWidgetPredicate((Widget widget) {
+      final Key? key = widget.key;
+      return key is ValueKey<String> &&
+          key.value.startsWith('protocol-send-segment-');
+    });
+    final List<Rect> sendFieldRects = find
+        .descendant(of: sendSegment, matching: find.byType(ToolTextField))
+        .evaluate()
+        .map((Element element) => tester.getRect(find.byWidget(element.widget)))
+        .toList(growable: false);
+    expect(sendFieldRects, hasLength(2));
+    expect(
+      sendFieldRects[0].center.dy,
+      closeTo(sendFieldRects[1].center.dy, 1),
+    );
+    expect(
+      tester.getRect(sendAddButton).top,
+      greaterThan(tester.getRect(sendSegment).bottom),
+    );
+
+    tester.view.physicalSize = const Size(700, 900);
+    await tester.pumpAndSettle();
+    final List<Rect> narrowSendFieldRects = find
+        .descendant(of: sendSegment, matching: find.byType(ToolTextField))
+        .evaluate()
+        .map((Element element) => tester.getRect(find.byWidget(element.widget)))
+        .toList(growable: false);
+    expect(
+      narrowSendFieldRects[0].bottom,
+      lessThanOrEqualTo(narrowSendFieldRects[1].top),
+    );
+    tester.view.physicalSize = const Size(1440, 900);
+    await tester.pumpAndSettle();
+
     final Finder standardIcon = find.descendant(
       of: modeControl,
       matching: find.byIcon(AppIcons.accountTree),
@@ -1692,7 +1780,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(shad.TextField).at(0), '主协议');
     await tester.enterText(find.byType(shad.TextField).at(1), '测试设备主链路');
-    await tester.tap(findToolTooltip('新增片段').first);
+    await tester.tap(
+      find.byKey(const ValueKey<String>('protocol-send-add-segment')),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.text('固定 HEX').last);

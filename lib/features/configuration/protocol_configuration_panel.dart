@@ -310,8 +310,10 @@ class _StandardProtocolEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         _InlineProtocolSegmentSection(
+          sectionId: 'send',
           title: l10n.sendFrame,
           segments: protocol.sendSegments,
           l10n: l10n,
@@ -320,6 +322,7 @@ class _StandardProtocolEditor extends StatelessWidget {
         ),
         const shad.Divider(height: 30),
         _InlineProtocolSegmentSection(
+          sectionId: 'receive',
           title: l10n.receiveFrame,
           segments: protocol.receiveSegments,
           l10n: l10n,
@@ -505,12 +508,14 @@ class _ScriptBuiltinLibrary extends StatelessWidget {
 
 class _InlineProtocolSegmentSection extends StatelessWidget {
   const _InlineProtocolSegmentSection({
+    required this.sectionId,
     required this.title,
     required this.segments,
     required this.l10n,
     required this.onChanged,
   });
 
+  final String sectionId;
   final String title;
   final List<ProtocolSegment> segments;
   final AppLocalizations l10n;
@@ -519,51 +524,26 @@ class _InlineProtocolSegmentSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      key: ValueKey<String>('protocol-$sectionId-section'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                title,
-                style: AppTheme.textStylesOf(context).titleSmall,
-              ),
-            ),
-            ToolIconButton(
-              tooltip: l10n.newProtocolSegment,
-              icon: const Icon(AppIcons.add, size: 18),
-              onPressed: () => shad
-                  .showDropdown<void>(
-                    context: context,
-                    widthConstraint: shad.PopoverConstraint.flexible,
-                    builder: (BuildContext context) => shad.DropdownMenu(
-                      children: ProtocolSegmentType.values
-                          .map(
-                            (ProtocolSegmentType type) => shad.MenuButton(
-                              onPressed: (_) => onChanged(<ProtocolSegment>[
-                                ...segments,
-                                _newProtocolSegment(type),
-                              ]),
-                              child: Text(_segmentTypeLabel(type, l10n)),
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-                  )
-                  .future,
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
+        Text(title, style: AppTheme.textStylesOf(context).titleSmall),
+        const SizedBox(height: 8),
         if (segments.isEmpty)
-          Text(
-            l10n.noProtocolSegments,
-            style: AppTheme.textStylesOf(context).bodySmall,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              l10n.noProtocolSegments,
+              style: AppTheme.textStylesOf(context).bodySmall,
+            ),
           )
         else
           ...List<Widget>.generate(segments.length, (int index) {
             final ProtocolSegment segment = segments[index];
             return _InlineProtocolSegmentTile(
+              key: ValueKey<String>(
+                'protocol-$sectionId-segment-${segment.id}',
+              ),
               segment: segment,
               canMoveUp: index > 0,
               canMoveDown: index < segments.length - 1,
@@ -595,13 +575,64 @@ class _InlineProtocolSegmentSection extends StatelessWidget {
               },
             );
           }),
+        const SizedBox(height: 8),
+        _AddProtocolSegmentButton(
+          key: ValueKey<String>('protocol-$sectionId-add-segment'),
+          segments: segments,
+          l10n: l10n,
+          onChanged: onChanged,
+        ),
       ],
+    );
+  }
+}
+
+class _AddProtocolSegmentButton extends StatelessWidget {
+  const _AddProtocolSegmentButton({
+    super.key,
+    required this.segments,
+    required this.l10n,
+    required this.onChanged,
+  });
+
+  final List<ProtocolSegment> segments;
+  final AppLocalizations l10n;
+  final ValueChanged<List<ProtocolSegment>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ToolButton.outline(
+      compact: true,
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      leading: const Icon(AppIcons.add, size: 16),
+      onPressed: () => shad
+          .showDropdown<void>(
+            context: context,
+            widthConstraint: shad.PopoverConstraint.flexible,
+            builder: (BuildContext context) => shad.DropdownMenu(
+              children: ProtocolSegmentType.values
+                  .map(
+                    (ProtocolSegmentType type) => shad.MenuButton(
+                      onPressed: (_) => onChanged(<ProtocolSegment>[
+                        ...segments,
+                        _newProtocolSegment(type),
+                      ]),
+                      child: Text(_segmentTypeLabel(type, l10n)),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          )
+          .future,
+      child: Text(l10n.newProtocolSegment),
     );
   }
 }
 
 class _InlineProtocolSegmentTile extends StatelessWidget {
   const _InlineProtocolSegmentTile({
+    super.key,
     required this.segment,
     required this.canMoveUp,
     required this.canMoveDown,
@@ -624,146 +655,163 @@ class _InlineProtocolSegmentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: AppTheme.colorsOf(context).border),
         ),
       ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Column(
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final bool compact = constraints.maxWidth < 760;
+          final List<Widget> fields = _buildFields();
+          final Widget actions = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ToolIconButton(
+                tooltip: l10n.moveUp,
+                onPressed: canMoveUp ? onMoveUp : null,
+                icon: const Icon(AppIcons.arrowUp, size: 18),
+              ),
+              ToolIconButton(
+                tooltip: l10n.moveDown,
+                onPressed: canMoveDown ? onMoveDown : null,
+                icon: const Icon(AppIcons.arrowDown, size: 18),
+              ),
+              ToolIconButton(
+                tooltip: l10n.deleteProtocolSegment,
+                onPressed: onDelete,
+                icon: const Icon(AppIcons.deleteOutline, size: 18),
+              ),
+            ],
+          );
+          if (compact) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(_segmentTypeLabel(segment.type, l10n)),
-                const SizedBox(height: 6),
-                ToolTextField(
-                  initialValue: segment.label,
-                  label: l10n.segmentLabel,
-                  onChanged: (String value) =>
-                      onChanged(segment.copyWith(label: value)),
+                Text(
+                  _segmentTypeLabel(segment.type, l10n),
+                  style: AppTheme.textStylesOf(context).labelMedium,
                 ),
-                if (segment.type == ProtocolSegmentType.fixedHex)
-                  ToolTextField(
-                    initialValue: segment.fixedHex,
-                    label: l10n.fixedHexSegment,
-                    onChanged: (String value) =>
-                        onChanged(segment.copyWith(fixedHex: value)),
+                const SizedBox(height: 8),
+                ...fields.map(
+                  (Widget field) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: field,
                   ),
-                if (segment.type == ProtocolSegmentType.length ||
-                    segment.type == ProtocolSegmentType.sequence)
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: ToolTextField(
-                          initialValue: '${segment.byteLength ?? 1}',
-                          label: l10n.fieldByteLength,
-                          keyboardType: TextInputType.number,
-                          onChanged: (String value) => onChanged(
-                            segment.copyWith(
-                              byteLength: int.tryParse(value) ?? 1,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ToolSelect<ProtocolByteOrder>(
-                          value:
-                              segment.byteOrder ??
-                              ProtocolByteOrder.littleEndian,
-                          label: l10n.byteOrder,
-                          options: ProtocolByteOrder.values
-                              .map(
-                                (ProtocolByteOrder item) =>
-                                    ToolSelectOption<ProtocolByteOrder>(
-                                      value: item,
-                                      label: _byteOrderLabel(item, l10n),
-                                    ),
-                              )
-                              .toList(growable: false),
-                          onChanged: (ProtocolByteOrder value) =>
-                              onChanged(segment.copyWith(byteOrder: value)),
-                        ),
-                      ),
-                    ],
-                  ),
-                if (segment.type == ProtocolSegmentType.length ||
-                    segment.type == ProtocolSegmentType.checksum)
-                  ToolSelect<ProtocolCalculationRange>(
-                    value:
-                        segment.calculationRange ??
-                        ProtocolCalculationRange.payloadOnly,
-                    label: l10n.calculationRange,
-                    options: ProtocolCalculationRange.values
-                        .map(
-                          (ProtocolCalculationRange item) =>
-                              ToolSelectOption<ProtocolCalculationRange>(
-                                value: item,
-                                label: _calculationRangeLabel(item, l10n),
-                              ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (ProtocolCalculationRange value) =>
-                        onChanged(segment.copyWith(calculationRange: value)),
-                  ),
-                if (segment.type == ProtocolSegmentType.checksum) ...<Widget>[
-                  ToolSelect<ProtocolChecksumAlgorithm>(
-                    value:
-                        segment.checksumAlgorithm ??
-                        ProtocolChecksumAlgorithm.crc16Modbus,
-                    label: l10n.checksumAlgorithm,
-                    options: ProtocolChecksumAlgorithm.values
-                        .map(
-                          (ProtocolChecksumAlgorithm item) =>
-                              ToolSelectOption<ProtocolChecksumAlgorithm>(
-                                value: item,
-                                label: _checksumLabel(item, l10n),
-                              ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (ProtocolChecksumAlgorithm value) =>
-                        onChanged(segment.copyWith(checksumAlgorithm: value)),
-                  ),
-                  ToolSelect<ProtocolByteOrder>(
-                    value: segment.byteOrder ?? ProtocolByteOrder.littleEndian,
-                    label: l10n.byteOrder,
-                    options: ProtocolByteOrder.values
-                        .map(
-                          (ProtocolByteOrder item) =>
-                              ToolSelectOption<ProtocolByteOrder>(
-                                value: item,
-                                label: _byteOrderLabel(item, l10n),
-                              ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (ProtocolByteOrder value) =>
-                        onChanged(segment.copyWith(byteOrder: value)),
-                  ),
-                ],
+                ),
+                Align(alignment: Alignment.centerRight, child: actions),
               ],
-            ),
-          ),
-          ToolIconButton(
-            tooltip: l10n.moveUp,
-            onPressed: canMoveUp ? onMoveUp : null,
-            icon: const Icon(AppIcons.arrowUp, size: 18),
-          ),
-          ToolIconButton(
-            tooltip: l10n.moveDown,
-            onPressed: canMoveDown ? onMoveDown : null,
-            icon: const Icon(AppIcons.arrowDown, size: 18),
-          ),
-          ToolIconButton(
-            tooltip: l10n.deleteProtocolSegment,
-            onPressed: onDelete,
-            icon: const Icon(AppIcons.deleteOutline, size: 18),
-          ),
-        ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              SizedBox(
+                width: 104,
+                child: Text(
+                  _segmentTypeLabel(segment.type, l10n),
+                  style: AppTheme.textStylesOf(context).labelMedium,
+                ),
+              ),
+              ...fields.expand(
+                (Widget field) => <Widget>[
+                  Expanded(child: field),
+                  const SizedBox(width: 8),
+                ],
+              ),
+              actions,
+            ],
+          );
+        },
       ),
     );
   }
+
+  List<Widget> _buildFields() => <Widget>[
+    ToolTextField(
+      initialValue: segment.label,
+      label: l10n.segmentLabel,
+      showLabel: false,
+      hintText: l10n.segmentLabel,
+      onChanged: (String value) => onChanged(segment.copyWith(label: value)),
+    ),
+    if (segment.type == ProtocolSegmentType.fixedHex)
+      ToolTextField(
+        initialValue: segment.fixedHex,
+        label: l10n.fixedHexSegment,
+        showLabel: false,
+        hintText: l10n.fixedHexSegment,
+        style: AppFonts.monoStyle,
+        onChanged: (String value) =>
+            onChanged(segment.copyWith(fixedHex: value)),
+      ),
+    if (segment.type == ProtocolSegmentType.length ||
+        segment.type == ProtocolSegmentType.sequence)
+      ToolTextField(
+        initialValue: '${segment.byteLength ?? 1}',
+        label: l10n.fieldByteLength,
+        showLabel: false,
+        hintText: l10n.fieldByteLength,
+        keyboardType: TextInputType.number,
+        onChanged: (String value) =>
+            onChanged(segment.copyWith(byteLength: int.tryParse(value) ?? 1)),
+      ),
+    if (segment.type == ProtocolSegmentType.checksum)
+      ToolSelect<ProtocolChecksumAlgorithm>(
+        value:
+            segment.checksumAlgorithm ?? ProtocolChecksumAlgorithm.crc16Modbus,
+        label: l10n.checksumAlgorithm,
+        showLabel: false,
+        options: ProtocolChecksumAlgorithm.values
+            .map(
+              (ProtocolChecksumAlgorithm item) =>
+                  ToolSelectOption<ProtocolChecksumAlgorithm>(
+                    value: item,
+                    label: _checksumLabel(item, l10n),
+                  ),
+            )
+            .toList(growable: false),
+        onChanged: (ProtocolChecksumAlgorithm value) =>
+            onChanged(segment.copyWith(checksumAlgorithm: value)),
+      ),
+    if (segment.type == ProtocolSegmentType.length ||
+        segment.type == ProtocolSegmentType.sequence ||
+        segment.type == ProtocolSegmentType.checksum)
+      ToolSelect<ProtocolByteOrder>(
+        value: segment.byteOrder ?? ProtocolByteOrder.littleEndian,
+        label: l10n.byteOrder,
+        showLabel: false,
+        options: ProtocolByteOrder.values
+            .map(
+              (ProtocolByteOrder item) => ToolSelectOption<ProtocolByteOrder>(
+                value: item,
+                label: _byteOrderLabel(item, l10n),
+              ),
+            )
+            .toList(growable: false),
+        onChanged: (ProtocolByteOrder value) =>
+            onChanged(segment.copyWith(byteOrder: value)),
+      ),
+    if (segment.type == ProtocolSegmentType.length ||
+        segment.type == ProtocolSegmentType.checksum)
+      ToolSelect<ProtocolCalculationRange>(
+        value: segment.calculationRange ?? ProtocolCalculationRange.payloadOnly,
+        label: l10n.calculationRange,
+        showLabel: false,
+        options: ProtocolCalculationRange.values
+            .map(
+              (ProtocolCalculationRange item) =>
+                  ToolSelectOption<ProtocolCalculationRange>(
+                    value: item,
+                    label: _calculationRangeLabel(item, l10n),
+                  ),
+            )
+            .toList(growable: false),
+        onChanged: (ProtocolCalculationRange value) =>
+            onChanged(segment.copyWith(calculationRange: value)),
+      ),
+  ];
 }
 
 String _checksumLabel(

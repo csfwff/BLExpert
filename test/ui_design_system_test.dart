@@ -260,6 +260,13 @@ void main() {
     );
     expect(fields.last.style?.fontSize, 12);
     expect(tester.widget<Text>(find.text('默认')).style?.fontSize, 12);
+    final Text overridePlaceholder = tester.widget<Text>(find.text('覆盖'));
+    expect(overridePlaceholder.style?.fontSize, fields[1].style?.fontSize);
+    expect(overridePlaceholder.style?.fontFamily, fields[1].style?.fontFamily);
+    expect(
+      tester.widget<Text>(find.text('带图标')).style?.fontSize,
+      fields.last.style?.fontSize,
+    );
     final Iterable<shad.Theme> fieldThemes = tester.widgetList<shad.Theme>(
       find.ancestor(
         of: find.byType(shad.TextField).first,
