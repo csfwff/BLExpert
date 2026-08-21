@@ -79,7 +79,7 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
   Widget build(BuildContext context) {
     final shad.ColorScheme colors = AppTheme.colorsOf(context);
     return ListView(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       children: <Widget>[
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),

@@ -25,7 +25,7 @@ class _CharacteristicTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const TextStyle actionTextStyle = TextStyle(fontSize: 10);
+    const TextStyle actionTextStyle = TextStyle(fontSize: 12);
     final List<Widget> capabilityMarkers = <Widget>[
       if (characteristic.canRead)
         _CapabilityMarker(code: 'R←', label: l10n.readCapabilityDescription),

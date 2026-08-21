@@ -36,7 +36,7 @@ class _CommandLibraryPanel extends StatelessWidget {
           .add(command);
     }
     return ListView(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       children: <Widget>[
         Row(
           children: <Widget>[

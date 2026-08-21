@@ -18,7 +18,7 @@ class _DataMappingLibraryPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListView(
     key: const ValueKey<String>('response-mapping-library-list'),
-    padding: const EdgeInsets.all(12),
+    padding: const EdgeInsets.all(16),
     children: <Widget>[
       Row(
         children: <Widget>[

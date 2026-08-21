@@ -102,7 +102,7 @@ class _ProtocolConfigurationPanelState
   Widget build(BuildContext context) {
     final l10n = widget.l10n;
     return ListView(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       children: <Widget>[
         Align(
           key: const ValueKey<String>('protocol-metadata-section'),

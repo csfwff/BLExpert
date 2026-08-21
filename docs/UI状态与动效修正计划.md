@@ -1,6 +1,6 @@
 # UI shadcn 全面迁移与状态动效修正计划
 
-> 建立日期：2026-08-19；实现状态更新：2026-08-19。应用层 shadcn 全面迁移、状态样式、完整页面 Golden 与当前 Linux/Web 视觉回归已完成；阶段 11 的多平台真机视觉回归仍待执行。
+> 建立日期：2026-08-19；实现状态更新：2026-08-21。应用层 shadcn 全面迁移、状态样式、组件 Golden、桌面完整页面 Golden 与当前 Linux/Web 视觉回归已完成；375px 记录页 Golden 漂移待定位，阶段 11 的多平台真机视觉回归仍待执行。
 
 ## 修正前诊断
 
@@ -21,8 +21,8 @@
 - 业务选择控件已收敛到 `ToolSelectedButton`，选中态同时改变背景、边框和文字/图标强调，并公开 `selected`、`button`、`enabled` 语义。
 - `ToolSwitch` 已由项目拥有轨道与滑块过渡，使用 200ms `AppMotion.standard`；减少动态效果时使用 0ms 直接到达终态。
 - `Scaffold`、导航、Tabs、Tooltip、Toast、可点击行、SelectableText、Scrollbar、对话框承载层及图标均已迁移到 shadcn 或项目的 shadcn 适配层。`lib/` 不再导入 `package:flutter/material.dart`，应用直接创建 Material 可见控件的例外为零。
-- 已增加亮暗主题对比度、透明状态实际合成色、选中/禁用/焦点语义、Switch 中间帧/终态、减少动态效果和组件 Golden 回归；`flutter analyze` 与全套 `flutter test` 已通过。
-- Golden 已覆盖选择按钮和 Switch 组件边界，以及 375px 窄屏、1440px 桌面的亮暗完整页面；真实 Web 亮暗主题也已按相同尺寸完成检查，未发现空白画布、文字重叠、导航标签截断、底部遮挡或横向溢出。
+- 已增加亮暗主题对比度、透明状态实际合成色、选中/禁用/焦点语义、Switch 中间帧/终态、减少动态效果和组件 Golden 回归；`flutter analyze` 通过，核心单元与 Widget 回归通过，两个 QuickJS 原生桥接测试按条件跳过。
+- Golden 已覆盖选择按钮和 Switch 组件边界，以及 375px 窄屏、1440px 桌面的亮暗完整页面；1440px 亮暗页面 Golden 通过。375px 记录页亮暗 Golden 目前均有 2.94% 像素差异，需先定位后再更新；真实 Web 亮暗主题也已按相同尺寸完成检查，未发现空白画布、文字重叠、导航标签截断、底部遮挡或横向溢出。
 - Android、iOS、Windows、macOS 与真实 BLE 设备的视觉、焦点和交互矩阵仍按阶段 11 执行，当前结果不替代目标平台验收。
 
 ## 目标与边界

@@ -1784,12 +1784,13 @@ void main() {
       parameterField.padding,
       const EdgeInsets.symmetric(horizontal: 1, vertical: 0),
     );
-    expect(parameterField.style?.fontSize, 11);
-    expect(parameterField.placeholderStyle?.fontSize, 9);
+    expect(parameterField.style?.fontSize, 12);
+    expect(parameterField.placeholderStyle?.fontSize, 12);
     final Text parameterLabelText = tester.widget<Text>(
       find.descendant(of: parameterLabel, matching: find.text('级别')),
     );
-    expect(parameterLabelText.style?.fontSize, 9);
+    expect(parameterLabelText.style?.fontSize, 12);
+    expect(tester.getSize(parameterLabel).height, 16);
     expect(
       tester.getRect(parameterLabel).center.dx,
       tester.getRect(parameterCell).center.dx,
@@ -1838,7 +1839,7 @@ void main() {
     expect(mappingList, findsOneWidget);
     expect(
       tester.widget<ListView>(mappingList).padding,
-      const EdgeInsets.all(12),
+      const EdgeInsets.all(16),
     );
     expect(tester.getSize(newMappingButton).height, 32);
 

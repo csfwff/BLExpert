@@ -355,7 +355,7 @@ class _CommandTileState extends State<_CommandTile> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 9),
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ),
               ),
@@ -387,7 +387,7 @@ class _CommandTileState extends State<_CommandTile> {
                           .toList(growable: false),
                       onChanged: (String value) =>
                           _controllers[parameter.key]!.text = value,
-                      textStyle: const TextStyle(fontSize: 11),
+                      textStyle: const TextStyle(fontSize: 12),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 1,
                         vertical: 0,
@@ -414,8 +414,8 @@ class _CommandTileState extends State<_CommandTile> {
                         horizontal: 1,
                         vertical: 0,
                       ),
-                      style: const TextStyle(fontSize: 11),
-                      placeholderStyle: const TextStyle(fontSize: 9),
+                      style: const TextStyle(fontSize: 12),
+                      placeholderStyle: const TextStyle(fontSize: 12),
                     ),
             ),
           ],
@@ -519,7 +519,7 @@ bool _usesNumericKeyboard(CommandParameterType type) => switch (type) {
   _ => false,
 };
 
-const double _parameterLabelHeight = 12;
+const double _parameterLabelHeight = 16;
 const double _frameCellGap = 2;
 const double _frameControlHeight = 24;
 const double _parameterInputWidth = 36;
