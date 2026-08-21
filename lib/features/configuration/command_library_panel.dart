@@ -40,6 +40,13 @@ class _CommandLibraryPanel extends StatelessWidget {
       children: <Widget>[
         Row(
           children: <Widget>[
+            Icon(
+              AppIcons.listAlt,
+              key: const ValueKey<String>('command-library-title-icon'),
+              size: 18,
+              color: AppTheme.colorsOf(context).primary,
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 l10n.commandLibrary,

@@ -8,7 +8,8 @@ class _WorkspaceSelector extends StatelessWidget {
     required this.onSelected,
     required this.onNew,
     required this.onDelete,
-    required this.onExport,
+    required this.onExportCurrent,
+    required this.onExportAll,
     required this.onImport,
     required this.l10n,
   });
@@ -18,7 +19,8 @@ class _WorkspaceSelector extends StatelessWidget {
   final ValueChanged<String> onSelected;
   final VoidCallback onNew;
   final VoidCallback onDelete;
-  final VoidCallback onExport;
+  final VoidCallback onExportCurrent;
+  final VoidCallback onExportAll;
   final VoidCallback onImport;
   final AppLocalizations l10n;
 
@@ -31,59 +33,75 @@ class _WorkspaceSelector extends StatelessWidget {
     shad
         .showDropdown<void>(
           context: context,
-          widthConstraint: compact
-              ? shad.PopoverConstraint.flexible
-              : shad.PopoverConstraint.anchorFixedSize,
+          widthConstraint: shad.PopoverConstraint.flexible,
           showDuration: AppMotion.overlay,
           dismissDuration: AppMotion.overlay,
-          builder: (BuildContext context) => shad.DropdownMenu(
-            children: <shad.MenuItem>[
-              shad.MenuLabel(
-                leading: const Icon(AppIcons.folderOutlined, size: 18),
-                child: Text(l10n.selectWorkspace),
-              ),
-              const shad.MenuDivider(),
-              shad.MenuRadioGroup<String>(
-                value: workspace.id,
-                onChanged: (BuildContext context, String workspaceId) =>
-                    onSelected(workspaceId),
-                children: workspaces
-                    .map(
-                      (Workspace item) => shad.MenuRadio<String>(
-                        value: item.id,
-                        child: Text(
-                          item.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+          builder: (BuildContext context) => SizedBox(
+            width: compact ? null : 200,
+            child: shad.DropdownMenu(
+              children: <shad.MenuItem>[
+                shad.MenuLabel(
+                  leading: const Icon(AppIcons.folderOutlined, size: 18),
+                  child: Text(l10n.selectWorkspace),
+                ),
+                const shad.MenuDivider(),
+                shad.MenuRadioGroup<String>(
+                  value: workspace.id,
+                  onChanged: (BuildContext context, String workspaceId) =>
+                      onSelected(workspaceId),
+                  children: workspaces
+                      .map(
+                        (Workspace item) => shad.MenuRadio<String>(
+                          value: item.id,
+                          child: Text(
+                            item.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-              const shad.MenuDivider(),
-              shad.MenuButton(
-                leading: const Icon(AppIcons.createNewFolder),
-                onPressed: (_) => onNew(),
-                child: Text(l10n.newWorkspace),
-              ),
-              shad.MenuButton(
-                leading: const Icon(AppIcons.deleteOutline),
-                enabled: workspaces.length > 1,
-                onPressed: (_) => onDelete(),
-                child: Text(l10n.deleteWorkspace),
-              ),
-              const shad.MenuDivider(),
-              shad.MenuButton(
-                leading: const Icon(AppIcons.downloadOutlined),
-                onPressed: (_) => onImport(),
-                child: Text(l10n.importWorkspace),
-              ),
-              shad.MenuButton(
-                leading: const Icon(AppIcons.uploadFile),
-                onPressed: (_) => onExport(),
-                child: Text(l10n.exportWorkspace),
-              ),
-            ],
+                      )
+                      .toList(growable: false),
+                ),
+                const shad.MenuDivider(),
+                shad.MenuButton(
+                  leading: const Icon(AppIcons.createNewFolder),
+                  onPressed: (_) => onNew(),
+                  child: Text(l10n.newWorkspace),
+                ),
+                shad.MenuButton(
+                  leading: const Icon(AppIcons.deleteOutline),
+                  enabled: workspaces.length > 1,
+                  onPressed: (_) => onDelete(),
+                  child: Text(l10n.deleteWorkspace),
+                ),
+                const shad.MenuDivider(),
+                shad.MenuButton(
+                  leading: const Icon(AppIcons.downloadOutlined),
+                  onPressed: (_) => onImport(),
+                  child: Text(l10n.importWorkspace),
+                ),
+                shad.MenuButton(
+                  leading: const Icon(AppIcons.uploadFile),
+                  onPressed: (_) => onExportCurrent(),
+                  child: const Text(
+                    '导出当前工作区',
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                shad.MenuButton(
+                  leading: const Icon(AppIcons.uploadFile),
+                  onPressed: (_) => onExportAll(),
+                  child: const Text(
+                    '导出全部工作区',
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
         )
         .future;

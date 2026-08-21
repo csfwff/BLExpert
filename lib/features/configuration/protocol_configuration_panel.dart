@@ -88,10 +88,11 @@ class _ProtocolConfigurationPanelState
     );
   }
 
-  void _updateScript({bool? enabled}) {
+  void _updateScript({bool? enabled, bool? confirmTransformedSend}) {
     widget.onScriptConfigChanged(
       widget.scriptConfig.copyWith(
         enabled: enabled,
+        confirmTransformedSend: confirmTransformedSend,
         beforeSendScript: _beforeSendController.text,
         afterReceiveScript: _afterReceiveController.text,
       ),
@@ -115,9 +116,22 @@ class _ProtocolConfigurationPanelState
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
-                      l10n.protocolProfiles,
-                      style: AppTheme.textStylesOf(context).titleMedium,
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          AppIcons.accountTree,
+                          key: const ValueKey<String>(
+                            'protocol-profiles-title-icon',
+                          ),
+                          size: 18,
+                          color: AppTheme.colorsOf(context).primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          l10n.protocolProfiles,
+                          style: AppTheme.textStylesOf(context).titleMedium,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     _ConfigurationFormRow(
@@ -350,7 +364,7 @@ class _ScriptProtocolEditor extends StatefulWidget {
   final TextEditingController beforeSendController;
   final TextEditingController afterReceiveController;
   final bool runtimeAvailable;
-  final void Function({bool? enabled}) onChanged;
+  final void Function({bool? enabled, bool? confirmTransformedSend}) onChanged;
   final AppLocalizations l10n;
 
   @override
@@ -418,6 +432,8 @@ class _ScriptProtocolEditorState extends State<_ScriptProtocolEditor> {
           _ScriptProtocolTab.runtime => _ScriptRuntimeInformation(
             config: widget.config,
             runtimeAvailable: widget.runtimeAvailable,
+            onConfirmTransformedSendChanged: (bool value) =>
+                widget.onChanged(confirmTransformedSend: value),
             l10n: widget.l10n,
           ),
           _ScriptProtocolTab.beforeSend => _ScriptEditorTab(
@@ -449,11 +465,13 @@ class _ScriptRuntimeInformation extends StatelessWidget {
   const _ScriptRuntimeInformation({
     required this.config,
     required this.runtimeAvailable,
+    required this.onConfirmTransformedSendChanged,
     required this.l10n,
   });
 
   final ScriptConfig config;
   final bool runtimeAvailable;
+  final ValueChanged<bool> onConfirmTransformedSendChanged;
   final AppLocalizations l10n;
 
   @override
@@ -472,6 +490,31 @@ class _ScriptRuntimeInformation extends StatelessWidget {
           label: l10n.scriptEnabled,
           value: config.enabled ? l10n.enabledState : l10n.disabledState,
         ),
+        const SizedBox(height: 8),
+        Text(
+          l10n.scriptConfirmTransformedSend,
+          style: AppTheme.textStylesOf(context).labelMedium,
+        ),
+        const SizedBox(height: 4),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                l10n.scriptConfirmTransformedSendHint,
+                style: AppTheme.textStylesOf(context).bodySmall,
+              ),
+            ),
+            const SizedBox(width: 12),
+            ToolSwitch(
+              key: const ValueKey<String>('script-confirm-transformed-send'),
+              value: config.confirmTransformedSend,
+              onChanged: onConfirmTransformedSendChanged,
+              label: l10n.scriptConfirmTransformedSend,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         Text(
           l10n.scriptMethods,
           style: AppTheme.textStylesOf(context).titleSmall,

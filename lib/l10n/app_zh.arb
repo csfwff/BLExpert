@@ -22,6 +22,7 @@
   "configure": "配置",
   "records": "记录",
   "language": "语言",
+  "versionLabel": "版本号",
   "followSystem": "跟随系统",
   "lightMode": "亮色模式",
   "darkMode": "暗色模式",
@@ -98,6 +99,8 @@
   ,"@payloadLength": {"placeholders": {"length": {"type": "int"}}}
   ,"finalFramePreview": "最终帧 {length} 字节：{frame}"
   ,"@finalFramePreview": {"placeholders": {"length": {"type": "int"}, "frame": {"type": "String"}}}
+  ,"finalFrameLabel": "最终帧 {length} 字节："
+  ,"@finalFrameLabel": {"placeholders": {"length": {"type": "int"}}}
   ,"scriptPreviewUnavailable": "脚本模式：最终帧将在发送前生成"
   ,"textMode": "文本"
   ,"hexMode": "HEX"
@@ -131,6 +134,7 @@
   ,"indicateCapabilityDescription": "指示：服务端推送，客户端返回确认"
   ,"selectedLog": "选中日志"
   ,"viewLogDetails": "查看日志详情"
+  ,"closeLogDetails": "关闭日志详情"
   ,"source": "来源"
   ,"length": "长度"
   ,"transaction": "事务"
@@ -231,6 +235,8 @@
   ,"afterReceiveScript": "接收后脚本"
   ,"loadProtocolSample": "装入样例协议脚本"
   ,"scriptRuntime": "脚本运行时"
+  ,"scriptConfirmTransformedSend": "脚本改帧发送前确认"
+  ,"scriptConfirmTransformedSendHint": "关闭后，脚本生成的最终帧会直接发送；高风险指令和指令的强制确认设置不受影响。"
   ,"enabledState": "已启用"
   ,"disabledState": "未启用"
   ,"standardProtocol": "普通协议"

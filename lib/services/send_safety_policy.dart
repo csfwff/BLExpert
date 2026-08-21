@@ -23,11 +23,14 @@ class SendSafetyPolicy {
     required List<int> businessPayload,
     required List<int> finalFrame,
     required bool scriptEnabled,
+    bool confirmTransformedSend = true,
     String? commandName,
     bool commandRequiresConfirmation = false,
   }) {
     final List<SendSafetyReason> reasons = <SendSafetyReason>[
-      if (scriptEnabled && !_sameBytes(businessPayload, finalFrame))
+      if (scriptEnabled &&
+          confirmTransformedSend &&
+          !_sameBytes(businessPayload, finalFrame))
         SendSafetyReason.scriptTransformed,
       if (commandName != null &&
           _dangerousCommandPattern.hasMatch(commandName.trim()))

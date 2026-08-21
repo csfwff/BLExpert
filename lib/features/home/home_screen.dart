@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import '../../app/app_theme.dart';
+import '../../app/app_version.dart';
 import '../../app/design/app_icons.dart';
 import '../../app/design/tool_alert_dialog.dart';
 import '../../app/design/tool_button.dart';
@@ -1381,9 +1382,18 @@ class _HomeScreenState extends State<HomeScreen> {
         _showBluetoothError(StateError(message));
         return;
       }
-      final List<int> bytes = CommandPayloadEncoder.encode(command, values);
+      final Map<String, String> resolvedValues =
+          CommandPayloadEncoder.resolveValues(command, values);
+      final List<int> bytes = CommandPayloadEncoder.encode(
+        command,
+        resolvedValues,
+      );
       _addSystemLog(
-        _formatCommandSendLog(command, values, AppLocalizations.of(context)!),
+        _formatCommandSendLog(
+          command,
+          resolvedValues,
+          AppLocalizations.of(context)!,
+        ),
         characteristicId: _currentWriteTargetUuid,
         commandName: command.name,
       );
@@ -2245,6 +2255,7 @@ class _HomeScreenState extends State<HomeScreen> {
         businessPayload: businessPayload,
         finalFrame: result.bytes,
         scriptEnabled: workspace.scriptConfig.enabled,
+        confirmTransformedSend: workspace.scriptConfig.confirmTransformedSend,
         commandName: commandName,
         commandRequiresConfirmation: commandRequiresConfirmation,
       );
@@ -2546,13 +2557,16 @@ class _HomeScreenState extends State<HomeScreen> {
     unawaited(_send(bytes));
   }
 
-  void _exportWorkspaces() {
-    final jsonText = _workspaceManager.exportWorkspaces();
+  void _exportWorkspaces({required bool currentOnly}) {
+    final String title = currentOnly ? '导出当前工作区' : '导出全部工作区';
+    final String jsonText = currentOnly
+        ? _workspaceManager.exportCurrentWorkspace()
+        : _workspaceManager.exportWorkspaces();
     showToolDialog<void>(
       context: context,
       builder: (BuildContext context) => ToolAlertDialog(
         icon: AppIcons.uploadFile,
-        title: '导出工作区',
+        title: title,
         content: SizedBox(
           width: 640,
           child: ConstrainedBox(
@@ -2571,7 +2585,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: jsonText));
               if (context.mounted) {
-                showToolToast(context, '工作区 JSON 已复制。');
+                showToolToast(context, '$title JSON 已复制。');
               }
             },
             leading: const Icon(AppIcons.copyOutlined),
@@ -2639,6 +2653,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       onChanged: (WorkspaceImportMode value) =>
                           setDialogState(() => mode = value),
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      mode == WorkspaceImportMode.replace
+                          ? '完整替换会移除当前所有工作区，再写入导入内容。'
+                          : '合并导入会保留当前工作区；导入内容中 ID 不存在的工作区会作为新工作区加入。',
+                      style: AppTheme.textStylesOf(context).bodySmall,
+                    ),
                     if (validationError != null) ...<Widget>[
                       const SizedBox(height: 12),
                       Text(
@@ -2653,7 +2674,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Text(
                         mode == WorkspaceImportMode.replace
                             ? '将替换当前 ${_workspaceManager.workspaces.length} 个工作区，导入 ${preview!.workspaces.length} 个工作区。'
-                            : '将合并当前 ${_workspaceManager.workspaces.length} 个工作区，导入 ${preview!.workspaces.length} 个工作区。',
+                            : '将合并当前 ${_workspaceManager.workspaces.length} 个工作区：新增 ${preview!.workspaces.length - preview!.conflictingWorkspaceIds.length} 个工作区，处理 ${preview!.conflictingWorkspaceIds.length} 个 ID 冲突。',
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -2713,6 +2734,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: AppTheme.textStylesOf(context).bodySmall,
                       ),
                     ],
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        '需先检查后才能确认',
+                        key: const ValueKey<String>(
+                          'workspace-import-check-hint',
+                        ),
+                        style: AppTheme.textStylesOf(context).labelSmall,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -2897,7 +2929,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                       onNew: _createWorkspace,
                       onDelete: _deleteActiveWorkspace,
-                      onExport: _exportWorkspaces,
+                      onExportCurrent: () =>
+                          _exportWorkspaces(currentOnly: true),
+                      onExportAll: () => _exportWorkspaces(currentOnly: false),
                       onImport: _importWorkspaces,
                       l10n: l10n,
                     ),
@@ -3003,7 +3037,16 @@ class _HomeScreenState extends State<HomeScreen> {
               searchController: _consoleSearchController,
               inputFocusNode: _inputFocusNode,
               hexMode: _hexMode,
-              onModeChanged: (value) => setState(() => _hexMode = value),
+              onModeChanged: (value) {
+                setState(() {
+                  _hexMode = value;
+                  if (value) {
+                    _inputController.value = _normalizeHexEditingValue(
+                      _inputController.value,
+                    );
+                  }
+                });
+              },
               onSend: _sendInput,
               canSend: _selectedDevice?.connected == true && _hasWriteTarget,
               sendDisabledReason: _consoleSendDisabledReason(l10n),
@@ -3049,6 +3092,7 @@ class _HomeScreenState extends State<HomeScreen> {
               responseMappings: workspace.responseMappings,
               monitoredValues: _monitoredValues,
               selectedLog: _selectedLog,
+              onSelectedLogCleared: () => setState(() => _selectedLog = null),
               l10n: l10n,
             ),
             configurationPane: _ConfigurationWorkspace(

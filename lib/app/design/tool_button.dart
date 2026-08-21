@@ -23,6 +23,7 @@ class ToolButton extends StatelessWidget {
     this.alignment = Alignment.center,
     this.height,
     this.padding,
+    this.preservePrimaryColorWhenDisabled = false,
   });
 
   const ToolButton.primary({
@@ -35,6 +36,7 @@ class ToolButton extends StatelessWidget {
     this.alignment = Alignment.center,
     this.height,
     this.padding,
+    this.preservePrimaryColorWhenDisabled = false,
   }) : variant = ToolButtonVariant.primary;
 
   const ToolButton.secondary({
@@ -47,6 +49,7 @@ class ToolButton extends StatelessWidget {
     this.alignment = Alignment.center,
     this.height,
     this.padding,
+    this.preservePrimaryColorWhenDisabled = false,
   }) : variant = ToolButtonVariant.secondary;
 
   const ToolButton.outline({
@@ -59,6 +62,7 @@ class ToolButton extends StatelessWidget {
     this.alignment = Alignment.center,
     this.height,
     this.padding,
+    this.preservePrimaryColorWhenDisabled = false,
   }) : variant = ToolButtonVariant.outline;
 
   const ToolButton.ghost({
@@ -71,6 +75,7 @@ class ToolButton extends StatelessWidget {
     this.alignment = Alignment.center,
     this.height,
     this.padding,
+    this.preservePrimaryColorWhenDisabled = false,
   }) : variant = ToolButtonVariant.ghost;
 
   const ToolButton.destructive({
@@ -83,6 +88,7 @@ class ToolButton extends StatelessWidget {
     this.alignment = Alignment.center,
     this.height,
     this.padding,
+    this.preservePrimaryColorWhenDisabled = false,
   }) : variant = ToolButtonVariant.destructive;
 
   final Widget child;
@@ -94,6 +100,7 @@ class ToolButton extends StatelessWidget {
   final AlignmentGeometry alignment;
   final double? height;
   final EdgeInsetsGeometry? padding;
+  final bool preservePrimaryColorWhenDisabled;
 
   shad.ButtonStyle get _style => switch (variant) {
     ToolButtonVariant.primary => shad.ButtonStyle.primary(
@@ -120,9 +127,20 @@ class ToolButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shad.AbstractButtonStyle style = padding == null
+    shad.AbstractButtonStyle style = padding == null
         ? _style
         : _style.withPadding(padding: padding);
+    if (preservePrimaryColorWhenDisabled &&
+        variant == ToolButtonVariant.primary) {
+      final shad.ColorScheme colors = AppTheme.colorsOf(context);
+      style = style
+          .withBackgroundColor(
+            disabledColor: colors.primary.withValues(alpha: 0.42),
+          )
+          .withForegroundColor(
+            disabledColor: colors.primaryForeground.withValues(alpha: 0.78),
+          );
+    }
     return SizedBox(
       height: height ?? (compact ? 36 : 40),
       child: shad.Button(
@@ -283,10 +301,14 @@ class _ToolSelectedButtonState extends State<ToolSelectedButton> {
           child: AnimatedDefaultTextStyle(
             duration: duration,
             curve: Curves.easeOutCubic,
-            style: theme.typography.small.copyWith(
-              color: foreground,
-              fontWeight: widget.value ? FontWeight.w700 : FontWeight.w500,
-            ),
+            // Preserve the application sans font when this widget becomes
+            // the nearest DefaultTextStyle for its label.
+            style: theme.typography.sans
+                .merge(theme.typography.small)
+                .copyWith(
+                  color: foreground,
+                  fontWeight: widget.value ? FontWeight.w700 : FontWeight.w500,
+                ),
             child: IconTheme(
               data: IconThemeData(color: foreground, size: 16),
               child: widget.child,

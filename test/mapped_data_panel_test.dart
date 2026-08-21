@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:blexpert/app/blexpert_app.dart';
+import 'package:blexpert/app/app_theme.dart';
 import 'package:blexpert/app/design/tool_tooltip.dart';
 import 'package:blexpert/services/bluetooth_service.dart';
 
@@ -76,6 +77,30 @@ void main() {
       const ValueKey<String>('mapped-data-cell-status-state'),
     );
     expect(tester.getSize(temperatureCell).height, 56);
+    final AnimatedContainer highlightedCell = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: temperatureCell,
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    final BoxDecoration highlightedDecoration =
+        highlightedCell.decoration! as BoxDecoration;
+    expect(
+      highlightedDecoration.color,
+      isNot(AppTheme.colorsOf(tester.element(temperatureCell)).card),
+    );
+    await tester.pump(const Duration(seconds: 2));
+    final AnimatedContainer persistentHighlight = tester
+        .widget<AnimatedContainer>(
+          find.descendant(
+            of: temperatureCell,
+            matching: find.byType(AnimatedContainer),
+          ),
+        );
+    expect(
+      (persistentHighlight.decoration! as BoxDecoration).color,
+      isNot(AppTheme.colorsOf(tester.element(temperatureCell)).card),
+    );
     expect(
       tester.getRect(stateCell).left,
       greaterThan(tester.getRect(temperatureCell).left),

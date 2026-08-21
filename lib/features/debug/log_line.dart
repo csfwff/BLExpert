@@ -27,6 +27,7 @@ class _LogLine extends StatelessWidget {
       SessionLogKind.system => AppTheme.colorsOf(context).secondary,
       SessionLogKind.error => AppTheme.colorsOf(context).destructive,
     };
+    final bool isMessage = entry.message != null;
     final String payload = entry.message ?? _toHex(entry.data);
     final String timestamp = entry.timestamp.toIso8601String().split('T').last;
     final Widget direction = Container(
@@ -46,16 +47,19 @@ class _LogLine extends StatelessWidget {
         ),
       ),
     );
-    final Widget content = shad.SelectableText(
-      payload,
-      style: TextStyle(
-        fontFamily: AppFonts.mono,
-        package: AppFonts.shadcnPackage,
-        fontSize: 12,
-        height: 1.45,
-        color: entry.kind == SessionLogKind.error ? color : null,
-      ),
-    );
+    final TextStyle contentStyle = isMessage
+        ? AppTheme.of(context).typography.xSmall.copyWith(
+            height: 1.45,
+            color: entry.kind == SessionLogKind.error
+                ? color
+                : colors.foreground,
+          )
+        : AppFonts.monoStyle.copyWith(
+            fontSize: 12,
+            height: 1.45,
+            color: entry.kind == SessionLogKind.error ? color : null,
+          );
+    final Widget content = shad.SelectableText(payload, style: contentStyle);
     final Widget? bookmarkButton = onToggleBookmark == null
         ? null
         : ToolIconButton(

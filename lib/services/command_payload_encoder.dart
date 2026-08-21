@@ -25,6 +25,10 @@ class CommandPayloadEncoder {
       for (final CommandParameter parameter in command.parameters)
         parameter.key: parameter,
     };
+    final Map<String, String> resolvedValues = resolveValues(
+      command,
+      suppliedValues,
+    );
     final StringBuffer expanded = StringBuffer();
     int position = 0;
     for (final RegExpMatch match in _placeholder.allMatches(command.payload)) {
@@ -34,15 +38,55 @@ class CommandPayloadEncoder {
       if (parameter == null) {
         throw FormatException('Unknown parameter: $key');
       }
-      final String value = suppliedValues[key] ?? parameter.defaultValue;
-      expanded.write(_toHex(_encodeParameter(parameter, value)));
+      final String value = resolvedValues[key] ?? parameter.defaultValue;
+      expanded.write(
+        _toHex(_encodeParameter(parameter, value, currentTime: DateTime.now())),
+      );
       position = match.end;
     }
     expanded.write(command.payload.substring(position));
     return _parseHex(expanded.toString());
   }
 
-  static List<int> _encodeParameter(CommandParameter parameter, String value) {
+  /// Resolves omitted parameter values before a command is encoded or logged.
+  static Map<String, String> resolveValues(
+    CommandDefinition command,
+    Map<String, String> suppliedValues, {
+    DateTime? currentTime,
+  }) {
+    final DateTime now = currentTime ?? DateTime.now();
+    return <String, String>{
+      for (final CommandParameter parameter in command.parameters)
+        parameter.key: _resolveValue(
+          parameter,
+          suppliedValues[parameter.key] ?? parameter.defaultValue,
+          now,
+        ),
+    };
+  }
+
+  static String _resolveValue(
+    CommandParameter parameter,
+    String value,
+    DateTime currentTime,
+  ) {
+    if (value.trim().isNotEmpty) return value;
+    return switch (parameter.type) {
+      CommandParameterType.currentYear => (currentTime.year % 100).toString(),
+      CommandParameterType.currentMonth => currentTime.month.toString(),
+      CommandParameterType.currentDay => currentTime.day.toString(),
+      CommandParameterType.currentHour => currentTime.hour.toString(),
+      CommandParameterType.currentMinute => currentTime.minute.toString(),
+      CommandParameterType.currentSecond => currentTime.second.toString(),
+      _ => value,
+    };
+  }
+
+  static List<int> _encodeParameter(
+    CommandParameter parameter,
+    String value, {
+    required DateTime currentTime,
+  }) {
     switch (parameter.type) {
       case CommandParameterType.hex:
         return _parseHex(value);
@@ -53,17 +97,21 @@ class CommandPayloadEncoder {
       case CommandParameterType.boolean:
         return <int>[value.toLowerCase() == 'true' || value == '1' ? 1 : 0];
       case CommandParameterType.currentYear:
-        return <int>[DateTime.now().year % 100];
+        return _encodeCurrentTimeValue(
+          parameter,
+          value,
+          currentTime.year % 100,
+        );
       case CommandParameterType.currentMonth:
-        return <int>[DateTime.now().month];
+        return _encodeCurrentTimeValue(parameter, value, currentTime.month);
       case CommandParameterType.currentDay:
-        return <int>[DateTime.now().day];
+        return _encodeCurrentTimeValue(parameter, value, currentTime.day);
       case CommandParameterType.currentHour:
-        return <int>[DateTime.now().hour];
+        return _encodeCurrentTimeValue(parameter, value, currentTime.hour);
       case CommandParameterType.currentMinute:
-        return <int>[DateTime.now().minute];
+        return _encodeCurrentTimeValue(parameter, value, currentTime.minute);
       case CommandParameterType.currentSecond:
-        return <int>[DateTime.now().second];
+        return _encodeCurrentTimeValue(parameter, value, currentTime.second);
       case CommandParameterType.enumValue:
         return _encodeInteger(
           _parseInteger(value),
@@ -84,6 +132,15 @@ class CommandPayloadEncoder {
       case CommandParameterType.int32:
         return _encodeNumber(parameter, value, 4, true);
     }
+  }
+
+  static List<int> _encodeCurrentTimeValue(
+    CommandParameter parameter,
+    String value,
+    int currentValue,
+  ) {
+    if (value.trim().isEmpty) return <int>[currentValue];
+    return _encodeNumber(parameter, value, 1, false);
   }
 
   static List<int> _encodeNumber(

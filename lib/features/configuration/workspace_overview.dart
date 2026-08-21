@@ -214,6 +214,7 @@ class _ConfigurationFormRow extends StatelessWidget {
     required this.stacked,
     this.alignLabelToTop = false,
     this.labelWidth = 96,
+    this.bottomPadding = 10,
   });
 
   final String label;
@@ -221,13 +222,14 @@ class _ConfigurationFormRow extends StatelessWidget {
   final bool stacked;
   final bool alignLabelToTop;
   final double labelWidth;
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
     final TextStyle labelStyle = AppTheme.textStylesOf(context).labelMedium;
     if (stacked) {
       return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
+        padding: EdgeInsets.only(bottom: bottomPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -241,7 +243,7 @@ class _ConfigurationFormRow extends StatelessWidget {
       );
     }
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: bottomPadding),
       child: Row(
         crossAxisAlignment: alignLabelToTop
             ? CrossAxisAlignment.start

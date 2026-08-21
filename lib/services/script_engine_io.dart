@@ -174,7 +174,10 @@ $script
     if (hasHardExecutionLimit) {
       return QuickJsRuntime2(
         timeout: maxExecutionMilliseconds,
-        memoryLimit: maxRuntimeMemoryBytes,
+        // flutter_js 0.8.7's Windows bridge does not export
+        // jsSetMemoryLimit, although its Dart API exposes the option.
+        // Keep QuickJS's interrupt-based execution limit on Windows.
+        memoryLimit: Platform.isWindows ? null : maxRuntimeMemoryBytes,
       );
     }
     return getJavascriptRuntime(xhr: false);

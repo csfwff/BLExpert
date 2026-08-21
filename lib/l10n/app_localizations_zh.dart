@@ -62,6 +62,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get language => '语言';
 
   @override
+  String get versionLabel => '版本号';
+
+  @override
   String get followSystem => '跟随系统';
 
   @override
@@ -238,6 +241,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String finalFrameLabel(int length) {
+    return '最终帧 $length 字节：';
+  }
+
+  @override
   String get scriptPreviewUnavailable => '脚本模式：最终帧将在发送前生成';
 
   @override
@@ -333,6 +341,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get viewLogDetails => '查看日志详情';
+
+  @override
+  String get closeLogDetails => '关闭日志详情';
 
   @override
   String get source => '来源';
@@ -628,6 +639,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get scriptRuntime => '脚本运行时';
+
+  @override
+  String get scriptConfirmTransformedSend => '脚本改帧发送前确认';
+
+  @override
+  String get scriptConfirmTransformedSendHint =>
+      '关闭后，脚本生成的最终帧会直接发送；高风险指令和指令的强制确认设置不受影响。';
 
   @override
   String get enabledState => '已启用';

@@ -46,6 +46,57 @@ Widget _themedHarness({
 }
 
 void main() {
+  test('主题正文样式统一使用中文无衬线字体', () {
+    final shad.Typography typography = buildAppTheme(
+      Brightness.light,
+    ).typography;
+    final List<TextStyle> sansStyles = <TextStyle>[
+      typography.sans,
+      typography.xSmall,
+      typography.small,
+      typography.base,
+      typography.large,
+      typography.xLarge,
+      typography.x2Large,
+      typography.x3Large,
+      typography.x4Large,
+      typography.x5Large,
+      typography.x6Large,
+      typography.x7Large,
+      typography.x8Large,
+      typography.x9Large,
+      typography.thin,
+      typography.light,
+      typography.extraLight,
+      typography.normal,
+      typography.medium,
+      typography.semiBold,
+      typography.bold,
+      typography.extraBold,
+      typography.black,
+      typography.italic,
+      typography.h1,
+      typography.h2,
+      typography.h3,
+      typography.h4,
+      typography.p,
+      typography.blockQuote,
+      typography.lead,
+      typography.textLarge,
+      typography.textSmall,
+      typography.textMuted,
+    ];
+
+    expect(
+      sansStyles.every((TextStyle style) => style.fontFamily == AppFonts.sans),
+      isTrue,
+    );
+    expect(
+      typography.mono.fontFamily,
+      'packages/${AppFonts.shadcnPackage}/${AppFonts.mono}',
+    );
+  });
+
   for (final Brightness brightness in Brightness.values) {
     test('$brightness 主题满足文字和状态对比度', () {
       final shad.ColorScheme colors = buildAppTheme(brightness).colorScheme;
@@ -256,6 +307,7 @@ void main() {
     expect(fields[1].padding, overridePadding);
     expect(fields.last.padding, ToolTextField.iconPadding);
     expect(fields.first.style?.fontSize, 12);
+    expect(fields.first.style?.fontFamily, AppFonts.sans);
     expect(fields[1].style?.fontSize, 11);
     expect(
       fields[1].style?.fontFamily,
@@ -373,7 +425,8 @@ void main() {
       (AppIcons.dataObject, '新建响应映射'),
       (AppIcons.shieldOutlined, '设备发送策略'),
       (AppIcons.warningAmber, '确认受保护发送'),
-      (AppIcons.uploadFile, '导出工作区'),
+      (AppIcons.uploadFile, '导出当前工作区'),
+      (AppIcons.uploadFile, '导出全部工作区'),
       (AppIcons.downloadOutlined, '导入工作区'),
       (AppIcons.verifiedUser, '选择允许发送的指令'),
     ];

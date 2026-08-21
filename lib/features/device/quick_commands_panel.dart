@@ -233,7 +233,7 @@ class _CommandTileState extends State<_CommandTile> {
                   top: hasParameters
                       ? _parameterLabelHeight + _frameCellGap
                       : 0,
-                  right: 4,
+                  right: _sendButtonRightInset,
                   child: ToolIconButton(
                     key: ValueKey<String>('quick-command-send-${command.id}'),
                     tooltip: '${widget.l10n.sendCommand} ${command.name}',
@@ -515,7 +515,13 @@ bool _usesNumericKeyboard(CommandParameterType type) => switch (type) {
   CommandParameterType.uint16 ||
   CommandParameterType.int16 ||
   CommandParameterType.uint32 ||
-  CommandParameterType.int32 => true,
+  CommandParameterType.int32 ||
+  CommandParameterType.currentYear ||
+  CommandParameterType.currentMonth ||
+  CommandParameterType.currentDay ||
+  CommandParameterType.currentHour ||
+  CommandParameterType.currentMinute ||
+  CommandParameterType.currentSecond => true,
   _ => false,
 };
 
@@ -525,6 +531,7 @@ const double _frameControlHeight = 24;
 const double _parameterInputWidth = 36;
 const double _frameCellSpacing = 4;
 const double _sendButtonSize = 32;
+const double _sendButtonRightInset = 12;
 const double _frameRowTopInset = (_sendButtonSize - _frameControlHeight) / 2;
 const double _frameScrollbarThickness = 4;
 const double _frameScrollbarClearance = 4;

@@ -416,6 +416,7 @@ class _SettingsWorkspace extends StatelessWidget {
                         key: const ValueKey<String>('settings-theme-row'),
                         label: l10n.themeMode,
                         stacked: stacked,
+                        bottomPadding: 0,
                         child: KeyedSubtree(
                           key: const ValueKey<String>('theme-mode-selector'),
                           child: stacked
@@ -448,11 +449,17 @@ class _SettingsWorkspace extends StatelessWidget {
                                 ),
                         ),
                       ),
-                      const shad.Divider(height: 20),
+                      const shad.Divider(
+                        key: ValueKey<String>(
+                          'settings-theme-language-divider',
+                        ),
+                        height: 20,
+                      ),
                       _ConfigurationFormRow(
                         key: const ValueKey<String>('settings-language-row'),
                         label: l10n.language,
                         stacked: stacked,
+                        bottomPadding: 0,
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: SizedBox(
@@ -487,6 +494,23 @@ class _SettingsWorkspace extends StatelessWidget {
                               },
                             ),
                           ),
+                        ),
+                      ),
+                      const shad.Divider(
+                        key: ValueKey<String>(
+                          'settings-language-version-divider',
+                        ),
+                        height: 20,
+                      ),
+                      _ConfigurationFormRow(
+                        key: const ValueKey<String>('settings-version-row'),
+                        label: l10n.versionLabel,
+                        stacked: stacked,
+                        bottomPadding: 0,
+                        child: Text(
+                          AppVersion.display,
+                          key: const ValueKey<String>('settings-version'),
+                          style: AppTheme.textStylesOf(context).bodySmall,
                         ),
                       ),
                     ],
@@ -678,15 +702,27 @@ class _DebugWorkspaceState extends State<_DebugWorkspace> {
 }
 
 class _PanelHeading extends StatelessWidget {
-  const _PanelHeading({required this.title, this.trailing});
+  const _PanelHeading({
+    super.key,
+    required this.title,
+    this.icon = AppIcons.dataObject,
+    this.trailing,
+    this.trailingPinned = false,
+    this.titleStyle,
+    this.height = 42,
+  });
 
   final String title;
+  final IconData icon;
   final Widget? trailing;
+  final bool trailingPinned;
+  final TextStyle? titleStyle;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 42,
+      height: height,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         border: Border(
@@ -695,30 +731,31 @@ class _PanelHeading extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          Icon(
-            AppIcons.dataObject,
-            size: 17,
-            color: AppTheme.colorsOf(context).secondary,
-          ),
+          Icon(icon, size: 17, color: AppTheme.colorsOf(context).secondary),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AppTheme.textStylesOf(
-                context,
-              ).titleSmall.copyWith(fontWeight: FontWeight.w700),
+              style:
+                  titleStyle ??
+                  AppTheme.textStylesOf(
+                    context,
+                  ).titleSmall.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
           if (trailing != null) ...<Widget>[
             const SizedBox(width: 8),
-            Flexible(
-              child: DefaultTextStyle.merge(
-                textAlign: TextAlign.end,
-                child: trailing!,
+            if (trailingPinned)
+              trailing!
+            else
+              Flexible(
+                child: DefaultTextStyle.merge(
+                  textAlign: TextAlign.end,
+                  child: trailing!,
+                ),
               ),
-            ),
           ],
         ],
       ),

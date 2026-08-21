@@ -14,6 +14,71 @@ class _ConsoleSendPreview {
   final bool scriptPending;
 }
 
+final RegExp _hexDigitPattern = RegExp(r'[0-9a-fA-F]');
+
+String _formatHexBytes(String value) {
+  final String compact = value
+      .replaceAll(RegExp(r'[^0-9a-fA-F]'), '')
+      .toUpperCase();
+  final StringBuffer formatted = StringBuffer();
+  for (int index = 0; index < compact.length; index++) {
+    if (index > 0 && index.isEven) formatted.write(' ');
+    formatted.write(compact[index]);
+  }
+  return formatted.toString();
+}
+
+int _hexDigitsBefore(String text, int offset) {
+  final int safeOffset = offset.clamp(0, text.length);
+  return _hexDigitPattern.allMatches(text.substring(0, safeOffset)).length;
+}
+
+int _formattedOffsetForHexDigits(String formatted, int hexDigits) {
+  if (hexDigits <= 0) return 0;
+  int seen = 0;
+  for (int index = 0; index < formatted.length; index++) {
+    if (_hexDigitPattern.hasMatch(formatted[index])) {
+      seen++;
+      if (seen == hexDigits) return index + 1;
+    }
+  }
+  return formatted.length;
+}
+
+TextEditingValue _normalizeHexEditingValue(TextEditingValue value) {
+  final String formatted = _formatHexBytes(value.text);
+  final int baseDigits = _hexDigitsBefore(
+    value.text,
+    value.selection.baseOffset,
+  );
+  final int extentDigits = _hexDigitsBefore(
+    value.text,
+    value.selection.extentOffset,
+  );
+  return value.copyWith(
+    text: formatted,
+    selection: TextSelection(
+      baseOffset: _formattedOffsetForHexDigits(formatted, baseDigits),
+      extentOffset: _formattedOffsetForHexDigits(formatted, extentDigits),
+      affinity: value.selection.affinity,
+      isDirectional: value.selection.isDirectional,
+    ),
+    composing: TextRange.empty,
+  );
+}
+
+class _HexByteInputFormatter extends TextInputFormatter {
+  const _HexByteInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return _normalizeHexEditingValue(newValue);
+  }
+}
+
 class _ConsoleLogView extends StatefulWidget {
   const _ConsoleLogView({
     required this.logs,
@@ -342,7 +407,7 @@ class _ConsoleArea extends StatelessWidget {
             hintText: l10n.searchLogs,
             showLabel: false,
             onChanged: onSearchChanged,
-            style: AppFonts.monoStyle.copyWith(fontSize: 12),
+            style: AppTheme.of(context).typography.xSmall,
             prefix: const Icon(AppIcons.search, size: 17),
             suffix: searchController.text.isEmpty
                 ? null
@@ -409,6 +474,11 @@ class _ConsoleArea extends StatelessWidget {
                             focusNode: inputFocusNode,
                             minLines: 1,
                             maxLines: 4,
+                            inputFormatters: hexMode
+                                ? const <TextInputFormatter>[
+                                    _HexByteInputFormatter(),
+                                  ]
+                                : null,
                             onSubmitted: (_) => onSend(),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
@@ -431,6 +501,7 @@ class _ConsoleArea extends StatelessWidget {
                           compact: true,
                           height: 36,
                           padding: const EdgeInsets.symmetric(horizontal: 10),
+                          preservePrimaryColorWhenDisabled: true,
                           onPressed: effectiveCanSend ? onSend : null,
                           leading: const Icon(AppIcons.sendOutlined, size: 18),
                           child: Text(
@@ -443,67 +514,6 @@ class _ConsoleArea extends StatelessWidget {
                       ),
                     ],
                   ),
-                  if (disabledReason != null) ...<Widget>[
-                    const SizedBox(height: 4),
-                    Semantics(
-                      liveRegion: true,
-                      container: true,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          children: <Widget>[
-                            Icon(
-                              AppIcons.infoOutline,
-                              size: 15,
-                              color: colors.mutedForeground,
-                            ),
-                            const SizedBox(width: 5),
-                            Flexible(
-                              child: Text(
-                                l10n.sendUnavailable(disabledReason),
-                                key: const ValueKey<String>(
-                                  'console-send-disabled-reason',
-                                ),
-                                style: AppTheme.textStylesOf(context).bodySmall
-                                    .copyWith(color: colors.mutedForeground),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (preview.error == null &&
-                      preview.payloadLength != null) ...<Widget>[
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Wrap(
-                        spacing: 12,
-                        runSpacing: 3,
-                        children: <Widget>[
-                          Text(
-                            l10n.payloadLength(preview.payloadLength!),
-                            style: AppTheme.textStylesOf(context).labelSmall,
-                          ),
-                          Text(
-                            preview.scriptPending
-                                ? l10n.scriptPreviewUnavailable
-                                : l10n.finalFramePreview(
-                                    preview.finalFrame!.length,
-                                    _toHex(preview.finalFrame!),
-                                  ),
-                            style: AppTheme.textStylesOf(context).labelSmall
-                                .copyWith(
-                                  fontFamily: AppFonts.mono,
-                                  package: AppFonts.shadcnPackage,
-                                  color: colors.mutedForeground,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 6),
                   LayoutBuilder(
                     builder:
@@ -577,6 +587,11 @@ class _ConsoleArea extends StatelessWidget {
                               ),
                             ],
                           );
+                          final Widget sendMeta = _ConsoleSendMeta(
+                            disabledReason: disabledReason,
+                            preview: preview,
+                            l10n: l10n,
+                          );
                           final Widget targetStatus = _ConsoleWriteTargetStatus(
                             writeTarget: writeTarget,
                           );
@@ -585,13 +600,27 @@ class _ConsoleArea extends StatelessWidget {
                               spacing: 12,
                               runSpacing: 4,
                               crossAxisAlignment: WrapCrossAlignment.center,
-                              children: <Widget>[sendControls, targetStatus],
+                              children: <Widget>[
+                                sendControls,
+                                if (disabledReason != null ||
+                                    (preview.error == null &&
+                                        preview.payloadLength != null))
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth: constraints.maxWidth,
+                                    ),
+                                    child: sendMeta,
+                                  ),
+                                targetStatus,
+                              ],
                             );
                           }
                           return Row(
                             children: <Widget>[
                               sendControls,
-                              const Spacer(),
+                              const SizedBox(width: 12),
+                              Expanded(child: sendMeta),
+                              const SizedBox(width: 12),
                               targetStatus,
                             ],
                           );
@@ -603,6 +632,117 @@ class _ConsoleArea extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _ConsoleSendMeta extends StatelessWidget {
+  const _ConsoleSendMeta({
+    required this.disabledReason,
+    required this.preview,
+    required this.l10n,
+  });
+
+  final String? disabledReason;
+  final _ConsoleSendPreview preview;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
+    final bool hasPreview =
+        preview.error == null && preview.payloadLength != null;
+    if (disabledReason == null && !hasPreview) {
+      return const SizedBox(height: 32);
+    }
+    final TextStyle sansSmall = AppTheme.textStylesOf(
+      context,
+    ).bodySmall.copyWith(fontFamily: AppFonts.sans, package: null);
+    final TextStyle sansLabel = AppTheme.textStylesOf(
+      context,
+    ).labelSmall.copyWith(fontFamily: AppFonts.sans, package: null);
+    final TextStyle monoLabel = AppTheme.textStylesOf(context).labelSmall
+        .copyWith(
+          fontFamily: AppFonts.mono,
+          package: AppFonts.shadcnPackage,
+          color: colors.mutedForeground,
+        );
+    final List<Widget> children = <Widget>[];
+    if (disabledReason != null) {
+      children.add(
+        Semantics(
+          liveRegion: true,
+          container: true,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                AppIcons.infoOutline,
+                size: 15,
+                color: colors.mutedForeground,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                l10n.sendUnavailable(disabledReason!),
+                key: const ValueKey<String>('console-send-disabled-reason'),
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: sansSmall,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (hasPreview) {
+      if (children.isNotEmpty) children.add(const SizedBox(width: 12));
+      children.add(
+        Text(
+          l10n.payloadLength(preview.payloadLength!),
+          maxLines: 1,
+          softWrap: false,
+          style: sansLabel,
+        ),
+      );
+      children.add(const SizedBox(width: 12));
+      children.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: <Widget>[
+            Text(
+              preview.scriptPending
+                  ? l10n.scriptPreviewUnavailable
+                  : l10n.finalFrameLabel(preview.finalFrame!.length),
+              maxLines: 1,
+              softWrap: false,
+              style: sansLabel,
+            ),
+            if (!preview.scriptPending)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  _toHex(preview.finalFrame!),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: monoLabel,
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+    return SizedBox(
+      height: 32,
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(mainAxisSize: MainAxisSize.min, children: children),
+        ),
+      ),
     );
   }
 }

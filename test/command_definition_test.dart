@@ -111,6 +111,17 @@ void main() {
     expect(workspace.allowsConfiguredCommand('any-command'), isTrue);
   });
 
+  test('script transformed-send confirmation defaults to enabled', () {
+    final ScriptConfig config = ScriptConfig.fromJson(<String, dynamic>{
+      'enabled': true,
+      'beforeSendScript': 'function beforeSend() {}',
+      'afterReceiveScript': '',
+      'language': 'javascript',
+    });
+
+    expect(config.confirmTransformedSend, isTrue);
+  });
+
   test('parameterized HEX command expands business payload placeholders', () {
     const CommandDefinition command = CommandDefinition(
       id: 'set-level',
@@ -223,7 +234,14 @@ void main() {
     final DateTime before = DateTime.now();
     final List<int> bytes = CommandPayloadEncoder.encode(
       command,
-      const <String, String>{},
+      const <String, String>{
+        'year': '',
+        'month': '',
+        'day': '',
+        'hour': '',
+        'minute': '',
+        'second': '',
+      },
     );
     final DateTime after = DateTime.now();
     expect(bytes, hasLength(6));
@@ -232,6 +250,175 @@ void main() {
     expect(bytes[2], anyOf(before.day, after.day));
     expect(bytes[3], anyOf(before.hour, after.hour));
     expect(bytes[4], anyOf(before.minute, after.minute));
+  });
+
+  test('resolves empty current time parameters for command logs', () {
+    const CommandDefinition command = CommandDefinition(
+      id: 'clock-log',
+      name: 'Clock log',
+      group: '',
+      payload: '{{year}} {{month}} {{day}} {{hour}} {{minute}} {{second}}',
+      format: CommandPayloadFormat.hex,
+      notes: '',
+      enabled: true,
+      isQuickAccess: true,
+      parameters: <CommandParameter>[
+        CommandParameter(
+          key: 'year',
+          label: 'Year',
+          type: CommandParameterType.currentYear,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'month',
+          label: 'Month',
+          type: CommandParameterType.currentMonth,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'day',
+          label: 'Day',
+          type: CommandParameterType.currentDay,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'hour',
+          label: 'Hour',
+          type: CommandParameterType.currentHour,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'minute',
+          label: 'Minute',
+          type: CommandParameterType.currentMinute,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'second',
+          label: 'Second',
+          type: CommandParameterType.currentSecond,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+      ],
+    );
+
+    expect(
+      CommandPayloadEncoder.resolveValues(command, const <String, String>{
+        'year': '',
+        'month': '',
+        'day': '',
+        'hour': '',
+        'minute': '',
+        'second': '',
+      }, currentTime: DateTime(2026, 8, 21, 9, 7, 6)),
+      <String, String>{
+        'year': '26',
+        'month': '8',
+        'day': '21',
+        'hour': '9',
+        'minute': '7',
+        'second': '6',
+      },
+    );
+  });
+
+  test('current time parameters use supplied values when present', () {
+    const CommandDefinition command = CommandDefinition(
+      id: 'clock-override',
+      name: 'Clock override',
+      group: '',
+      payload: '{{year}} {{month}} {{day}} {{hour}} {{minute}} {{second}}',
+      format: CommandPayloadFormat.hex,
+      notes: '',
+      enabled: true,
+      isQuickAccess: true,
+      parameters: <CommandParameter>[
+        CommandParameter(
+          key: 'year',
+          label: 'Year',
+          type: CommandParameterType.currentYear,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'month',
+          label: 'Month',
+          type: CommandParameterType.currentMonth,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'day',
+          label: 'Day',
+          type: CommandParameterType.currentDay,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'hour',
+          label: 'Hour',
+          type: CommandParameterType.currentHour,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'minute',
+          label: 'Minute',
+          type: CommandParameterType.currentMinute,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'second',
+          label: 'Second',
+          type: CommandParameterType.currentSecond,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+      ],
+    );
+
+    expect(
+      CommandPayloadEncoder.encode(command, const <String, String>{
+        'year': '26',
+        'month': '12',
+        'day': '31',
+        'hour': '23',
+        'minute': '59',
+        'second': '58',
+      }),
+      <int>[26, 12, 31, 23, 59, 58],
+    );
   });
 
   test('data mapper parses CMD response fields from DATA offsets', () {
@@ -391,6 +578,7 @@ void main() {
         beforeSendScript: 'function beforeSend(context) { return {}; }',
         afterReceiveScript: 'function afterReceive(context) { return {}; }',
         language: 'javascript',
+        confirmTransformedSend: false,
       ),
     );
     final WorkspaceManager writer = WorkspaceManager();
@@ -402,6 +590,7 @@ void main() {
 
     expect(reader.activeWorkspace.protocol.name, 'Encrypted protocol');
     expect(reader.activeWorkspace.scriptConfig.enabled, isTrue);
+    expect(reader.activeWorkspace.scriptConfig.confirmTransformedSend, isFalse);
     expect(
       reader.activeWorkspace.scriptConfig.beforeSendScript,
       contains('beforeSend'),
@@ -520,6 +709,19 @@ void main() {
       '{"version":1,"activeWorkspaceId":"legacy","workspaces":[${workspace.toPrettyJson()}]}',
     );
     expect(jsonDecode(manager.exportWorkspaces())['version'], 2);
+  });
+
+  test('current workspace export is a single-workspace import package', () {
+    final WorkspaceManager manager = WorkspaceManager();
+    final Workspace selected = manager.createWorkspace(name: '当前工作区');
+
+    final Map<String, dynamic> payload =
+        jsonDecode(manager.exportCurrentWorkspace()) as Map<String, dynamic>;
+
+    expect(payload['version'], WorkspaceManager.currentFormatVersion);
+    expect(payload['activeWorkspaceId'], selected.id);
+    expect(payload['workspaces'], hasLength(1));
+    expect((payload['workspaces'] as List<dynamic>).single['id'], selected.id);
   });
 
   test('merge import supports keeping or replacing conflicting workspaces', () {

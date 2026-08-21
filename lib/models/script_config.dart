@@ -10,6 +10,7 @@ class ScriptConfig {
     required this.beforeSendScript,
     required this.afterReceiveScript,
     required this.language,
+    this.confirmTransformedSend = true,
     this.trustState = ScriptTrustState.local,
     this.source = 'local',
   });
@@ -18,6 +19,7 @@ class ScriptConfig {
   final String beforeSendScript;
   final String afterReceiveScript;
   final String language;
+  final bool confirmTransformedSend;
   final ScriptTrustState trustState;
   final String source;
 
@@ -38,6 +40,7 @@ class ScriptConfig {
       beforeSendScript: json['beforeSendScript'] as String? ?? '',
       afterReceiveScript: json['afterReceiveScript'] as String? ?? '',
       language: json['language'] as String? ?? 'javascript',
+      confirmTransformedSend: json['confirmTransformedSend'] as bool? ?? true,
       trustState: ScriptTrustState.values.firstWhere(
         (ScriptTrustState item) => item.name == json['trustState'],
         orElse: () => ScriptTrustState.local,
@@ -52,6 +55,7 @@ class ScriptConfig {
       'beforeSendScript': beforeSendScript,
       'afterReceiveScript': afterReceiveScript,
       'language': language,
+      'confirmTransformedSend': confirmTransformedSend,
       'trustState': trustState.name,
       'source': source,
     };
@@ -62,6 +66,7 @@ class ScriptConfig {
     String? beforeSendScript,
     String? afterReceiveScript,
     String? language,
+    bool? confirmTransformedSend,
     ScriptTrustState? trustState,
     String? source,
   }) {
@@ -70,6 +75,8 @@ class ScriptConfig {
       beforeSendScript: beforeSendScript ?? this.beforeSendScript,
       afterReceiveScript: afterReceiveScript ?? this.afterReceiveScript,
       language: language ?? this.language,
+      confirmTransformedSend:
+          confirmTransformedSend ?? this.confirmTransformedSend,
       trustState: trustState ?? this.trustState,
       source: source ?? this.source,
     );

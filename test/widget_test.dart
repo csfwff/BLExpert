@@ -6,6 +6,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'package:blexpert/main.dart';
 import 'package:blexpert/app/app_theme.dart';
+import 'package:blexpert/app/app_version.dart';
 import 'package:blexpert/app/design/app_icons.dart';
 import 'package:blexpert/app/design/tool_button.dart';
 import 'package:blexpert/app/design/tool_select.dart';
@@ -183,12 +184,12 @@ void main() {
     await openWorkspaceSelector(tester);
     final Finder workspaceMenu = find.byType(shad.DropdownMenu);
     expect(workspaceMenu, findsOneWidget);
-    expect(
-      tester.getSize(workspaceMenu).width,
-      tester
-          .getSize(find.byKey(const ValueKey<String>('workspace-selector')))
-          .width,
-    );
+    expect(tester.getSize(workspaceMenu).width, 200);
+    for (final String label in <String>['导出当前工作区', '导出全部工作区']) {
+      final Text text = tester.widget<Text>(find.text(label));
+      expect(text.maxLines, 1);
+      expect(text.softWrap, isFalse);
+    }
     await tester.tap(findToolTooltip('选择工作区'));
     await tester.pump();
   });
@@ -742,6 +743,7 @@ void main() {
     final ToolButton send = tester.widget<ToolButton>(sendButton);
     expect(send.compact, isTrue);
     expect(send.padding, const EdgeInsets.symmetric(horizontal: 10));
+    expect(send.preservePrimaryColorWhenDisabled, isTrue);
     final Text sendText = tester.widget<Text>(
       find.descendant(of: sendButton, matching: find.text('发送数据')),
     );
@@ -837,6 +839,26 @@ void main() {
     );
   });
 
+  testWidgets(
+    'HEX send input is normalized and preview keeps send area stable',
+    (WidgetTester tester) async {
+      await pumpDesktopApp(tester);
+
+      final Finder input = find.byKey(const ValueKey<String>('console-input'));
+      final Finder sendArea = find.byKey(
+        const ValueKey<String>('console-send-area'),
+      );
+      final double initialHeight = tester.getSize(sendArea).height;
+
+      await tester.enterText(input, 'aabbcc,zz1');
+      await tester.pump();
+
+      final ToolTextField inputField = tester.widget<ToolTextField>(input);
+      expect(inputField.controller?.text, 'AA BB CC 1');
+      expect(tester.getSize(sendArea).height, closeTo(initialHeight, 0.1));
+    },
+  );
+
   testWidgets('未连接时发送区说明禁用原因', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
@@ -894,8 +916,18 @@ void main() {
     final Finder languageRow = find.byKey(
       const ValueKey<String>('settings-language-row'),
     );
+    final Finder versionRow = find.byKey(
+      const ValueKey<String>('settings-version-row'),
+    );
     expect(themeRow, findsOneWidget);
     expect(languageRow, findsOneWidget);
+    expect(versionRow, findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey<String>('settings-version')))
+          .data,
+      AppVersion.display,
+    );
     expect(
       tester
               .getRect(
@@ -919,6 +951,32 @@ void main() {
           .width,
       180,
     );
+    final Rect languageSelectorRect = tester.getRect(
+      find.byKey(const ValueKey<String>('language-selector')),
+    );
+    expect(
+      languageSelectorRect.top,
+      closeTo(
+        tester
+            .getRect(
+              find.byKey(
+                const ValueKey<String>('settings-theme-language-divider'),
+              ),
+            )
+            .bottom,
+        0.1,
+      ),
+    );
+    expect(
+      tester
+          .getRect(
+            find.byKey(
+              const ValueKey<String>('settings-language-version-divider'),
+            ),
+          )
+          .top,
+      closeTo(languageSelectorRect.bottom, 0.1),
+    );
 
     await tester.tap(find.text('暗色模式'));
     await tester.pumpAndSettle();
@@ -941,13 +999,21 @@ void main() {
     expect(find.text('Settings'), findsNWidgets(2));
   });
 
-  testWidgets('工作区可导出、预览并确认替换导入', (WidgetTester tester) async {
+  testWidgets('工作区可分别导出当前项、全部项并确认替换导入', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
     await openWorkspaceSelector(tester);
-    await tester.tap(find.text('导出工作区'));
+    await tester.tap(find.text('导出当前工作区'));
     await tester.pumpAndSettle();
-    expect(find.text('导出工作区'), findsOneWidget);
+    expect(find.text('导出当前工作区'), findsOneWidget);
+    expect(find.textContaining('"workspaces"'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ToolButton, '关闭'));
+    await tester.pumpAndSettle();
+
+    await openWorkspaceSelector(tester);
+    await tester.tap(find.text('导出全部工作区'));
+    await tester.pumpAndSettle();
+    expect(find.text('导出全部工作区'), findsOneWidget);
     expect(find.textContaining('"workspaces"'), findsOneWidget);
     await tester.tap(find.widgetWithText(ToolButton, '关闭'));
     await tester.pumpAndSettle();
@@ -955,6 +1021,43 @@ void main() {
     await openWorkspaceSelector(tester);
     await tester.tap(find.text('导入工作区'));
     await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('workspace-import-check-hint')),
+      findsOneWidget,
+    );
+    expect(find.text('需先检查后才能确认'), findsOneWidget);
+    expect(
+      tester
+          .getRect(
+            find.byKey(const ValueKey<String>('workspace-import-check-hint')),
+          )
+          .bottom,
+      lessThanOrEqualTo(
+        tester.getRect(find.widgetWithText(ToolButton, '检查导入')).top,
+      ),
+    );
+    expect(
+      tester
+          .getRect(
+            find.byKey(const ValueKey<String>('workspace-import-check-hint')),
+          )
+          .right,
+      closeTo(
+        tester.getRect(find.widgetWithText(ToolButton, '确认替换')).right,
+        0.1,
+      ),
+    );
+    final List<Rect> importActions = <String>['取消', '检查导入', '确认替换']
+        .map(
+          (String label) =>
+              tester.getRect(find.widgetWithText(ToolButton, label)),
+        )
+        .toList(growable: false);
+    for (final Rect action in importActions.skip(1)) {
+      expect(action.top, closeTo(importActions.first.top, 0.1));
+      expect(action.height, closeTo(importActions.first.height, 0.1));
+    }
+    expect(find.text('完整替换会移除当前所有工作区，再写入导入内容。'), findsOneWidget);
     expect(
       tester
           .widget<ToolButton>(find.widgetWithText(ToolButton, '确认替换'))
@@ -1016,6 +1119,11 @@ void main() {
     await tester.tap(find.text('合并导入'));
     await tester.pumpAndSettle();
 
+    expect(
+      find.text('合并导入会保留当前工作区；导入内容中 ID 不存在的工作区会作为新工作区加入。'),
+      findsOneWidget,
+    );
+    expect(find.text('将合并当前 1 个工作区：新增 1 个工作区，处理 1 个 ID 冲突。'), findsOneWidget);
     expect(find.text('冲突处理'), findsOneWidget);
     expect(find.text('保留当前'), findsOneWidget);
     await tester.tap(find.text('保留当前'));
@@ -1128,6 +1236,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('协议定义'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('protocol-profiles-title-icon')),
+      findsOneWidget,
+    );
 
     tester.view.physicalSize = const Size(375, 812);
     await tester.pumpAndSettle();
@@ -1386,6 +1498,11 @@ void main() {
       find.byKey(const ValueKey<String>('script-before-send-tab')),
       findsNothing,
     );
+    expect(find.text('脚本改帧发送前确认'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('script-confirm-transformed-send')),
+      findsOneWidget,
+    );
     await tester.tap(
       find.descendant(of: scriptTabs, matching: find.text('发送前脚本')),
     );
@@ -1454,6 +1571,10 @@ void main() {
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(ToolButton, '新建指令'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('command-library-title-icon')),
+      findsOneWidget,
+    );
     await tester.tap(findToolTooltip('新建指令'));
     await tester.pumpAndSettle();
 
@@ -1801,6 +1922,10 @@ void main() {
     );
     expect(tester.getRect(parameterInput).center.dy, firstByteRect.center.dy);
     expect(
+      tester.getRect(item).right - tester.getRect(sendButton).right,
+      closeTo(12, 0.1),
+    );
+    expect(
       tester.getRect(sendButton).center.dy,
       tester.getRect(parameterInput).center.dy,
     );
@@ -1832,6 +1957,10 @@ void main() {
 
     final Finder mappingList = find.byKey(
       const ValueKey<String>('response-mapping-library-list'),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('data-mappings-title-icon')),
+      findsOneWidget,
     );
     final Finder newMappingButton = find.byKey(
       const ValueKey<String>('new-response-mapping-button'),
@@ -2420,6 +2549,46 @@ void main() {
     await tester.tap(detailsButton.first);
     await tester.pump();
     expect(find.text('选中日志'), findsOneWidget);
+    expect(find.textContaining('AA BB'), findsWidgets);
+    expect(findToolTooltip('关闭日志详情'), findsOneWidget);
+    final BoxDecoration detailsDecoration =
+        tester
+                .widget<Container>(
+                  find.byKey(const ValueKey<String>('selected-log-details')),
+                )
+                .decoration!
+            as BoxDecoration;
+    expect(
+      detailsDecoration.color,
+      AppTheme.colorsOf(
+        tester.element(
+          find.byKey(const ValueKey<String>('selected-log-details')),
+        ),
+      ).muted,
+    );
+    expect(detailsDecoration.border, isA<Border>());
+    expect(
+      tester.getSize(find.byKey(const ValueKey<String>('selected-log-close'))),
+      const Size.square(28),
+    );
+    expect(
+      tester
+          .getRect(find.byKey(const ValueKey<String>('selected-log-close')))
+          .right,
+      closeTo(
+        tester
+                .getRect(
+                  find.byKey(const ValueKey<String>('selected-log-heading')),
+                )
+                .right -
+            12,
+        0.1,
+      ),
+    );
+
+    await tester.tap(findToolTooltip('关闭日志详情'));
+    await tester.pumpAndSettle();
+    expect(find.text('选中日志'), findsNothing);
     expect(find.textContaining('AA BB'), findsWidgets);
   });
 

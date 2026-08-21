@@ -16,6 +16,17 @@ void main() {
     ]);
   });
 
+  test('can skip confirmation for a script-transformed frame', () {
+    final SendSafetyDecision decision = SendSafetyPolicy.evaluate(
+      businessPayload: <int>[0x01],
+      finalFrame: <int>[0xAA, 0x01, 0x55],
+      scriptEnabled: true,
+      confirmTransformedSend: false,
+    );
+
+    expect(decision.requiresConfirmation, isFalse);
+  });
+
   test('requires confirmation for potentially dangerous command names', () {
     final SendSafetyDecision decision = SendSafetyPolicy.evaluate(
       businessPayload: <int>[0x01],

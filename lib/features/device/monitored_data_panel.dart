@@ -172,7 +172,7 @@ class _MappedDataPanel extends StatelessWidget {
   }
 }
 
-class _MappedDataCell extends StatelessWidget {
+class _MappedDataCell extends StatefulWidget {
   const _MappedDataCell({
     super.key,
     required this.definition,
@@ -183,24 +183,53 @@ class _MappedDataCell extends StatelessWidget {
   final _MonitoredFieldValue? latest;
 
   @override
+  State<_MappedDataCell> createState() => _MappedDataCellState();
+}
+
+class _MappedDataCellState extends State<_MappedDataCell> {
+  static const Duration _transitionDuration = Duration(milliseconds: 180);
+  bool _highlighted = false;
+
+  @override
+  void didUpdateWidget(covariant _MappedDataCell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.latest == null) {
+      if (_highlighted) setState(() => _highlighted = false);
+      return;
+    }
+    if (_monitoredValueChanged(oldWidget.latest, widget.latest)) {
+      if (!_highlighted) setState(() => _highlighted = true);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final _MonitoredFieldDefinition definition = widget.definition;
+    final _MonitoredFieldValue? latest = widget.latest;
     final String name = definition.field.label.isEmpty
         ? definition.field.key
         : definition.field.label;
     final String value = latest == null
         ? '--'
-        : '${latest!.value.displayValue}${latest!.value.unit.isEmpty ? '' : ' ${latest!.value.unit}'}';
+        : '${latest.value.displayValue}${latest.value.unit.isEmpty ? '' : ' ${latest.value.unit}'}';
     final String source =
         '${definition.mapping.name} | CMD ${definition.mapping.commandHex}';
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
     return Semantics(
       label: '$name：$value，$source',
       child: ToolTooltip(
         message: '$name\n$source',
-        child: Container(
+        child: AnimatedContainer(
+          duration: _transitionDuration,
+          curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
           decoration: BoxDecoration(
-            color: AppTheme.colorsOf(context).card,
-            border: Border.all(color: AppTheme.colorsOf(context).border),
+            color: _highlighted
+                ? colors.accent.withValues(alpha: 0.5)
+                : colors.card,
+            border: Border.all(
+              color: _highlighted ? colors.accentForeground : colors.border,
+            ),
             borderRadius: AppTheme.of(context).borderRadiusSm,
           ),
           child: Column(
@@ -230,10 +259,7 @@ class _MappedDataCell extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: AppTheme.colorsOf(context).mutedForeground,
-                ),
+                style: TextStyle(fontSize: 10, color: colors.mutedForeground),
               ),
             ],
           ),
@@ -241,4 +267,15 @@ class _MappedDataCell extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _monitoredValueChanged(
+  _MonitoredFieldValue? previous,
+  _MonitoredFieldValue? current,
+) {
+  if (current == null) return false;
+  if (previous == null) return true;
+  return previous.value.value != current.value.value ||
+      previous.value.displayValue != current.value.displayValue ||
+      previous.value.unit != current.value.unit;
 }

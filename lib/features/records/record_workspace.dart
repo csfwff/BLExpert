@@ -74,6 +74,12 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
   @override
   Widget build(BuildContext context) {
     final List<SessionLogRecord> filteredLogs = _filteredLogs();
+    final bool hasMetadataFilters =
+        _metadataValues(
+          (SessionLogRecord log) => log.characteristicId,
+        ).isNotEmpty ||
+        _metadataValues((SessionLogRecord log) => log.commandName).isNotEmpty ||
+        _metadataValues((SessionLogRecord log) => log.transactionId).isNotEmpty;
     return Column(
       children: <Widget>[
         const _PanelHeading(title: '会话记录'),
@@ -92,68 +98,72 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
           onBookmarksOnlyChanged: (bool value) =>
               setState(() => _bookmarksOnly = value),
         ),
-        if (_metadataValues(
-              (SessionLogRecord log) => log.characteristicId,
-            ).isNotEmpty ||
-            _metadataValues(
-              (SessionLogRecord log) => log.commandName,
-            ).isNotEmpty ||
-            _metadataValues(
-              (SessionLogRecord log) => log.transactionId,
-            ).isNotEmpty)
+        if (hasMetadataFilters)
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             child: LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) =>
-                  Wrap(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final List<Widget> metadataFilters = <Widget>[
+                  if (_metadataValues(
+                    (SessionLogRecord log) => log.characteristicId,
+                  ).isNotEmpty)
+                    _metadataFilter(
+                      label: '特征',
+                      allLabel: '全部特征',
+                      value: _characteristicFilter,
+                      values: _metadataValues(
+                        (SessionLogRecord log) => log.characteristicId,
+                      ),
+                      maxWidth: constraints.maxWidth,
+                      onChanged: (String? value) =>
+                          setState(() => _characteristicFilter = value),
+                    ),
+                  if (_metadataValues(
+                    (SessionLogRecord log) => log.commandName,
+                  ).isNotEmpty)
+                    _metadataFilter(
+                      label: '指令',
+                      allLabel: '全部指令',
+                      value: _commandFilter,
+                      values: _metadataValues(
+                        (SessionLogRecord log) => log.commandName,
+                      ),
+                      maxWidth: constraints.maxWidth,
+                      onChanged: (String? value) =>
+                          setState(() => _commandFilter = value),
+                    ),
+                  if (_metadataValues(
+                    (SessionLogRecord log) => log.transactionId,
+                  ).isNotEmpty)
+                    _metadataFilter(
+                      label: '事务',
+                      allLabel: '全部事务',
+                      value: _transactionFilter,
+                      values: _metadataValues(
+                        (SessionLogRecord log) => log.transactionId,
+                      ),
+                      maxWidth: constraints.maxWidth,
+                      onChanged: (String? value) =>
+                          setState(() => _transactionFilter = value),
+                    ),
+                ];
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    alignment: WrapAlignment.start,
+                    runAlignment: WrapAlignment.start,
                     spacing: 8,
                     runSpacing: 8,
-                    children: <Widget>[
-                      if (_metadataValues(
-                        (SessionLogRecord log) => log.characteristicId,
-                      ).isNotEmpty)
-                        _metadataFilter(
-                          label: '特征',
-                          allLabel: '全部特征',
-                          value: _characteristicFilter,
-                          values: _metadataValues(
-                            (SessionLogRecord log) => log.characteristicId,
-                          ),
-                          maxWidth: constraints.maxWidth,
-                          onChanged: (String? value) =>
-                              setState(() => _characteristicFilter = value),
-                        ),
-                      if (_metadataValues(
-                        (SessionLogRecord log) => log.commandName,
-                      ).isNotEmpty)
-                        _metadataFilter(
-                          label: '指令',
-                          allLabel: '全部指令',
-                          value: _commandFilter,
-                          values: _metadataValues(
-                            (SessionLogRecord log) => log.commandName,
-                          ),
-                          maxWidth: constraints.maxWidth,
-                          onChanged: (String? value) =>
-                              setState(() => _commandFilter = value),
-                        ),
-                      if (_metadataValues(
-                        (SessionLogRecord log) => log.transactionId,
-                      ).isNotEmpty)
-                        _metadataFilter(
-                          label: '事务',
-                          allLabel: '全部事务',
-                          value: _transactionFilter,
-                          values: _metadataValues(
-                            (SessionLogRecord log) => log.transactionId,
-                          ),
-                          maxWidth: constraints.maxWidth,
-                          onChanged: (String? value) =>
-                              setState(() => _transactionFilter = value),
-                        ),
-                    ],
+                    children: metadataFilters,
                   ),
+                );
+              },
             ),
+          ),
+        if (hasMetadataFilters)
+          const shad.Divider(
+            key: ValueKey<String>('session-record-metadata-divider'),
+            height: 1,
           ),
         Expanded(
           child: LayoutBuilder(

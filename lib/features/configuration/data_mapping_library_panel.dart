@@ -22,6 +22,13 @@ class _DataMappingLibraryPanel extends StatelessWidget {
     children: <Widget>[
       Row(
         children: <Widget>[
+          Icon(
+            AppIcons.dataObject,
+            key: const ValueKey<String>('data-mappings-title-icon'),
+            size: 18,
+            color: AppTheme.colorsOf(context).primary,
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               l10n.dataMappings,

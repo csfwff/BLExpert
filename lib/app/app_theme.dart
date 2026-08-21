@@ -13,6 +13,8 @@ abstract final class AppFonts {
   );
 }
 
+TextStyle _sansTextStyle(TextStyle style) => AppFonts.sansStyle.merge(style);
+
 abstract final class AppMotion {
   static const Duration fast = Duration(milliseconds: 120);
   static const Duration standard = Duration(milliseconds: 200);
@@ -78,7 +80,40 @@ shad.ThemeData buildAppTheme(
   final shad.Typography typography = baseTypography.copyWith(
     sans: () => AppFonts.sansStyle,
     mono: () => AppFonts.monoStyle,
+    xSmall: () => _sansTextStyle(baseTypography.xSmall),
+    small: () => _sansTextStyle(baseTypography.small),
+    base: () => _sansTextStyle(baseTypography.base),
+    large: () => _sansTextStyle(baseTypography.large),
+    xLarge: () => _sansTextStyle(baseTypography.xLarge),
+    x2Large: () => _sansTextStyle(baseTypography.x2Large),
+    x3Large: () => _sansTextStyle(baseTypography.x3Large),
+    x4Large: () => _sansTextStyle(baseTypography.x4Large),
+    x5Large: () => _sansTextStyle(baseTypography.x5Large),
+    x6Large: () => _sansTextStyle(baseTypography.x6Large),
+    x7Large: () => _sansTextStyle(baseTypography.x7Large),
+    x8Large: () => _sansTextStyle(baseTypography.x8Large),
+    x9Large: () => _sansTextStyle(baseTypography.x9Large),
+    thin: () => _sansTextStyle(baseTypography.thin),
+    light: () => _sansTextStyle(baseTypography.light),
+    extraLight: () => _sansTextStyle(baseTypography.extraLight),
+    normal: () => _sansTextStyle(baseTypography.normal),
+    medium: () => _sansTextStyle(baseTypography.medium),
+    semiBold: () => _sansTextStyle(baseTypography.semiBold),
+    bold: () => _sansTextStyle(baseTypography.bold),
+    extraBold: () => _sansTextStyle(baseTypography.extraBold),
+    black: () => _sansTextStyle(baseTypography.black),
+    italic: () => _sansTextStyle(baseTypography.italic),
+    h1: () => _sansTextStyle(baseTypography.h1),
+    h2: () => _sansTextStyle(baseTypography.h2),
+    h3: () => _sansTextStyle(baseTypography.h3),
+    h4: () => _sansTextStyle(baseTypography.h4),
+    p: () => _sansTextStyle(baseTypography.p),
+    blockQuote: () => _sansTextStyle(baseTypography.blockQuote),
     inlineCode: () => baseTypography.inlineCode.merge(AppFonts.monoStyle),
+    lead: () => _sansTextStyle(baseTypography.lead),
+    textLarge: () => _sansTextStyle(baseTypography.textLarge),
+    textSmall: () => _sansTextStyle(baseTypography.textSmall),
+    textMuted: () => _sansTextStyle(baseTypography.textMuted),
   );
   final bool dark = brightness == Brightness.dark;
   final shad.ColorScheme scheme = shad.ColorScheme(

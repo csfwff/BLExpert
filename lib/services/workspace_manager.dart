@@ -146,14 +146,13 @@ class WorkspaceManager {
   }
 
   String exportWorkspaces() {
-    final Map<String, dynamic> payload = <String, dynamic>{
-      'version': currentFormatVersion,
-      'activeWorkspaceId': _activeWorkspaceId,
-      'workspaces': _workspaces
-          .map((Workspace workspace) => workspace.toJson())
-          .toList(growable: false),
-    };
-    return const JsonEncoder.withIndent('  ').convert(payload);
+    return _encodeWorkspaces(_workspaces, _activeWorkspaceId);
+  }
+
+  /// Exports the active workspace in the standard workspace package format.
+  String exportCurrentWorkspace() {
+    final Workspace workspace = activeWorkspace;
+    return _encodeWorkspaces(<Workspace>[workspace], workspace.id);
   }
 
   void importWorkspaces(
@@ -316,6 +315,20 @@ class WorkspaceManager {
         _workspaces.any((Workspace workspace) => workspace.id == candidateId)
         ? candidateId
         : _workspaces.first.id;
+  }
+
+  String _encodeWorkspaces(
+    List<Workspace> workspaces,
+    String activeWorkspaceId,
+  ) {
+    final Map<String, dynamic> payload = <String, dynamic>{
+      'version': currentFormatVersion,
+      'activeWorkspaceId': activeWorkspaceId,
+      'workspaces': workspaces
+          .map((Workspace workspace) => workspace.toJson())
+          .toList(growable: false),
+    };
+    return const JsonEncoder.withIndent('  ').convert(payload);
   }
 
   String _nextWorkspaceId(DateTime now) {
