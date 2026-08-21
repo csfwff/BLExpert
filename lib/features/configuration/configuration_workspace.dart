@@ -130,7 +130,7 @@ class _ConfigurationNavigation extends StatelessWidget {
       for (int index = 0; index < items.length; index++)
         shad.NavigationItem(
           key: ValueKey<String>('configuration-section-$index'),
-          selectedStyle: const shad.ButtonStyle.primary(),
+          selectedStyle: const shad.ButtonStyle.secondary(),
           label: Text(items[index].label),
           child: Icon(items[index].icon, size: 19),
         ),

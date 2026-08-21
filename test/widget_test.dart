@@ -1230,6 +1230,12 @@ void main() {
 
     await selectAppMode(tester, 'configure');
     expect(find.byType(shad.NavigationRail), findsNWidgets(2));
+    for (int index = 0; index < 4; index++) {
+      final shad.NavigationItem item = tester.widget<shad.NavigationItem>(
+        find.byKey(ValueKey<String>('configuration-section-$index')),
+      );
+      expect(item.selectedStyle, same(const shad.ButtonStyle.secondary()));
+    }
 
     await tester.tap(
       find.byKey(const ValueKey<String>('configuration-section-1')),
