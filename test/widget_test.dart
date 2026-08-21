@@ -858,6 +858,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('language-selector')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
+    expect(
+      tester.getRect(find.text('英文').last).top,
+      greaterThanOrEqualTo(
+        tester
+            .getRect(find.byKey(const ValueKey<String>('language-selector')))
+            .bottom,
+      ),
+    );
     await tester.tap(find.text('英文').last);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
@@ -876,6 +884,27 @@ void main() {
 
     await selectAppMode(tester, 'settings');
 
+    final Text settingsTitle = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('settings-workspace-title')),
+    );
+    expect(settingsTitle.style?.fontSize, 16);
+    final Finder themeRow = find.byKey(
+      const ValueKey<String>('settings-theme-row'),
+    );
+    final Finder languageRow = find.byKey(
+      const ValueKey<String>('settings-language-row'),
+    );
+    expect(themeRow, findsOneWidget);
+    expect(languageRow, findsOneWidget);
+    expect(
+      tester
+              .getRect(
+                find.byKey(const ValueKey<String>('theme-mode-selector')),
+              )
+              .left -
+          tester.getRect(themeRow).left,
+      closeTo(108, 1),
+    );
     expect(
       find.byKey(const ValueKey<String>('theme-mode-selector')),
       findsOneWidget,
@@ -883,6 +912,12 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('language-selector')),
       findsOneWidget,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey<String>('language-selector')))
+          .width,
+      180,
     );
 
     await tester.tap(find.text('暗色模式'));
@@ -1785,6 +1820,117 @@ void main() {
     );
   });
 
+  testWidgets('响应映射编辑器使用紧凑表单行和滚动弹窗', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+
+    await selectAppMode(tester, 'configure');
+    await tester.tap(
+      find.byKey(const ValueKey<String>('configuration-section-3')),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder mappingList = find.byKey(
+      const ValueKey<String>('response-mapping-library-list'),
+    );
+    final Finder newMappingButton = find.byKey(
+      const ValueKey<String>('new-response-mapping-button'),
+    );
+    expect(mappingList, findsOneWidget);
+    expect(
+      tester.widget<ListView>(mappingList).padding,
+      const EdgeInsets.all(12),
+    );
+    expect(tester.getSize(newMappingButton).height, 32);
+
+    await tester.tap(newMappingButton);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('response-mapping-name-row')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('response-mapping-command-row')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('response-mapping-ascii-log-row')),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('response-mapping-name-field')),
+      '状态响应',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('response-mapping-command-field')),
+      '90',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('add-response-mapping-field-button')),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('response-mapping-field-row-0')),
+      findsOneWidget,
+    );
+    final Finder mappingFieldRow = find.byKey(
+      const ValueKey<String>('response-mapping-field-row-0'),
+    );
+    final ToolTextField keyField = tester.widget<ToolTextField>(
+      find.descendant(
+        of: mappingFieldRow,
+        matching: find.byWidgetPredicate(
+          (Widget widget) => widget is ToolTextField && widget.label == 'key',
+        ),
+      ),
+    );
+    final ToolTextField labelField = tester.widget<ToolTextField>(
+      find.descendant(
+        of: mappingFieldRow,
+        matching: find.byWidgetPredicate(
+          (Widget widget) => widget is ToolTextField && widget.label == '字段名称',
+        ),
+      ),
+    );
+    expect(keyField.initialValue, isEmpty);
+    expect(keyField.hintText, 'key');
+    expect(labelField.initialValue, isEmpty);
+    expect(labelField.hintText, '字段名称');
+    final Finder deleteFieldButton = find.descendant(
+      of: mappingFieldRow,
+      matching: find.byWidgetPredicate(
+        (Widget widget) => widget is ToolIconButton && widget.tooltip == '删除字段',
+      ),
+    );
+    expect(deleteFieldButton, findsOneWidget);
+    expect(
+      tester.getCenter(deleteFieldButton).dy,
+      closeTo(tester.getRect(mappingFieldRow).center.dy, 1),
+    );
+    await tester.enterText(
+      find.descendant(
+        of: mappingFieldRow,
+        matching: find.byWidgetPredicate(
+          (Widget widget) => widget is ToolTextField && widget.label == 'key',
+        ),
+      ),
+      'status',
+    );
+
+    final Finder saveButton = find.widgetWithText(ToolButton, '保存').last;
+    expect(tester.getSize(saveButton).height, 34);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('状态响应'), findsOneWidget);
+    expect(find.text('CMD 90'), findsOneWidget);
+    expect(find.text('DATA[0] status uint8'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('response-mapping-ascii-off')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('命令编辑器按字段显示保存校验错误', (WidgetTester tester) async {
     await pumpDesktopApp(tester);
 
@@ -2544,12 +2690,33 @@ void main() {
     final Finder recordFilter = find.byKey(
       const ValueKey<String>('session-record-filter'),
     );
+    expect(
+      find.byKey(const ValueKey<String>('session-record-filter-toolbar')),
+      findsOneWidget,
+    );
     final double emptyFilterHeight = tester.getSize(recordFilter).height;
     await tester.enterText(recordFilter, 'session-record-filter-test');
     await tester.pumpAndSettle();
 
     expect(emptyFilterHeight, 32);
     expect(tester.getSize(recordFilter).height, emptyFilterHeight);
+    expect(
+      tester.getSize(find.widgetWithText(ToolSelectedButton, '全部')).height,
+      32,
+    );
+    expect(tester.getSize(findToolTooltip('导出会话记录')).height, 32);
+    expect(
+      tester
+          .getRect(
+            find.byKey(
+              const ValueKey<String>('session-record-toolbar-actions'),
+            ),
+          )
+          .left,
+      greaterThan(
+        tester.getRect(find.widgetWithText(ToolSelectedButton, '书签')).right,
+      ),
+    );
     expect(
       tester.getSize(findToolTooltip('清除筛选')).height,
       lessThanOrEqualTo(24),

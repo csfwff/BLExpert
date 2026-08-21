@@ -17,7 +17,8 @@ class _DataMappingLibraryPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(18),
+    key: const ValueKey<String>('response-mapping-library-list'),
+    padding: const EdgeInsets.all(12),
     children: <Widget>[
       Row(
         children: <Widget>[
@@ -29,16 +30,26 @@ class _DataMappingLibraryPanel extends StatelessWidget {
               ).titleMedium.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
-          ToolIconButton(
-            tooltip: l10n.addResponseMapping,
-            onPressed: onNew,
-            icon: const Icon(AppIcons.add, size: 19),
+          ToolTooltip(
+            message: l10n.addResponseMapping,
+            child: ToolButton.primary(
+              key: const ValueKey<String>('new-response-mapping-button'),
+              onPressed: onNew,
+              compact: true,
+              height: 32,
+              leading: const Icon(AppIcons.add, size: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(l10n.addResponseMapping),
+            ),
           ),
         ],
       ),
       Padding(
-        padding: EdgeInsets.only(top: 4, bottom: 12),
-        child: Text(l10n.dataMappingHint),
+        padding: const EdgeInsets.only(top: 4, bottom: 8),
+        child: Text(
+          l10n.dataMappingHint,
+          style: AppTheme.textStylesOf(context).bodySmall,
+        ),
       ),
       if (mappings.isEmpty)
         Padding(
@@ -48,7 +59,8 @@ class _DataMappingLibraryPanel extends StatelessWidget {
       else
         ...mappings.map(
           (ResponseMapping mapping) => Container(
-            padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+            key: ValueKey<String>('response-mapping-item-${mapping.id}'),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: AppTheme.colorsOf(context).border),
@@ -59,35 +71,68 @@ class _DataMappingLibraryPanel extends StatelessWidget {
                 Expanded(
                   child: ToolClickableRow(
                     onPressed: () => onEdit(mapping),
+                    padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(mapping.name),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                mapping.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _AsciiLogStatus(enabled: mapping.asciiLogEnabled),
+                          ],
+                        ),
                         const SizedBox(height: 3),
                         Text(
-                          l10n.mappingFieldCount(
-                            mapping.commandHex,
-                            mapping.fields.length,
-                          ),
-                          style: const TextStyle(
-                            fontFamily: AppFonts.mono,
-                            package: AppFonts.shadcnPackage,
-                            fontSize: 12,
-                          ),
+                          'CMD ${mapping.commandHex}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTheme.textStylesOf(context).labelSmall
+                              .copyWith(fontSize: 10)
+                              .merge(AppFonts.monoStyle),
                         ),
+                        if (mapping.fields.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Wrap(
+                              spacing: 4,
+                              runSpacing: 4,
+                              children: mapping.fields
+                                  .map(
+                                    (DataField field) =>
+                                        _MappingFieldTag(field: field),
+                                  )
+                                  .toList(growable: false),
+                            ),
+                          ),
                       ],
                     ),
                   ),
                 ),
-                ToolIconButton(
-                  tooltip: l10n.editResponseMapping,
-                  onPressed: () => onEdit(mapping),
-                  icon: const Icon(AppIcons.editOutlined, size: 18),
-                ),
-                ToolIconButton(
-                  tooltip: l10n.deleteResponseMapping,
-                  onPressed: () => onDelete(mapping),
-                  icon: const Icon(AppIcons.deleteOutline, size: 18),
+                const SizedBox(width: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    ToolIconButton(
+                      tooltip: l10n.editResponseMapping,
+                      onPressed: () => onEdit(mapping),
+                      touchSize: 32,
+                      icon: const Icon(AppIcons.editOutlined, size: 18),
+                    ),
+                    const SizedBox(width: 4),
+                    ToolIconButton(
+                      tooltip: l10n.deleteResponseMapping,
+                      onPressed: () => onDelete(mapping),
+                      touchSize: 32,
+                      icon: const Icon(AppIcons.deleteOutline, size: 18),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -95,6 +140,75 @@ class _DataMappingLibraryPanel extends StatelessWidget {
         ),
     ],
   );
+}
+
+class _AsciiLogStatus extends StatelessWidget {
+  const _AsciiLogStatus({required this.enabled});
+
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
+    final Color foreground = enabled ? colors.primary : colors.mutedForeground;
+    return Container(
+      key: ValueKey<String>('response-mapping-ascii-${enabled ? 'on' : 'off'}'),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: foreground.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: foreground.withValues(alpha: 0.42)),
+      ),
+      child: Text(
+        'ASCII ${enabled ? 'ON' : 'OFF'}',
+        maxLines: 1,
+        style: AppTheme.textStylesOf(context).labelSmall.copyWith(
+          color: foreground,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _MappingFieldTag extends StatelessWidget {
+  const _MappingFieldTag({required this.field});
+
+  final DataField field;
+
+  @override
+  Widget build(BuildContext context) {
+    final shad.ColorScheme colors = AppTheme.colorsOf(context);
+    final int endOffset = field.offset + field.byteLength - 1;
+    final String range = endOffset == field.offset
+        ? '${field.offset}'
+        : '${field.offset}..$endOffset';
+    final String key = field.key.trim();
+    final String label = field.label.trim();
+    final String name = switch ((label, key)) {
+      ('', '') => field.type.name,
+      ('', final String value) => value,
+      (final String value, '') => value,
+      (final String value, final String identifier) when value == identifier =>
+        value,
+      (final String value, final String identifier) => '$value ($identifier)',
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: colors.muted.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: colors.border),
+      ),
+      child: Text(
+        'DATA[$range] $name ${field.type.name}',
+        style: AppTheme.textStylesOf(
+          context,
+        ).labelSmall.copyWith(fontSize: 10).merge(AppFonts.monoStyle),
+      ),
+    );
+  }
 }
 
 class _CommandParameterEditor extends StatelessWidget {
@@ -230,6 +344,7 @@ class _CommandParameterEditor extends StatelessWidget {
 
 class _MappingFieldEditor extends StatelessWidget {
   const _MappingFieldEditor({
+    super.key,
     required this.field,
     required this.onChanged,
     required this.onDelete,
@@ -257,168 +372,217 @@ class _MappingFieldEditor extends StatelessWidget {
       DataFieldType.int32 => true,
       _ => false,
     };
+    final Widget deleteButton = ToolIconButton(
+      tooltip: l10n.deleteDataField,
+      onPressed: onDelete,
+      touchSize: 32,
+      icon: const Icon(AppIcons.deleteOutline, size: 18),
+    );
     return Container(
-      padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(color: AppTheme.colorsOf(context).border),
         ),
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: ToolTextField(
-                  initialValue: field.key,
-                  label: 'key',
-                  onChanged: (String value) =>
-                      onChanged(field.copyWith(key: value.trim())),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ToolTextField(
-                  initialValue: field.label,
-                  label: l10n.fieldLabel,
-                  onChanged: (String value) =>
-                      onChanged(field.copyWith(label: value)),
-                ),
-              ),
-              ToolIconButton(
-                tooltip: l10n.deleteDataField,
-                onPressed: onDelete,
-                icon: const Icon(AppIcons.deleteOutline, size: 18),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: ToolTextField(
-                  initialValue: field.offset.toString(),
-                  label: l10n.dataOffset,
-                  keyboardType: TextInputType.number,
-                  onChanged: (String value) => onChanged(
-                    field.copyWith(offset: int.tryParse(value) ?? 0),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ToolTextField(
-                  initialValue: field.byteLength.toString(),
-                  label: l10n.fieldByteLength,
-                  keyboardType: TextInputType.number,
-                  onChanged: (String value) => onChanged(
-                    field.copyWith(byteLength: int.tryParse(value) ?? 1),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ToolSelect<DataFieldType>(
-                  value: field.type,
-                  label: l10n.dataFieldType,
-                  options: DataFieldType.values
-                      .map(
-                        (DataFieldType item) => ToolSelectOption<DataFieldType>(
-                          value: item,
-                          label: item.name,
-                        ),
-                      )
-                      .toList(growable: false),
-                  onChanged: (DataFieldType value) =>
-                      onChanged(field.copyWith(type: value)),
-                ),
-              ),
-            ],
-          ),
-          if (isNumeric) ...<Widget>[
-            const SizedBox(height: 8),
-            Row(
+          Expanded(
+            child: Column(
               children: <Widget>[
-                Expanded(
-                  child: ToolTextField(
-                    initialValue: field.scale.toString(),
-                    label: l10n.numericScale,
+                LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    final bool stacked = constraints.maxWidth < 560;
+                    final Widget keyField = ToolTextField(
+                      initialValue: field.key,
+                      label: 'key',
+                      hintText: 'key',
+                      onChanged: (String value) =>
+                          onChanged(field.copyWith(key: value.trim())),
+                    );
+                    final Widget labelField = ToolTextField(
+                      initialValue: field.label,
+                      label: l10n.fieldLabel,
+                      hintText: l10n.fieldLabel,
+                      onChanged: (String value) =>
+                          onChanged(field.copyWith(label: value)),
+                    );
+                    final Widget offsetField = ToolTextField(
+                      initialValue: field.offset.toString(),
+                      label: l10n.dataOffset,
+                      hintText: l10n.dataOffset,
+                      keyboardType: TextInputType.number,
+                      onChanged: (String value) => onChanged(
+                        field.copyWith(offset: int.tryParse(value) ?? 0),
+                      ),
+                    );
+                    final Widget lengthField = ToolTextField(
+                      initialValue: field.byteLength.toString(),
+                      label: l10n.fieldByteLength,
+                      hintText: l10n.fieldByteLength,
+                      keyboardType: TextInputType.number,
+                      onChanged: (String value) => onChanged(
+                        field.copyWith(byteLength: int.tryParse(value) ?? 1),
+                      ),
+                    );
+                    final Widget typeField = ToolSelect<DataFieldType>(
+                      value: field.type,
+                      label: l10n.dataFieldType,
+                      expand: true,
+                      options: DataFieldType.values
+                          .map(
+                            (DataFieldType item) =>
+                                ToolSelectOption<DataFieldType>(
+                                  value: item,
+                                  label: item.name,
+                                ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (DataFieldType value) =>
+                          onChanged(field.copyWith(type: value)),
+                    );
+                    if (stacked) {
+                      return Column(
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Expanded(child: keyField),
+                              const SizedBox(width: 8),
+                              Expanded(child: labelField),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: <Widget>[
+                              Expanded(child: offsetField),
+                              const SizedBox(width: 8),
+                              Expanded(child: lengthField),
+                              const SizedBox(width: 8),
+                              Expanded(child: typeField),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: <Widget>[
+                        Expanded(flex: 2, child: keyField),
+                        const SizedBox(width: 8),
+                        Expanded(flex: 3, child: labelField),
+                        const SizedBox(width: 8),
+                        SizedBox(width: 72, child: offsetField),
+                        const SizedBox(width: 8),
+                        SizedBox(width: 72, child: lengthField),
+                        const SizedBox(width: 8),
+                        SizedBox(width: 120, child: typeField),
+                      ],
+                    );
+                  },
+                ),
+                if (isNumeric) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: ToolTextField(
+                          initialValue: field.scale.toString(),
+                          label: l10n.numericScale,
+                          onChanged: (String value) => onChanged(
+                            field.copyWith(scale: double.tryParse(value) ?? 1),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ToolTextField(
+                          initialValue: field.offsetValue.toString(),
+                          label: l10n.numericOffset,
+                          onChanged: (String value) => onChanged(
+                            field.copyWith(
+                              offsetValue: double.tryParse(value) ?? 0,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ToolTextField(
+                          initialValue: field.unit,
+                          label: l10n.unit,
+                          onChanged: (String value) =>
+                              onChanged(field.copyWith(unit: value)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (needsByteOrder) ...<Widget>[
+                  const SizedBox(height: 8),
+                  ToolSelect<ProtocolByteOrder>(
+                    value: field.byteOrder,
+                    label: l10n.byteOrder,
+                    options: ProtocolByteOrder.values
+                        .map(
+                          (ProtocolByteOrder item) =>
+                              ToolSelectOption<ProtocolByteOrder>(
+                                value: item,
+                                label: _byteOrderLabel(item, l10n),
+                              ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (ProtocolByteOrder value) =>
+                        onChanged(field.copyWith(byteOrder: value)),
+                  ),
+                ],
+                if (field.type == DataFieldType.bit ||
+                    field.type == DataFieldType.enumValue) ...<Widget>[
+                  const SizedBox(height: 8),
+                  ToolTextField(
+                    initialValue: field.type == DataFieldType.bit
+                        ? (field.bit ?? 0).toString()
+                        : field.enumValues.entries
+                              .map(
+                                (MapEntry<String, String> item) =>
+                                    '${item.key}=${item.value}',
+                              )
+                              .join(', '),
+                    label: field.type == DataFieldType.bit
+                        ? l10n.bitNumber
+                        : l10n.enumValues,
+                    helperText: field.type == DataFieldType.bit
+                        ? l10n.bitNumberHint
+                        : l10n.enumValuesHint,
                     onChanged: (String value) => onChanged(
-                      field.copyWith(scale: double.tryParse(value) ?? 1),
+                      field.type == DataFieldType.bit
+                          ? field.copyWith(bit: int.tryParse(value) ?? 0)
+                          : field.copyWith(enumValues: _parseEnumValues(value)),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ToolTextField(
-                    initialValue: field.offsetValue.toString(),
-                    label: l10n.numericOffset,
-                    onChanged: (String value) => onChanged(
-                      field.copyWith(offsetValue: double.tryParse(value) ?? 0),
+                ],
+                const SizedBox(height: 8),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        l10n.showInDataPanel,
+                        style: AppTheme.textStylesOf(context).labelMedium,
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ToolTextField(
-                    initialValue: field.unit,
-                    label: l10n.unit,
-                    onChanged: (String value) =>
-                        onChanged(field.copyWith(unit: value)),
-                  ),
+                    const SizedBox(width: 12),
+                    ToolSwitch(
+                      value: field.visibleInDataPanel,
+                      onChanged: (bool value) =>
+                          onChanged(field.copyWith(visibleInDataPanel: value)),
+                      label: l10n.showInDataPanel,
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-          if (needsByteOrder) ...<Widget>[
-            const SizedBox(height: 8),
-            ToolSelect<ProtocolByteOrder>(
-              value: field.byteOrder,
-              label: l10n.byteOrder,
-              options: ProtocolByteOrder.values
-                  .map(
-                    (ProtocolByteOrder item) =>
-                        ToolSelectOption<ProtocolByteOrder>(
-                          value: item,
-                          label: _byteOrderLabel(item, l10n),
-                        ),
-                  )
-                  .toList(growable: false),
-              onChanged: (ProtocolByteOrder value) =>
-                  onChanged(field.copyWith(byteOrder: value)),
-            ),
-          ],
-          if (field.type == DataFieldType.bit ||
-              field.type == DataFieldType.enumValue) ...<Widget>[
-            const SizedBox(height: 8),
-            ToolTextField(
-              initialValue: field.type == DataFieldType.bit
-                  ? (field.bit ?? 0).toString()
-                  : field.enumValues.entries
-                        .map(
-                          (MapEntry<String, String> item) =>
-                              '${item.key}=${item.value}',
-                        )
-                        .join(', '),
-              label: field.type == DataFieldType.bit
-                  ? l10n.bitNumber
-                  : l10n.enumValues,
-              helperText: field.type == DataFieldType.bit
-                  ? l10n.bitNumberHint
-                  : l10n.enumValuesHint,
-              onChanged: (String value) => onChanged(
-                field.type == DataFieldType.bit
-                    ? field.copyWith(bit: int.tryParse(value) ?? 0)
-                    : field.copyWith(enumValues: _parseEnumValues(value)),
-              ),
-            ),
-          ],
-          ToolSwitchTile(
-            title: Text(l10n.showInDataPanel),
-            value: field.visibleInDataPanel,
-            onChanged: (bool value) =>
-                onChanged(field.copyWith(visibleInDataPanel: value)),
           ),
+          const SizedBox(width: 8),
+          deleteButton,
         ],
       ),
     );
@@ -453,8 +617,8 @@ CommandParameter _newCommandParameter() => const CommandParameter(
 );
 
 DataField _newDataField(int index) => DataField(
-  key: 'field$index',
-  label: '字段 $index',
+  key: '',
+  label: '',
   offset: index,
   byteLength: 1,
   type: DataFieldType.uint8,

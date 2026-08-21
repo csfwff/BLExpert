@@ -39,6 +39,7 @@ class ToolSelect<T> extends StatelessWidget {
     this.itemPadding,
     this.itemHeight,
     this.expand = false,
+    this.openAbove = false,
   });
 
   final T value;
@@ -52,6 +53,7 @@ class ToolSelect<T> extends StatelessWidget {
   final EdgeInsetsGeometry? itemPadding;
   final double? itemHeight;
   final bool expand;
+  final bool openAbove;
 
   ToolSelectOption<T> _optionFor(T value) {
     return options.firstWhere(
@@ -85,8 +87,12 @@ class ToolSelect<T> extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       popupConstraints: const BoxConstraints(maxHeight: 180),
-      popoverAlignment: Alignment.bottomCenter,
-      popoverAnchorAlignment: Alignment.topCenter,
+      popoverAlignment: openAbove
+          ? Alignment.bottomCenter
+          : Alignment.topCenter,
+      popoverAnchorAlignment: openAbove
+          ? Alignment.topCenter
+          : Alignment.bottomCenter,
       popup: shad.SelectPopup<T>(
         items: shad.SelectItemList(
           children: options

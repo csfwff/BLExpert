@@ -76,66 +76,21 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
     final List<SessionLogRecord> filteredLogs = _filteredLogs();
     return Column(
       children: <Widget>[
-        _PanelHeading(
-          title: '会话记录',
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                '${filteredLogs.length}/${widget.logs.length} 条',
-                style: AppTheme.textStylesOf(context).labelSmall,
-              ),
-              const SizedBox(width: 4),
-              ToolIconButton(
-                tooltip: '导出会话记录',
-                onPressed: filteredLogs.isEmpty
-                    ? null
-                    : () => widget.onExport(filteredLogs),
-                icon: const Icon(AppIcons.downloadOutlined, size: 18),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: SizedBox(
-            height: 32,
-            child: ToolTextField(
-              key: const ValueKey<String>('session-record-filter'),
-              controller: _filterController,
-              label: '搜索文本或 HEX',
-              hintText: '搜索文本或 HEX',
-              showLabel: false,
-              onChanged: (_) => setState(() {}),
-              prefix: const Icon(AppIcons.search, size: 18),
-              suffix: _filterController.text.isEmpty
-                  ? null
-                  : ToolIconButton(
-                      tooltip: '清除筛选',
-                      touchSize: 24,
-                      onPressed: () {
-                        _filterController.clear();
-                        setState(() {});
-                      },
-                      icon: const Icon(AppIcons.clear, size: 18),
-                    ),
-            ),
-          ),
-        ),
-        SizedBox(
-          height: 42,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            children: <Widget>[
-              _filterChip('全部', null),
-              _filterChip('TX', SessionLogKind.sent),
-              _filterChip('RX', SessionLogKind.received),
-              _filterChip('SYS', SessionLogKind.system),
-              _filterChip('ERR', SessionLogKind.error),
-              _bookmarkFilterChip(),
-            ],
-          ),
+        const _PanelHeading(title: '会话记录'),
+        _RecordFilterToolbar(
+          filterController: _filterController,
+          kindFilter: _kindFilter,
+          bookmarksOnly: _bookmarksOnly,
+          filteredCount: filteredLogs.length,
+          totalCount: widget.logs.length,
+          onExport: filteredLogs.isEmpty
+              ? null
+              : () => widget.onExport(filteredLogs),
+          onFilterChanged: () => setState(() {}),
+          onKindChanged: (SessionLogKind? value) =>
+              setState(() => _kindFilter = value),
+          onBookmarksOnlyChanged: (bool value) =>
+              setState(() => _bookmarksOnly = value),
         ),
         if (_metadataValues(
               (SessionLogRecord log) => log.characteristicId,
@@ -147,7 +102,7 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
               (SessionLogRecord log) => log.transactionId,
             ).isNotEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) =>
                   Wrap(
@@ -208,7 +163,7 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
               return filteredLogs.isEmpty
                   ? Center(child: Text(widget.l10n.noData))
                   : ListView.separated(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                       itemCount: filteredLogs.length,
                       separatorBuilder: (_, _) => const shad.Divider(height: 1),
                       itemBuilder: (_, int index) => _LogLine(
@@ -225,31 +180,6 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
     );
   }
 
-  Widget _filterChip(String label, SessionLogKind? kind) => Padding(
-    padding: const EdgeInsets.only(right: 6),
-    child: ToolSelectedButton(
-      value: _kindFilter == kind,
-      onChanged: (_) => setState(() => _kindFilter = kind),
-      child: Text(label),
-    ),
-  );
-
-  Widget _bookmarkFilterChip() => Padding(
-    padding: const EdgeInsets.only(right: 6),
-    child: ToolSelectedButton(
-      value: _bookmarksOnly,
-      onChanged: (bool selected) => setState(() => _bookmarksOnly = selected),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(AppIcons.bookmarkOutline, size: 16),
-          SizedBox(width: 4),
-          Text('书签'),
-        ],
-      ),
-    ),
-  );
-
   Widget _metadataFilter({
     required String label,
     required String allLabel,
@@ -258,16 +188,230 @@ class _RecordWorkspaceState extends State<_RecordWorkspace> {
     required double maxWidth,
     required ValueChanged<String?> onChanged,
   }) => SizedBox(
-    width: maxWidth < 520 ? maxWidth : 260,
-    child: ToolSelect<String>(
-      value: value ?? '',
-      label: label,
-      options: <ToolSelectOption<String>>[
-        ToolSelectOption<String>(value: '', label: allLabel),
-        for (final String item in values)
-          ToolSelectOption<String>(value: item, label: item),
+    width: maxWidth < 520 ? maxWidth : 220,
+    height: 24,
+    child: Row(
+      children: <Widget>[
+        Text(label, style: AppTheme.textStylesOf(context).labelSmall),
+        const SizedBox(width: 6),
+        Expanded(
+          child: ToolSelect<String>(
+            value: value ?? '',
+            label: label,
+            showLabel: false,
+            options: <ToolSelectOption<String>>[
+              ToolSelectOption<String>(value: '', label: allLabel),
+              for (final String item in values)
+                ToolSelectOption<String>(value: item, label: item),
+            ],
+            onChanged: (String next) => onChanged(next.isEmpty ? null : next),
+          ),
+        ),
       ],
-      onChanged: (String next) => onChanged(next.isEmpty ? null : next),
+    ),
+  );
+}
+
+class _RecordFilterToolbar extends StatelessWidget {
+  const _RecordFilterToolbar({
+    required this.filterController,
+    required this.kindFilter,
+    required this.bookmarksOnly,
+    required this.filteredCount,
+    required this.totalCount,
+    required this.onExport,
+    required this.onFilterChanged,
+    required this.onKindChanged,
+    required this.onBookmarksOnlyChanged,
+  });
+
+  final TextEditingController filterController;
+  final SessionLogKind? kindFilter;
+  final bool bookmarksOnly;
+  final int filteredCount;
+  final int totalCount;
+  final VoidCallback? onExport;
+  final VoidCallback onFilterChanged;
+  final ValueChanged<SessionLogKind?> onKindChanged;
+  final ValueChanged<bool> onBookmarksOnlyChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> filters = <Widget>[
+      _FilterChip(
+        label: '全部',
+        selected: kindFilter == null,
+        onPressed: () => onKindChanged(null),
+      ),
+      _FilterChip(
+        label: 'TX',
+        selected: kindFilter == SessionLogKind.sent,
+        onPressed: () => onKindChanged(SessionLogKind.sent),
+      ),
+      _FilterChip(
+        label: 'RX',
+        selected: kindFilter == SessionLogKind.received,
+        onPressed: () => onKindChanged(SessionLogKind.received),
+      ),
+      _FilterChip(
+        label: 'SYS',
+        selected: kindFilter == SessionLogKind.system,
+        onPressed: () => onKindChanged(SessionLogKind.system),
+      ),
+      _FilterChip(
+        label: 'ERR',
+        selected: kindFilter == SessionLogKind.error,
+        onPressed: () => onKindChanged(SessionLogKind.error),
+      ),
+      _FilterChip(
+        label: '书签',
+        icon: AppIcons.bookmarkOutline,
+        selected: bookmarksOnly,
+        onPressed: () => onBookmarksOnlyChanged(!bookmarksOnly),
+      ),
+    ];
+    final Widget statusActions = _RecordToolbarStatus(
+      filteredCount: filteredCount,
+      totalCount: totalCount,
+      onExport: onExport,
+    );
+    final Widget search = SizedBox(
+      height: 32,
+      child: ToolTextField(
+        key: const ValueKey<String>('session-record-filter'),
+        controller: filterController,
+        label: '搜索文本或 HEX',
+        hintText: '搜索文本或 HEX',
+        showLabel: false,
+        onChanged: (_) => onFilterChanged(),
+        prefix: const Icon(AppIcons.search, size: 16),
+        suffix: filterController.text.isEmpty
+            ? null
+            : ToolIconButton(
+                tooltip: '清除筛选',
+                touchSize: 24,
+                onPressed: () {
+                  filterController.clear();
+                  onFilterChanged();
+                },
+                icon: const Icon(AppIcons.clear, size: 16),
+              ),
+      ),
+    );
+    return Container(
+      key: const ValueKey<String>('session-record-filter-toolbar'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppTheme.colorsOf(context).border),
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          if (constraints.maxWidth < 720) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                search,
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 32,
+                  child: ListView(
+                    key: const ValueKey<String>('session-record-kind-filters'),
+                    scrollDirection: Axis.horizontal,
+                    children: filters
+                        .followedBy(<Widget>[statusActions])
+                        .map(
+                          (Widget filter) => Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: filter,
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: <Widget>[
+              SizedBox(width: 280, child: search),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(spacing: 4, children: filters),
+                ),
+              ),
+              const SizedBox(width: 8),
+              statusActions,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _RecordToolbarStatus extends StatelessWidget {
+  const _RecordToolbarStatus({
+    required this.filteredCount,
+    required this.totalCount,
+    required this.onExport,
+  });
+
+  final int filteredCount;
+  final int totalCount;
+  final VoidCallback? onExport;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    key: const ValueKey<String>('session-record-toolbar-actions'),
+    mainAxisSize: MainAxisSize.min,
+    children: <Widget>[
+      Text(
+        '$filteredCount/$totalCount 条',
+        style: AppTheme.textStylesOf(context).labelSmall,
+      ),
+      const SizedBox(width: 4),
+      ToolIconButton(
+        tooltip: '导出会话记录',
+        onPressed: onExport,
+        touchSize: 32,
+        icon: const Icon(AppIcons.downloadOutlined, size: 18),
+      ),
+    ],
+  );
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+    this.icon,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onPressed;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) => ToolSelectedButton(
+    value: selected,
+    onChanged: (_) => onPressed(),
+    minHeight: 32,
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        if (icon != null) ...<Widget>[
+          Icon(icon, size: 14),
+          const SizedBox(width: 4),
+        ],
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
     ),
   );
 }

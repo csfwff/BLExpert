@@ -384,99 +384,116 @@ class _SettingsWorkspace extends StatelessWidget {
       _ => _LanguagePreference.system,
     };
     return ListView(
-      padding: EdgeInsets.symmetric(
-        horizontal: narrow ? 16 : 32,
-        vertical: narrow ? 20 : 28,
-      ),
+      padding: const EdgeInsets.all(16),
       children: <Widget>[
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 640),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Icon(
-                      AppIcons.settingsOutlined,
-                      color: AppTheme.colorsOf(context).secondary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      l10n.settings,
-                      style: AppTheme.textStylesOf(
-                        context,
-                      ).titleLarge.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
-                _SettingsSection(
-                  icon: AppIcons.contrastOutlined,
-                  title: l10n.themeMode,
-                  child: KeyedSubtree(
-                    key: const ValueKey<String>('theme-mode-selector'),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: <Widget>[
-                        _ThemeModeButton(
-                          value: shad.ThemeMode.system,
-                          currentValue: themeMode,
-                          icon: AppIcons.brightnessAuto,
-                          label: l10n.followSystem,
-                          onChanged: onThemeModeChanged,
-                        ),
-                        _ThemeModeButton(
-                          value: shad.ThemeMode.light,
-                          currentValue: themeMode,
-                          icon: AppIcons.lightMode,
-                          label: l10n.lightMode,
-                          onChanged: onThemeModeChanged,
-                        ),
-                        _ThemeModeButton(
-                          value: shad.ThemeMode.dark,
-                          currentValue: themeMode,
-                          icon: AppIcons.darkMode,
-                          label: l10n.darkMode,
-                          onChanged: onThemeModeChanged,
-                        ),
-                      ],
-                    ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Icon(
+                    AppIcons.settingsOutlined,
+                    size: 18,
+                    color: AppTheme.colorsOf(context).primary,
                   ),
-                ),
-                const shad.Divider(height: 40),
-                _SettingsSection(
-                  icon: AppIcons.languageOutlined,
-                  title: l10n.language,
-                  child: ToolSelect<_LanguagePreference>(
-                    key: const ValueKey<String>('language-selector'),
-                    value: language,
-                    options: <ToolSelectOption<_LanguagePreference>>[
-                      ToolSelectOption<_LanguagePreference>(
-                        value: _LanguagePreference.system,
-                        label: l10n.followSystem,
+                  const SizedBox(width: 8),
+                  Text(
+                    key: const ValueKey<String>('settings-workspace-title'),
+                    l10n.settings,
+                    style: AppTheme.textStylesOf(context).titleMedium,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final bool stacked = narrow || constraints.maxWidth < 560;
+                  return Column(
+                    children: <Widget>[
+                      _ConfigurationFormRow(
+                        key: const ValueKey<String>('settings-theme-row'),
+                        label: l10n.themeMode,
+                        stacked: stacked,
+                        child: KeyedSubtree(
+                          key: const ValueKey<String>('theme-mode-selector'),
+                          child: stacked
+                              ? Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: _themeOptions(l10n)
+                                      .map(
+                                        (
+                                          ToolSegmentOption<shad.ThemeMode>
+                                          option,
+                                        ) => _ThemeModeOption(
+                                          option: option,
+                                          selected: themeMode == option.value,
+                                          onChanged: onThemeModeChanged,
+                                        ),
+                                      )
+                                      .toList(growable: false),
+                                )
+                              : ToolSegmentedControl<shad.ThemeMode>(
+                                  value: themeMode,
+                                  height: 32,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  textStyle: const TextStyle(fontSize: 12),
+                                  options: _themeOptions(l10n),
+                                  onChanged: onThemeModeChanged,
+                                ),
+                        ),
                       ),
-                      ToolSelectOption<_LanguagePreference>(
-                        value: _LanguagePreference.chinese,
-                        label: l10n.chinese,
-                      ),
-                      ToolSelectOption<_LanguagePreference>(
-                        value: _LanguagePreference.english,
-                        label: l10n.english,
+                      const shad.Divider(height: 20),
+                      _ConfigurationFormRow(
+                        key: const ValueKey<String>('settings-language-row'),
+                        label: l10n.language,
+                        stacked: stacked,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: SizedBox(
+                            key: const ValueKey<String>('language-selector'),
+                            width: 180,
+                            child: ToolSelect<_LanguagePreference>(
+                              value: language,
+                              options: <ToolSelectOption<_LanguagePreference>>[
+                                ToolSelectOption<_LanguagePreference>(
+                                  value: _LanguagePreference.system,
+                                  label: l10n.followSystem,
+                                ),
+                                ToolSelectOption<_LanguagePreference>(
+                                  value: _LanguagePreference.chinese,
+                                  label: l10n.chinese,
+                                ),
+                                ToolSelectOption<_LanguagePreference>(
+                                  value: _LanguagePreference.english,
+                                  label: l10n.english,
+                                ),
+                              ],
+                              onChanged: (_LanguagePreference value) {
+                                onLocaleChanged(switch (value) {
+                                  _LanguagePreference.system => null,
+                                  _LanguagePreference.chinese => const Locale(
+                                    'zh',
+                                  ),
+                                  _LanguagePreference.english => const Locale(
+                                    'en',
+                                  ),
+                                });
+                              },
+                            ),
+                          ),
+                        ),
                       ),
                     ],
-                    onChanged: (_LanguagePreference value) {
-                      onLocaleChanged(switch (value) {
-                        _LanguagePreference.system => null,
-                        _LanguagePreference.chinese => const Locale('zh'),
-                        _LanguagePreference.english => const Locale('en'),
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
+                  );
+                },
+              ),
+            ],
           ),
         ),
       ],
@@ -484,73 +501,53 @@ class _SettingsWorkspace extends StatelessWidget {
   }
 }
 
-class _ThemeModeButton extends StatelessWidget {
-  const _ThemeModeButton({
-    required this.value,
-    required this.currentValue,
-    required this.icon,
-    required this.label,
+List<ToolSegmentOption<shad.ThemeMode>> _themeOptions(AppLocalizations l10n) =>
+    <ToolSegmentOption<shad.ThemeMode>>[
+      ToolSegmentOption<shad.ThemeMode>(
+        value: shad.ThemeMode.system,
+        icon: const Icon(AppIcons.brightnessAuto),
+        label: l10n.followSystem,
+      ),
+      ToolSegmentOption<shad.ThemeMode>(
+        value: shad.ThemeMode.light,
+        icon: const Icon(AppIcons.lightMode),
+        label: l10n.lightMode,
+      ),
+      ToolSegmentOption<shad.ThemeMode>(
+        value: shad.ThemeMode.dark,
+        icon: const Icon(AppIcons.darkMode),
+        label: l10n.darkMode,
+      ),
+    ];
+
+class _ThemeModeOption extends StatelessWidget {
+  const _ThemeModeOption({
+    required this.option,
+    required this.selected,
     required this.onChanged,
   });
 
-  final shad.ThemeMode value;
-  final shad.ThemeMode currentValue;
-  final IconData icon;
-  final String label;
+  final ToolSegmentOption<shad.ThemeMode> option;
+  final bool selected;
   final ValueChanged<shad.ThemeMode> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return ToolSelectedButton(
-      value: currentValue == value,
-      onChanged: (bool selected) {
-        if (selected) onChanged(value);
-      },
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: 16),
-          const SizedBox(width: 6),
-          Text(label),
-        ],
-      ),
-    );
-  }
-}
-
-class _SettingsSection extends StatelessWidget {
-  const _SettingsSection({
-    required this.icon,
-    required this.title,
-    required this.child,
-  });
-
-  final IconData icon;
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => ToolSelectedButton(
+    value: selected,
+    onChanged: (_) => onChanged(option.value),
+    minHeight: 32,
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Icon(icon, size: 20, color: AppTheme.colorsOf(context).secondary),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: AppTheme.textStylesOf(
-                context,
-              ).titleSmall.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        child,
+        if (option.icon != null) ...<Widget>[
+          option.icon!,
+          const SizedBox(width: 5),
+        ],
+        Text(option.label, style: const TextStyle(fontSize: 12)),
       ],
-    );
-  }
+    ),
+  );
 }
 
 class _DebugWorkspace extends StatefulWidget {

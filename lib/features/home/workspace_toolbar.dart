@@ -317,8 +317,8 @@ class _ConnectionSelector extends StatelessWidget {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               popupConstraints: const BoxConstraints(maxHeight: 280),
-              popoverAlignment: Alignment.bottomCenter,
-              popoverAnchorAlignment: Alignment.topCenter,
+              popoverAlignment: Alignment.topCenter,
+              popoverAnchorAlignment: Alignment.bottomCenter,
               itemBuilder: (BuildContext context, String deviceId) {
                 final BluetoothDeviceInfo item = devices.firstWhere(
                   (BluetoothDeviceInfo item) => item.id == deviceId,

@@ -923,6 +923,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               value: format,
                               label: l10n.commandFormat,
                               showLabel: false,
+                              openAbove: true,
                               options: <ToolSelectOption<CommandPayloadFormat>>[
                                 ToolSelectOption(
                                   value: CommandPayloadFormat.hex,
@@ -1397,6 +1398,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _editResponseMapping([ResponseMapping? existing]) async {
+    final AppLocalizations l10n = AppLocalizations.of(context)!;
     final TextEditingController nameController = TextEditingController(
       text: existing?.name ?? '',
     );
@@ -1410,120 +1412,217 @@ class _HomeScreenState extends State<HomeScreen> {
         bool asciiLogEnabled = existing?.asciiLogEnabled ?? false;
         String? validationError;
         return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) =>
-              ToolAlertDialog(
-                icon: AppIcons.dataObject,
-                title: existing == null
-                    ? AppLocalizations.of(context)!.newResponseMapping
-                    : AppLocalizations.of(context)!.editResponseMapping,
-                content: SizedBox(
-                  width: 640,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        ToolTextField(
-                          controller: nameController,
-                          label: AppLocalizations.of(context)!.responseName,
-                        ),
-                        const SizedBox(height: 12),
-                        ToolTextField(
-                          controller: commandController,
-                          label: AppLocalizations.of(
-                            context,
-                          )!.responseCommandHex,
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: Text(
-                                AppLocalizations.of(
-                                  context,
-                                )!.responseFieldsHint,
+          builder: (BuildContext context, StateSetter setDialogState) => ToolAlertDialog(
+            icon: AppIcons.dataObject,
+            title: existing == null
+                ? l10n.newResponseMapping
+                : l10n.editResponseMapping,
+            content: SizedBox(
+              width: 620,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 520),
+                child: SingleChildScrollView(
+                  child: LayoutBuilder(
+                    builder: (BuildContext context, BoxConstraints constraints) {
+                      final bool stacked = constraints.maxWidth < 560;
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          if (validationError != null)
+                            Semantics(
+                              liveRegion: true,
+                              container: true,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Text(
+                                    '${l10n.configurationErrors}\n$validationError',
+                                    style: TextStyle(
+                                      color: AppTheme.colorsOf(
+                                        context,
+                                      ).destructive,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                            ToolIconButton(
-                              tooltip: AppLocalizations.of(
-                                context,
-                              )!.addDataField,
-                              onPressed: () => setDialogState(
-                                () => fields.add(_newDataField(fields.length)),
-                              ),
-                              icon: const Icon(AppIcons.add),
+                          _ConfigurationFormRow(
+                            key: const ValueKey<String>(
+                              'response-mapping-name-row',
                             ),
-                          ],
-                        ),
-                        for (int index = 0; index < fields.length; index++)
-                          _MappingFieldEditor(
-                            field: fields[index],
-                            onChanged: (DataField value) =>
-                                setDialogState(() => fields[index] = value),
-                            onDelete: () =>
-                                setDialogState(() => fields.removeAt(index)),
+                            label: l10n.responseName,
+                            stacked: stacked,
+                            labelWidth: 132,
+                            child: ToolTextField(
+                              key: const ValueKey<String>(
+                                'response-mapping-name-field',
+                              ),
+                              controller: nameController,
+                              label: l10n.responseName,
+                              showLabel: false,
+                            ),
                           ),
-                        ToolSwitchTile(
-                          title: Text(
-                            AppLocalizations.of(context)!.responseAsciiLog,
+                          _ConfigurationFormRow(
+                            key: const ValueKey<String>(
+                              'response-mapping-command-row',
+                            ),
+                            label: l10n.responseCommandHex,
+                            stacked: stacked,
+                            labelWidth: 132,
+                            child: ToolTextField(
+                              key: const ValueKey<String>(
+                                'response-mapping-command-field',
+                              ),
+                              controller: commandController,
+                              label: l10n.responseCommandHex,
+                              showLabel: false,
+                              style: AppFonts.monoStyle,
+                            ),
                           ),
-                          subtitle: Text(
-                            AppLocalizations.of(context)!.responseAsciiLogHint,
-                          ),
-                          value: asciiLogEnabled,
-                          onChanged: (bool value) =>
-                              setDialogState(() => asciiLogEnabled = value),
-                        ),
-                        if (validationError != null)
                           Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      l10n.responseFieldsHint,
+                                      style: AppTheme.textStylesOf(
+                                        context,
+                                      ).labelMedium,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                ToolTooltip(
+                                  message: l10n.addDataField,
+                                  child: ToolButton.outline(
+                                    key: const ValueKey<String>(
+                                      'add-response-mapping-field-button',
+                                    ),
+                                    onPressed: () => setDialogState(
+                                      () => fields.add(
+                                        _newDataField(fields.length),
+                                      ),
+                                    ),
+                                    compact: true,
+                                    height: 28,
+                                    leading: const Icon(AppIcons.add, size: 15),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
+                                    child: Text(l10n.addDataField),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          for (int index = 0; index < fields.length; index++)
+                            _MappingFieldEditor(
+                              key: ValueKey<String>(
+                                'response-mapping-field-row-$index',
+                              ),
+                              field: fields[index],
+                              onChanged: (DataField value) =>
+                                  setDialogState(() => fields[index] = value),
+                              onDelete: () =>
+                                  setDialogState(() => fields.removeAt(index)),
+                            ),
+                          Container(
                             padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              validationError!,
-                              style: TextStyle(
-                                color: AppTheme.colorsOf(context).destructive,
+                            decoration: BoxDecoration(
+                              border: Border(
+                                top: BorderSide(
+                                  color: AppTheme.colorsOf(context).border,
+                                ),
+                              ),
+                            ),
+                            child: _ConfigurationFormRow(
+                              key: const ValueKey<String>(
+                                'response-mapping-ascii-log-row',
+                              ),
+                              label: l10n.responseAsciiLog,
+                              stacked: stacked,
+                              labelWidth: 132,
+                              child: Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: Text(
+                                      l10n.responseAsciiLogHint,
+                                      style: AppTheme.textStylesOf(
+                                        context,
+                                      ).bodySmall,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  ToolSwitch(
+                                    value: asciiLogEnabled,
+                                    onChanged: (bool value) => setDialogState(
+                                      () => asciiLogEnabled = value,
+                                    ),
+                                    label: l10n.responseAsciiLog,
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                  ),
-                ),
-                actions: <Widget>[
-                  ToolButton.ghost(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(AppLocalizations.of(context)!.cancel),
-                  ),
-                  ToolButton.primary(
-                    onPressed: () {
-                      final String commandHex = commandController.text
-                          .replaceAll(RegExp(r'[^0-9a-fA-F]'), '');
-                      if (nameController.text.trim().isEmpty ||
-                          commandHex.length != 2 ||
-                          fields.any(
-                            (DataField field) => field.key.trim().isEmpty,
-                          )) {
-                        setDialogState(
-                          () => validationError = AppLocalizations.of(
-                            context,
-                          )!.invalidResponseMapping,
-                        );
-                        return;
-                      }
-                      Navigator.of(context).pop(
-                        ResponseMapping(
-                          id:
-                              existing?.id ??
-                              'mapping-${DateTime.now().microsecondsSinceEpoch}',
-                          name: nameController.text.trim(),
-                          commandHex: commandHex.toUpperCase(),
-                          fields: fields,
-                          asciiLogEnabled: asciiLogEnabled,
-                        ),
+                        ],
                       );
                     },
-                    child: Text(AppLocalizations.of(context)!.save),
                   ),
-                ],
+                ),
               ),
+            ),
+            actions: <Widget>[
+              ToolButton.ghost(
+                onPressed: () => Navigator.of(context).pop(),
+                height: 34,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 4,
+                ),
+                child: Text(l10n.cancel),
+              ),
+              ToolButton.primary(
+                onPressed: () {
+                  final String commandHex = commandController.text.replaceAll(
+                    RegExp(r'[^0-9a-fA-F]'),
+                    '',
+                  );
+                  if (nameController.text.trim().isEmpty ||
+                      commandHex.length != 2 ||
+                      fields.any(
+                        (DataField field) => field.key.trim().isEmpty,
+                      )) {
+                    setDialogState(
+                      () => validationError = l10n.invalidResponseMapping,
+                    );
+                    return;
+                  }
+                  Navigator.of(context).pop(
+                    ResponseMapping(
+                      id:
+                          existing?.id ??
+                          'mapping-${DateTime.now().microsecondsSinceEpoch}',
+                      name: nameController.text.trim(),
+                      commandHex: commandHex.toUpperCase(),
+                      fields: fields,
+                      asciiLogEnabled: asciiLogEnabled,
+                    ),
+                  );
+                },
+                height: 34,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 4,
+                ),
+                child: Text(l10n.save),
+              ),
+            ],
+          ),
         );
       },
     );
