@@ -99,6 +99,7 @@ class _DataMappingLibraryPanel extends StatelessWidget {
 
 class _CommandParameterEditor extends StatelessWidget {
   const _CommandParameterEditor({
+    super.key,
     required this.parameter,
     required this.onChanged,
     required this.onDelete,
@@ -108,87 +109,121 @@ class _CommandParameterEditor extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
-    decoration: BoxDecoration(
-      border: Border(top: BorderSide(color: AppTheme.colorsOf(context).border)),
-    ),
-    child: Column(
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: ToolTextField(
-                initialValue: parameter.key,
-                label: 'key',
-                onChanged: (String value) =>
-                    onChanged(parameter.copyWith(key: value.trim())),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ToolTextField(
-                initialValue: parameter.label,
-                label: '名称',
-                onChanged: (String value) =>
-                    onChanged(parameter.copyWith(label: value)),
-              ),
-            ),
-            ToolIconButton(
-              tooltip: '删除参数',
-              onPressed: onDelete,
-              icon: const Icon(AppIcons.deleteOutline, size: 18),
-            ),
-          ],
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: Container(
+      padding: const EdgeInsets.only(top: 6, bottom: 6),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: AppTheme.colorsOf(context).border),
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: ToolSelect<CommandParameterType>(
-                value: parameter.type,
-                label: '类型',
-                options: CommandParameterType.values
-                    .map(
-                      (CommandParameterType item) =>
-                          ToolSelectOption<CommandParameterType>(
-                            value: item,
-                            label: _commandParameterTypeLabel(item),
-                          ),
-                    )
-                    .toList(growable: false),
-                onChanged: (CommandParameterType value) =>
-                    onChanged(parameter.copyWith(type: value)),
-              ),
+      ),
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final bool stacked = constraints.maxWidth < 560;
+          final Widget keyField = ToolTextField(
+            initialValue: parameter.key,
+            label: 'key',
+            hintText: '参数名',
+            onChanged: (String value) =>
+                onChanged(parameter.copyWith(key: value.trim())),
+          );
+          final Widget labelField = ToolTextField(
+            initialValue: parameter.label,
+            label: '名称',
+            hintText: '显示名称',
+            onChanged: (String value) =>
+                onChanged(parameter.copyWith(label: value)),
+          );
+          final Widget typeField = SizedBox(
+            width: double.infinity,
+            child: ToolSelect<CommandParameterType>(
+              value: parameter.type,
+              label: '类型',
+              expand: true,
+              options: CommandParameterType.values
+                  .map(
+                    (CommandParameterType item) =>
+                        ToolSelectOption<CommandParameterType>(
+                          value: item,
+                          label: _commandParameterTypeLabel(item),
+                        ),
+                  )
+                  .toList(growable: false),
+              onChanged: (CommandParameterType value) =>
+                  onChanged(parameter.copyWith(type: value)),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ToolTextField(
-                initialValue: parameter.defaultValue,
-                label: '默认值',
-                onChanged: (String value) =>
-                    onChanged(parameter.copyWith(defaultValue: value)),
-              ),
-            ),
-          ],
-        ),
-        if (parameter.type == CommandParameterType.enumValue) ...<Widget>[
-          const SizedBox(height: 8),
-          ToolTextField(
-            initialValue: parameter.options
-                .map(
-                  (CommandParameterOption option) =>
-                      '${option.label}=${option.value}',
-                )
-                .join(', '),
-            label: '枚举选项',
-            helperText: '名称=数值，多个选项以逗号分隔',
-            onChanged: (String value) => onChanged(
-              parameter.copyWith(options: _parseParameterOptions(value)),
-            ),
-          ),
-        ],
-      ],
+          );
+          final Widget defaultField = ToolTextField(
+            initialValue: parameter.defaultValue,
+            label: '默认值',
+            hintText: '可选',
+            onChanged: (String value) =>
+                onChanged(parameter.copyWith(defaultValue: value)),
+          );
+          final Widget deleteButton = ToolIconButton(
+            tooltip: '删除参数',
+            onPressed: onDelete,
+            touchSize: 32,
+            icon: const Icon(AppIcons.deleteOutline, size: 18),
+          );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              if (stacked) ...<Widget>[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    Expanded(child: keyField),
+                    const SizedBox(width: 8),
+                    Expanded(child: labelField),
+                    deleteButton,
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    Expanded(child: typeField),
+                    const SizedBox(width: 8),
+                    Expanded(child: defaultField),
+                  ],
+                ),
+              ] else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    Expanded(flex: 3, child: keyField),
+                    const SizedBox(width: 8),
+                    Expanded(flex: 3, child: labelField),
+                    const SizedBox(width: 8),
+                    Expanded(flex: 4, child: typeField),
+                    const SizedBox(width: 8),
+                    Expanded(flex: 3, child: defaultField),
+                    const SizedBox(width: 8),
+                    deleteButton,
+                  ],
+                ),
+              if (parameter.type == CommandParameterType.enumValue) ...<Widget>[
+                const SizedBox(height: 6),
+                ToolTextField(
+                  initialValue: parameter.options
+                      .map(
+                        (CommandParameterOption option) =>
+                            '${option.label}=${option.value}',
+                      )
+                      .join(', '),
+                  label: '枚举选项',
+                  hintText: '名称=数值，多个选项以逗号分隔',
+                  onChanged: (String value) => onChanged(
+                    parameter.copyWith(options: _parseParameterOptions(value)),
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
     ),
   );
 }
@@ -408,10 +443,10 @@ Map<String, String> _parseEnumValues(String value) => <String, String>{
 };
 
 CommandParameter _newCommandParameter() => const CommandParameter(
-  key: 'value',
-  label: '参数',
+  key: '',
+  label: '',
   type: CommandParameterType.uint8,
-  defaultValue: '0',
+  defaultValue: '',
   min: null,
   max: null,
   options: <CommandParameterOption>[],

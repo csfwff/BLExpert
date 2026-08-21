@@ -36,7 +36,7 @@ class _CommandLibraryPanel extends StatelessWidget {
           .add(command);
     }
     return ListView(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(12),
       children: <Widget>[
         Row(
           children: <Widget>[
@@ -48,14 +48,21 @@ class _CommandLibraryPanel extends StatelessWidget {
                 ).titleMedium.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
-            ToolIconButton(
-              tooltip: l10n.newCommand,
-              onPressed: onNewCommand,
-              icon: const Icon(AppIcons.add, size: 19),
+            ToolTooltip(
+              message: l10n.newCommand,
+              child: ToolButton.primary(
+                key: const ValueKey<String>('new-command-button'),
+                onPressed: onNewCommand,
+                compact: true,
+                height: 32,
+                leading: const Icon(AppIcons.add, size: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text(l10n.newCommand),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         ToolSwitchTile(
           title: const Text('仅允许已选指令发送'),
           subtitle: Text(
@@ -81,22 +88,22 @@ class _CommandLibraryPanel extends StatelessWidget {
                   }
                 },
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         if (commands.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 28),
+            padding: const EdgeInsets.symmetric(vertical: 20),
             child: Center(child: Text(l10n.noCommands)),
           )
         else
           ...byGroup.entries.expand(
             (MapEntry<String, List<CommandDefinition>> entry) => <Widget>[
               if (entry.key != '-') ...<Widget>[
-                const shad.Divider(height: 24),
+                const shad.Divider(height: 16),
                 Text(
                   entry.key,
                   style: AppTheme.textStylesOf(context).labelLarge,
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
               ],
               ...entry.value.map(
                 (CommandDefinition command) => _CommandLibraryTile(
@@ -211,7 +218,8 @@ class _CommandLibraryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      key: ValueKey<String>('command-library-item-${command.id}'),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: AppTheme.colorsOf(context).border),
@@ -222,6 +230,7 @@ class _CommandLibraryTile extends StatelessWidget {
           Expanded(
             child: ToolClickableRow(
               onPressed: onEdit,
+              padding: const EdgeInsets.symmetric(vertical: 2),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -249,34 +258,92 @@ class _CommandLibraryTile extends StatelessWidget {
               ),
             ),
           ),
-          ToolTooltip(
-            message: l10n.commandEnabled,
-            child: ToolSwitch(
-              value: command.enabled,
-              onChanged: onEnabledChanged,
-              label: l10n.commandEnabled,
+          const SizedBox(width: 8),
+          Row(
+            key: ValueKey<String>(
+              'command-library-status-controls-${command.id}',
             ),
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              _CommandStatusControl(
+                key: ValueKey<String>(
+                  'command-library-enabled-control-${command.id}',
+                ),
+                label: l10n.commandEnabled,
+                child: ToolSwitch(
+                  value: command.enabled,
+                  onChanged: onEnabledChanged,
+                  label: l10n.commandEnabled,
+                ),
+              ),
+              const SizedBox(width: 8),
+              _CommandStatusControl(
+                key: ValueKey<String>(
+                  'command-library-quick-access-control-${command.id}',
+                ),
+                label: l10n.quickAccess,
+                child: ToolCheckbox(
+                  value: command.isQuickAccess,
+                  onChanged: onQuickAccessChanged,
+                  label: l10n.quickAccess,
+                ),
+              ),
+            ],
           ),
-          ToolTooltip(
-            message: l10n.quickAccess,
-            child: ToolCheckbox(
-              value: command.isQuickAccess,
-              onChanged: onQuickAccessChanged,
-              label: l10n.quickAccess,
-            ),
-          ),
-          ToolIconButton(
-            tooltip: l10n.editCommand,
-            onPressed: onEdit,
-            icon: const Icon(AppIcons.editOutlined, size: 18),
-          ),
-          ToolIconButton(
-            tooltip: l10n.deleteCommand,
-            onPressed: onDelete,
-            icon: const Icon(AppIcons.deleteOutline, size: 18),
+          const SizedBox(width: 8),
+          Row(
+            key: ValueKey<String>('command-library-actions-${command.id}'),
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ToolIconButton(
+                tooltip: l10n.editCommand,
+                onPressed: onEdit,
+                touchSize: 32,
+                icon: const Icon(AppIcons.editOutlined, size: 18),
+              ),
+              const SizedBox(width: 4),
+              ToolIconButton(
+                tooltip: l10n.deleteCommand,
+                onPressed: onDelete,
+                touchSize: 32,
+                icon: const Icon(AppIcons.deleteOutline, size: 18),
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CommandStatusControl extends StatelessWidget {
+  const _CommandStatusControl({
+    super.key,
+    required this.label,
+    required this.child,
+  });
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        ExcludeSemantics(
+          child: Text(
+            label,
+            maxLines: 1,
+            softWrap: false,
+            style: AppTheme.textStylesOf(context).labelSmall.copyWith(
+              color: AppTheme.colorsOf(context).mutedForeground,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        ToolTooltip(message: label, child: child),
+      ],
     );
   }
 }

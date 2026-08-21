@@ -10,6 +10,7 @@ import 'package:blexpert/app/app_theme.dart';
 import 'package:blexpert/app/design/app_icons.dart';
 import 'package:blexpert/app/design/tool_alert_dialog.dart';
 import 'package:blexpert/app/design/tool_button.dart';
+import 'package:blexpert/app/design/tool_select.dart';
 import 'package:blexpert/app/design/tool_text_field.dart';
 import 'package:blexpert/app/design/tool_toggle.dart';
 import 'package:blexpert/app/design/tool_tooltip.dart';
@@ -22,6 +23,8 @@ double _contrastRatio(Color first, Color second) {
 
 Color _compositeOver(Color foreground, Color background) =>
     Color.alphaBlend(foreground, background);
+
+void _ignoreString(String value) {}
 
 Widget _themedHarness({
   required Widget child,
@@ -296,6 +299,69 @@ void main() {
     final Rect placeholderRect = tester.getRect(find.text('带图标'));
     expect(iconRect.left - iconFieldRect.left, closeTo(4, 0.5));
     expect(placeholderRect.left - iconRect.right, closeTo(2, 0.5));
+  });
+
+  testWidgets('紧凑下拉框与输入框使用相同高度和文字规格', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      _themedHarness(
+        child: const SizedBox(
+          width: 480,
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: ToolTextField(
+                  key: ValueKey<String>('compact-field'),
+                  label: '输入值',
+                  showLabel: false,
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: ToolSelect<String>(
+                  key: ValueKey<String>('compact-select'),
+                  value: 'payload',
+                  options: <ToolSelectOption<String>>[
+                    ToolSelectOption<String>(value: 'payload', label: '有效载荷'),
+                    ToolSelectOption<String>(value: 'frame', label: '整帧'),
+                  ],
+                  onChanged: _ignoreString,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final Finder field = find.byKey(const ValueKey<String>('compact-field'));
+    final Finder select = find.byKey(const ValueKey<String>('compact-select'));
+    expect(
+      tester.getSize(select).height,
+      closeTo(tester.getSize(field).height, 1),
+    );
+    final shad.Select<String> innerSelect = tester.widget<shad.Select<String>>(
+      find.descendant(of: select, matching: find.byType(shad.Select<String>)),
+    );
+    expect(innerSelect.padding, ToolSelect.defaultPadding);
+    final Text selectedValue = tester.widget<Text>(find.text('有效载荷'));
+    expect(selectedValue.style?.fontSize, 12);
+    expect(selectedValue.style?.fontWeight, FontWeight.w400);
+
+    await tester.tap(select);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    final Finder items = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'tool-select-option-',
+          ),
+    );
+    expect(items, findsNWidgets(2));
+    for (final Element item in items.evaluate()) {
+      expect(tester.getSize(find.byWidget(item.widget)).height, 28);
+    }
   });
 
   testWidgets('工具弹窗统一对齐标题图标并保留正文缩进', (WidgetTester tester) async {

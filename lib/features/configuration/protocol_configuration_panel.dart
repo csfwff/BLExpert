@@ -2,6 +2,8 @@ part of '../home/home_screen.dart';
 
 enum _ProtocolMode { standard, script }
 
+enum _ScriptProtocolTab { runtime, beforeSend, afterReceive }
+
 class _ProtocolConfigurationPanel extends StatefulWidget {
   const _ProtocolConfigurationPanel({
     required this.protocol,
@@ -334,7 +336,7 @@ class _StandardProtocolEditor extends StatelessWidget {
   }
 }
 
-class _ScriptProtocolEditor extends StatelessWidget {
+class _ScriptProtocolEditor extends StatefulWidget {
   const _ScriptProtocolEditor({
     required this.config,
     required this.beforeSendController,
@@ -352,8 +354,112 @@ class _ScriptProtocolEditor extends StatelessWidget {
   final AppLocalizations l10n;
 
   @override
+  State<_ScriptProtocolEditor> createState() => _ScriptProtocolEditorState();
+}
+
+class _ScriptProtocolEditorState extends State<_ScriptProtocolEditor> {
+  _ScriptProtocolTab _tab = _ScriptProtocolTab.runtime;
+
+  @override
+  Widget build(BuildContext context) {
+    final _ScriptProtocolEditor widget = this.widget;
+    final Widget tabs = shad.Tabs(
+      key: const ValueKey<String>('script-protocol-tabs'),
+      index: _tab.index,
+      expand: true,
+      onChanged: (int value) =>
+          setState(() => _tab = _ScriptProtocolTab.values[value]),
+      children: <shad.TabItem>[
+        shad.TabItem(child: Text(widget.l10n.scriptRuntime)),
+        shad.TabItem(child: Text(widget.l10n.beforeSendScript)),
+        shad.TabItem(child: Text(widget.l10n.afterReceiveScript)),
+      ],
+    );
+    final Widget sampleAction = ToolButton.outline(
+      key: const ValueKey<String>('script-load-sample-action'),
+      onPressed: () {
+        widget.beforeSendController.text = _defaultBeforeSendScript;
+        widget.afterReceiveController.text = _defaultAfterReceiveScript;
+        widget.onChanged();
+      },
+      compact: true,
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      leading: const Icon(AppIcons.autoFix, size: 16),
+      child: Text(widget.l10n.loadProtocolSample),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            if (constraints.maxWidth < 620) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  tabs,
+                  const SizedBox(height: 8),
+                  Align(alignment: Alignment.centerRight, child: sampleAction),
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: <Widget>[
+                Expanded(child: tabs),
+                const SizedBox(width: 8),
+                sampleAction,
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        switch (_tab) {
+          _ScriptProtocolTab.runtime => _ScriptRuntimeInformation(
+            config: widget.config,
+            runtimeAvailable: widget.runtimeAvailable,
+            l10n: widget.l10n,
+          ),
+          _ScriptProtocolTab.beforeSend => _ScriptEditorTab(
+            key: const ValueKey<String>('script-before-send-tab'),
+            title: 'beforeSend(context)',
+            details: widget.l10n.beforeSendContract,
+            signature: 'context.payloadHex -> { frameHex, logs? }',
+            controller: widget.beforeSendController,
+            label: widget.l10n.beforeSendScript,
+            onChanged: widget.onChanged,
+          ),
+          _ScriptProtocolTab.afterReceive => _ScriptEditorTab(
+            key: const ValueKey<String>('script-after-receive-tab'),
+            title: 'afterReceive(context)',
+            details: widget.l10n.afterReceiveContract,
+            signature:
+                'context.frameHex -> { payloadHex, cmdHex?, dataHex?, valid?, logs? }',
+            controller: widget.afterReceiveController,
+            label: widget.l10n.afterReceiveScript,
+            onChanged: widget.onChanged,
+          ),
+        },
+      ],
+    );
+  }
+}
+
+class _ScriptRuntimeInformation extends StatelessWidget {
+  const _ScriptRuntimeInformation({
+    required this.config,
+    required this.runtimeAvailable,
+    required this.l10n,
+  });
+
+  final ScriptConfig config;
+  final bool runtimeAvailable;
+  final AppLocalizations l10n;
+
+  @override
   Widget build(BuildContext context) {
     return Column(
+      key: const ValueKey<String>('script-runtime-information-tab'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         _WorkspaceField(
@@ -361,6 +467,10 @@ class _ScriptProtocolEditor extends StatelessWidget {
           value: runtimeAvailable
               ? l10n.scriptEngineReady
               : l10n.scriptEngineUnavailable,
+        ),
+        _WorkspaceField(
+          label: l10n.scriptEnabled,
+          value: config.enabled ? l10n.enabledState : l10n.disabledState,
         ),
         Text(
           l10n.scriptMethods,
@@ -381,31 +491,43 @@ class _ScriptProtocolEditor extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _ScriptBuiltinLibrary(l10n: l10n),
+      ],
+    );
+  }
+}
+
+class _ScriptEditorTab extends StatelessWidget {
+  const _ScriptEditorTab({
+    super.key,
+    required this.title,
+    required this.details,
+    required this.signature,
+    required this.controller,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String details;
+  final String signature;
+  final TextEditingController controller;
+  final String label;
+  final void Function({bool? enabled}) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _ScriptMethodContract(
+          title: title,
+          details: details,
+          signature: signature,
+        ),
         const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerRight,
-          child: ToolButton.outline(
-            onPressed: () {
-              beforeSendController.text = _defaultBeforeSendScript;
-              afterReceiveController.text = _defaultAfterReceiveScript;
-              onChanged();
-            },
-            leading: const Icon(AppIcons.autoFix),
-            child: Text(l10n.loadProtocolSample),
-          ),
-        ),
         ToolTextField(
-          controller: beforeSendController,
-          label: l10n.beforeSendScript,
-          minLines: 16,
-          maxLines: 28,
-          onChanged: (_) => onChanged(),
-          style: AppFonts.monoStyle.copyWith(fontSize: 12),
-        ),
-        const SizedBox(height: 14),
-        ToolTextField(
-          controller: afterReceiveController,
-          label: l10n.afterReceiveScript,
+          controller: controller,
+          label: label,
           minLines: 16,
           maxLines: 28,
           onChanged: (_) => onChanged(),

@@ -1255,6 +1255,39 @@ void main() {
       greaterThan(tester.getRect(sendSegment).bottom),
     );
 
+    await tester.tap(sendAddButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('长度字段').last);
+    await tester.pumpAndSettle();
+    final Finder lengthSegment = find.byWidgetPredicate((Widget widget) {
+      final Key? key = widget.key;
+      return key is ValueKey<String> &&
+          key.value.startsWith('protocol-send-segment-');
+    }).last;
+    final Finder lengthInputs = find.descendant(
+      of: lengthSegment,
+      matching: find.byType(ToolTextField),
+    );
+    final Finder lengthSelects = find.descendant(
+      of: lengthSegment,
+      matching: find.byWidgetPredicate((Widget widget) => widget is ToolSelect),
+    );
+    expect(lengthInputs, findsNWidgets(2));
+    expect(lengthSelects, findsNWidgets(2));
+    final double fieldHeight = tester.getSize(lengthInputs.first).height;
+    final double fieldCenterY = tester.getCenter(lengthInputs.first).dy;
+    for (final Element selectElement in lengthSelects.evaluate()) {
+      final Finder selectFinder = find.byWidget(selectElement.widget);
+      expect(tester.getSize(selectFinder).height, closeTo(fieldHeight, 1));
+      expect(tester.getCenter(selectFinder).dy, closeTo(fieldCenterY, 1));
+    }
+    final Text payloadSelectText = tester.widget<Text>(
+      find.descendant(of: lengthSegment, matching: find.text('有效载荷')),
+    );
+    expect(payloadSelectText.style?.fontSize, 12);
+    expect(payloadSelectText.style?.fontWeight, FontWeight.w400);
+
     tester.view.physicalSize = const Size(700, 900);
     await tester.pumpAndSettle();
     final List<Rect> narrowSendFieldRects = find
@@ -1298,6 +1331,49 @@ void main() {
       IconTheme.of(tester.element(scriptIcon)).color,
       modeColors.secondaryForeground,
     );
+    final Finder scriptTabs = find.byKey(
+      const ValueKey<String>('script-protocol-tabs'),
+    );
+    final Finder scriptSampleAction = find.byKey(
+      const ValueKey<String>('script-load-sample-action'),
+    );
+    expect(scriptTabs, findsOneWidget);
+    expect(scriptSampleAction, findsOneWidget);
+    expect(
+      tester.getRect(scriptSampleAction).left,
+      greaterThan(tester.getRect(scriptTabs).right),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('script-runtime-information-tab')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('script-before-send-tab')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.descendant(of: scriptTabs, matching: find.text('发送前脚本')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('script-before-send-tab')),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (Widget widget) => widget is ToolTextField && widget.label == '发送前脚本',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.descendant(of: scriptTabs, matching: find.text('接收后脚本')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('script-after-receive-tab')),
+      findsOneWidget,
+    );
+    expect(scriptSampleAction, findsOneWidget);
 
     tester.view.physicalSize = const Size(520, 812);
     await tester.pumpAndSettle();
@@ -1342,6 +1418,7 @@ void main() {
     await selectAppMode(tester, 'configure');
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
+    expect(find.widgetWithText(ToolButton, '新建指令'), findsOneWidget);
     await tester.tap(findToolTooltip('新建指令'));
     await tester.pumpAndSettle();
 
@@ -1366,13 +1443,15 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    expect(
-      find.byType(shad.SelectItemButton<CommandPayloadFormat>),
-      findsNWidgets(2),
+    final Finder formatOptions = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'tool-select-option-',
+          ),
     );
-    await tester.tap(
-      find.byType(shad.SelectItemButton<CommandPayloadFormat>).last,
-    );
+    expect(formatOptions, findsNWidgets(2));
+    await tester.tap(formatOptions.last);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(
@@ -1388,9 +1467,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.tap(
-      find.byType(shad.SelectItemButton<CommandPayloadFormat>).first,
-    );
+    await tester.tap(formatOptions.first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(
@@ -1416,11 +1493,89 @@ void main() {
     );
     await tester.tap(findToolTooltip('新增参数'));
     await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('add-command-parameter-button')),
+    );
+    await tester.pump();
+    expect(
+      find.byWidgetPredicate(
+        (Widget widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'command-parameter-row-',
+            ),
+      ),
+      findsNWidgets(2),
+    );
+    await tester.tap(findToolTooltip('删除参数').last);
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('command-name-row')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('command-payload-row')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('command-parameter-row-0')),
+      findsOneWidget,
+    );
+    final ToolTextField newParameterDefault = tester.widget<ToolTextField>(
+      find.byWidgetPredicate(
+        (Widget widget) => widget is ToolTextField && widget.label == '默认值',
+      ),
+    );
+    expect(newParameterDefault.initialValue, isEmpty);
+    expect(newParameterDefault.hintText, '可选');
+    final ToolTextField newParameterKey = tester.widget<ToolTextField>(
+      find.byWidgetPredicate(
+        (Widget widget) => widget is ToolTextField && widget.label == 'key',
+      ),
+    );
+    final ToolTextField newParameterLabel = tester.widget<ToolTextField>(
+      find.byWidgetPredicate(
+        (Widget widget) => widget is ToolTextField && widget.label == '名称',
+      ),
+    );
+    expect(newParameterKey.initialValue, isEmpty);
+    expect(newParameterLabel.initialValue, isEmpty);
+    final ToolSelect<CommandParameterType> parameterTypeSelect = tester
+        .widget<ToolSelect<CommandParameterType>>(
+          find.byWidgetPredicate(
+            (Widget widget) =>
+                widget is ToolSelect<CommandParameterType> &&
+                widget.label == '类型',
+          ),
+        );
+    expect(parameterTypeSelect.expand, isTrue);
+    expect(findToolTooltip('删除参数'), findsOneWidget);
     await tester.enterText(
       find.byWidgetPredicate(
         (Widget widget) => widget is ToolTextField && widget.label == 'key',
       ),
       'level',
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('command-parameter-token-0')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('command-parameter-token-0')),
+    );
+    expect(
+      tester
+          .widget<ToolTextField>(
+            find.byKey(const ValueKey<String>('command-payload-field')),
+          )
+          .controller
+          ?.text,
+      contains('{{level}}'),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('command-payload-field')),
+      'AA BB {{level}} 01',
     );
     await tester.enterText(
       find.byWidgetPredicate(
@@ -1440,6 +1595,64 @@ void main() {
     expect(find.text('查询'), findsOneWidget);
     expect(find.text('查询状态'), findsWidgets);
     expect(find.text('AA BB {{level}} 01'), findsOneWidget);
+
+    final Finder commandItem = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'command-library-item-',
+          ),
+    );
+    final Finder enabledControl = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'command-library-enabled-control-',
+          ),
+    );
+    final Finder quickAccessControl = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'command-library-quick-access-control-',
+          ),
+    );
+    final Finder statusControls = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'command-library-status-controls-',
+          ),
+    );
+    final Finder commandActions = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'command-library-actions-',
+          ),
+    );
+    expect(
+      tester.widget<Container>(commandItem).padding,
+      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+    );
+    expect(
+      find.descendant(of: enabledControl, matching: find.text('启用')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: quickAccessControl, matching: find.text('快捷入口')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getRect(quickAccessControl).left -
+          tester.getRect(enabledControl).right,
+      8,
+    );
+    expect(
+      tester.getRect(commandActions).left -
+          tester.getRect(statusControls).right,
+      8,
+    );
 
     await tester.tap(findToolTooltip('快捷入口'));
     await tester.pumpAndSettle();
@@ -2267,7 +2480,7 @@ void main() {
     );
     await tester.tap(
       find.descendant(
-        of: find.widgetWithText(ToolSwitchTile, '发送前始终确认'),
+        of: find.byKey(const ValueKey<String>('command-confirmation-row')),
         matching: find.byType(ToolSwitch),
       ),
     );

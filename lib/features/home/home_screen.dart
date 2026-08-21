@@ -815,196 +815,460 @@ class _HomeScreenState extends State<HomeScreen> {
         String? payloadError;
         String? parameterError;
         return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) =>
-              ToolAlertDialog(
-                icon: AppIcons.terminalOutlined,
-                title: existing == null ? l10n.newCommand : l10n.editCommand,
-                content: SizedBox(
-                  width: 460,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        if (validationError != null)
-                          Semantics(
-                            liveRegion: true,
-                            container: true,
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Text(
-                                  '${l10n.configurationErrors}\n$validationError',
-                                  style: TextStyle(
-                                    color: AppTheme.colorsOf(
-                                      context,
-                                    ).destructive,
+          builder: (BuildContext context, StateSetter setDialogState) => ToolAlertDialog(
+            icon: AppIcons.terminalOutlined,
+            title: existing == null ? l10n.newCommand : l10n.editCommand,
+            content: SizedBox(
+              width: 620,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 520),
+                child: SingleChildScrollView(
+                  child: LayoutBuilder(
+                    builder: (BuildContext context, BoxConstraints constraints) {
+                      final bool stacked = constraints.maxWidth < 560;
+
+                      void insertParameter(String key) {
+                        final String token = '{{${key.trim()}}}';
+                        final String text = payloadController.text;
+                        final TextSelection selection =
+                            payloadController.selection;
+                        final int start = selection.isValid
+                            ? selection.start.clamp(0, text.length)
+                            : text.length;
+                        final int end = selection.isValid
+                            ? selection.end.clamp(0, text.length)
+                            : text.length;
+                        final String before = text.substring(0, start);
+                        final String after = text.substring(end);
+                        final bool needsLeadingSpace =
+                            format == CommandPayloadFormat.hex &&
+                            before.isNotEmpty &&
+                            !RegExp(r'\s$').hasMatch(before);
+                        final bool needsTrailingSpace =
+                            format == CommandPayloadFormat.hex &&
+                            after.isNotEmpty &&
+                            !RegExp(r'^\s').hasMatch(after);
+                        final String inserted =
+                            '${needsLeadingSpace ? ' ' : ''}$token${needsTrailingSpace ? ' ' : ''}';
+                        payloadController.value = TextEditingValue(
+                          text: '$before$inserted$after',
+                          selection: TextSelection.collapsed(
+                            offset: before.length + inserted.length,
+                          ),
+                        );
+                        setDialogState(() {});
+                      }
+
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          if (validationError != null)
+                            Semantics(
+                              liveRegion: true,
+                              container: true,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Text(
+                                    '${l10n.configurationErrors}\n$validationError',
+                                    style: TextStyle(
+                                      color: AppTheme.colorsOf(
+                                        context,
+                                      ).destructive,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
+                          _ConfigurationFormRow(
+                            key: const ValueKey<String>('command-name-row'),
+                            label: l10n.commandName,
+                            stacked: stacked,
+                            labelWidth: 132,
+                            child: ToolTextField(
+                              key: const ValueKey<String>('command-name-field'),
+                              controller: nameController,
+                              autofocus: true,
+                              label: l10n.commandName,
+                              showLabel: false,
+                              hintText: '请输入指令名称',
+                              errorText: nameError,
+                            ),
                           ),
-                        ToolTextField(
-                          key: const ValueKey<String>('command-name-field'),
-                          controller: nameController,
-                          autofocus: true,
-                          label: l10n.commandName,
-                          errorText: nameError,
-                        ),
-                        ToolTextField(
-                          key: const ValueKey<String>('command-group-field'),
-                          controller: groupController,
-                          label: l10n.commandGroup,
-                        ),
-                        const SizedBox(height: 12),
-                        ToolSelect<CommandPayloadFormat>(
-                          key: const ValueKey<String>('command-format-select'),
-                          value: format,
-                          label: l10n.commandFormat,
-                          options: <ToolSelectOption<CommandPayloadFormat>>[
-                            ToolSelectOption(
-                              value: CommandPayloadFormat.hex,
-                              label: l10n.commandHex,
-                            ),
-                            ToolSelectOption(
-                              value: CommandPayloadFormat.text,
-                              label: l10n.commandText,
-                            ),
-                          ],
-                          onChanged: (CommandPayloadFormat value) {
-                            setDialogState(() => format = value);
-                          },
-                        ),
-                        const SizedBox(height: 8),
-                        ToolTextField(
-                          key: const ValueKey<String>('command-payload-field'),
-                          controller: payloadController,
-                          minLines: 2,
-                          maxLines: 4,
-                          label: l10n.commandPayload,
-                          errorText: payloadError,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: <Widget>[
-                            const Expanded(
-                              child: Text('参数（在 HEX 中使用 {{key}}）'),
-                            ),
-                            ToolIconButton(
-                              tooltip: '新增参数',
-                              onPressed: () => setDialogState(
-                                () => parameters.add(_newCommandParameter()),
+                          _ConfigurationFormRow(
+                            key: const ValueKey<String>('command-group-row'),
+                            label: l10n.commandGroup,
+                            stacked: stacked,
+                            labelWidth: 132,
+                            child: ToolTextField(
+                              key: const ValueKey<String>(
+                                'command-group-field',
                               ),
-                              icon: const Icon(AppIcons.add, size: 19),
-                            ),
-                          ],
-                        ),
-                        for (int index = 0; index < parameters.length; index++)
-                          _CommandParameterEditor(
-                            parameter: parameters[index],
-                            onChanged: (CommandParameter value) =>
-                                setDialogState(() => parameters[index] = value),
-                            onDelete: () => setDialogState(
-                              () => parameters.removeAt(index),
+                              controller: groupController,
+                              label: l10n.commandGroup,
+                              showLabel: false,
+                              hintText: '可选，用于在指令集和快捷指令中分组显示',
                             ),
                           ),
-                        ToolTextField(
-                          key: const ValueKey<String>('command-notes-field'),
-                          controller: notesController,
-                          minLines: 1,
-                          maxLines: 3,
-                          label: l10n.commandNotes,
-                        ),
-                        ToolSwitchTile(
-                          title: Text(l10n.commandEnabled),
-                          value: enabled,
-                          onChanged: (bool value) {
-                            setDialogState(() => enabled = value);
-                          },
-                        ),
-                        ToolSwitchTile(
-                          title: Text(l10n.quickAccess),
-                          value: isQuickAccess,
-                          onChanged: (bool value) {
-                            setDialogState(() => isQuickAccess = value);
-                          },
-                        ),
-                        ToolSwitchTile(
-                          title: const Text('发送前始终确认'),
-                          value: requiresConfirmation,
-                          onChanged: (bool value) {
-                            setDialogState(() => requiresConfirmation = value);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                actions: <Widget>[
-                  ToolButton.ghost(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(l10n.cancel),
-                  ),
-                  ToolButton.primary(
-                    onPressed: () {
-                      final String name = nameController.text.trim();
-                      final String payload = payloadController.text.trim();
-                      final String validationPayload = payload.replaceAll(
-                        RegExp(r'\{\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\}'),
-                        '00',
-                      );
-                      final bool invalidName = name.isEmpty;
-                      final bool invalidPayload =
-                          payload.isEmpty ||
-                          (format == CommandPayloadFormat.hex &&
-                              _parseHex(validationPayload) == null);
-                      final bool invalidParameters = parameters.any(
-                        (CommandParameter parameter) =>
-                            parameter.key.trim().isEmpty ||
-                            !payload.contains('{{${parameter.key.trim()}}'),
-                      );
-                      if (invalidName || invalidPayload || invalidParameters) {
-                        setDialogState(() {
-                          nameError = invalidName
-                              ? l10n.requiredField(l10n.commandName)
-                              : null;
-                          payloadError = invalidPayload
-                              ? (payload.isEmpty
-                                    ? l10n.requiredField(l10n.commandPayload)
-                                    : l10n.invalidHexPayload)
-                              : null;
-                          parameterError = invalidParameters
-                              ? l10n.invalidCommandParameters
-                              : null;
-                          validationError = <String>[
-                            if (nameError != null) nameError!,
-                            if (payloadError != null) payloadError!,
-                            if (parameterError != null) parameterError!,
-                          ].join('\n');
-                        });
-                        return;
-                      }
-                      Navigator.of(context).pop(
-                        CommandDefinition(
-                          id:
-                              existing?.id ??
-                              'command-${DateTime.now().microsecondsSinceEpoch}',
-                          name: name,
-                          group: groupController.text.trim(),
-                          payload: payload,
-                          format: format,
-                          notes: notesController.text.trim(),
-                          enabled: enabled,
-                          isQuickAccess: isQuickAccess,
-                          requiresConfirmation: requiresConfirmation,
-                          parameters: parameters,
-                        ),
+                          _ConfigurationFormRow(
+                            key: const ValueKey<String>('command-format-row'),
+                            label: l10n.commandFormat,
+                            stacked: stacked,
+                            labelWidth: 132,
+                            child: ToolSelect<CommandPayloadFormat>(
+                              key: const ValueKey<String>(
+                                'command-format-select',
+                              ),
+                              value: format,
+                              label: l10n.commandFormat,
+                              showLabel: false,
+                              options: <ToolSelectOption<CommandPayloadFormat>>[
+                                ToolSelectOption(
+                                  value: CommandPayloadFormat.hex,
+                                  label: l10n.commandHex,
+                                ),
+                                ToolSelectOption(
+                                  value: CommandPayloadFormat.text,
+                                  label: l10n.commandText,
+                                ),
+                              ],
+                              onChanged: (CommandPayloadFormat value) {
+                                setDialogState(() => format = value);
+                              },
+                            ),
+                          ),
+                          _ConfigurationFormRow(
+                            key: const ValueKey<String>('command-payload-row'),
+                            label: l10n.commandPayload,
+                            stacked: stacked,
+                            alignLabelToTop: true,
+                            labelWidth: 132,
+                            child: ToolTextField(
+                              key: const ValueKey<String>(
+                                'command-payload-field',
+                              ),
+                              controller: payloadController,
+                              minLines: 2,
+                              maxLines: 4,
+                              label: l10n.commandPayload,
+                              showLabel: false,
+                              hintText: format == CommandPayloadFormat.hex
+                                  ? '例如 AA 01 {{value}}'
+                                  : '请输入文本内容',
+                              errorText: payloadError,
+                            ),
+                          ),
+                          if (parameters.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  SizedBox(
+                                    width: stacked ? null : 132,
+                                    child: stacked
+                                        ? Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 4,
+                                            ),
+                                            child: Text(
+                                              '快捷参数',
+                                              style: AppTheme.textStylesOf(
+                                                context,
+                                              ).labelMedium,
+                                            ),
+                                          )
+                                        : Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 4,
+                                            ),
+                                            child: Text(
+                                              '快捷参数',
+                                              style: AppTheme.textStylesOf(
+                                                context,
+                                              ).labelMedium,
+                                            ),
+                                          ),
+                                  ),
+                                  if (!stacked) const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Wrap(
+                                      spacing: 4,
+                                      runSpacing: 4,
+                                      children: parameters
+                                          .asMap()
+                                          .entries
+                                          .where(
+                                            (
+                                              MapEntry<int, CommandParameter>
+                                              entry,
+                                            ) => entry.value.key
+                                                .trim()
+                                                .isNotEmpty,
+                                          )
+                                          .map(
+                                            (
+                                              MapEntry<int, CommandParameter>
+                                              entry,
+                                            ) => ToolTooltip(
+                                              key: ValueKey<String>(
+                                                'command-parameter-token-wrapper-${entry.key}',
+                                              ),
+                                              message:
+                                                  '插入 {{${entry.value.key}}}',
+                                              child: ToolButton.outline(
+                                                key: ValueKey<String>(
+                                                  'command-parameter-token-${entry.key}',
+                                                ),
+                                                onPressed: () =>
+                                                    insertParameter(
+                                                      entry.value.key,
+                                                    ),
+                                                compact: true,
+                                                height: 28,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                    ),
+                                                child: Text(
+                                                  entry.value.label
+                                                          .trim()
+                                                          .isEmpty
+                                                      ? entry.value.key
+                                                      : entry.value.label,
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                          .toList(growable: false),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                SizedBox(
+                                  width: stacked ? null : 132,
+                                  child: Padding(
+                                    padding: EdgeInsets.only(
+                                      top: stacked ? 0 : 4,
+                                      bottom: stacked ? 4 : 0,
+                                    ),
+                                    child: Text(
+                                      '参数\n在 HEX 中使用 {{key}}',
+                                      maxLines: 2,
+                                      softWrap: false,
+                                      style: AppTheme.textStylesOf(
+                                        context,
+                                      ).labelMedium,
+                                    ),
+                                  ),
+                                ),
+                                if (!stacked) const SizedBox(width: 12),
+                                ToolTooltip(
+                                  message: '新增参数',
+                                  child: ToolButton.outline(
+                                    key: const ValueKey<String>(
+                                      'add-command-parameter-button',
+                                    ),
+                                    onPressed: () => setDialogState(
+                                      () => parameters.add(
+                                        _newCommandParameter(),
+                                      ),
+                                    ),
+                                    compact: true,
+                                    height: 28,
+                                    leading: const Icon(AppIcons.add, size: 15),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
+                                    child: const Text('新增参数'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          for (
+                            int index = 0;
+                            index < parameters.length;
+                            index++
+                          )
+                            _CommandParameterEditor(
+                              key: ValueKey<String>(
+                                'command-parameter-row-$index',
+                              ),
+                              parameter: parameters[index],
+                              onChanged: (CommandParameter value) =>
+                                  setDialogState(
+                                    () => parameters[index] = value,
+                                  ),
+                              onDelete: () => setDialogState(
+                                () => parameters.removeAt(index),
+                              ),
+                            ),
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: parameters.isEmpty ? 4 : 8,
+                            ),
+                            child: _ConfigurationFormRow(
+                              key: const ValueKey<String>('command-notes-row'),
+                              label: l10n.commandNotes,
+                              stacked: stacked,
+                              labelWidth: 132,
+                              child: ToolTextField(
+                                key: const ValueKey<String>(
+                                  'command-notes-field',
+                                ),
+                                controller: notesController,
+                                minLines: 1,
+                                maxLines: 3,
+                                label: l10n.commandNotes,
+                                showLabel: false,
+                                hintText: '可选',
+                              ),
+                            ),
+                          ),
+                          _ConfigurationFormRow(
+                            key: const ValueKey<String>('command-enabled-row'),
+                            label: l10n.commandEnabled,
+                            stacked: stacked,
+                            labelWidth: 132,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: ToolSwitch(
+                                value: enabled,
+                                onChanged: (bool value) {
+                                  setDialogState(() => enabled = value);
+                                },
+                                label: l10n.commandEnabled,
+                              ),
+                            ),
+                          ),
+                          _ConfigurationFormRow(
+                            key: const ValueKey<String>(
+                              'command-quick-access-row',
+                            ),
+                            label: l10n.quickAccess,
+                            stacked: stacked,
+                            labelWidth: 132,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: ToolSwitch(
+                                value: isQuickAccess,
+                                onChanged: (bool value) {
+                                  setDialogState(() => isQuickAccess = value);
+                                },
+                                label: l10n.quickAccess,
+                              ),
+                            ),
+                          ),
+                          _ConfigurationFormRow(
+                            key: const ValueKey<String>(
+                              'command-confirmation-row',
+                            ),
+                            label: '发送前始终确认',
+                            stacked: stacked,
+                            labelWidth: 132,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: ToolSwitch(
+                                value: requiresConfirmation,
+                                onChanged: (bool value) {
+                                  setDialogState(
+                                    () => requiresConfirmation = value,
+                                  );
+                                },
+                                label: '发送前始终确认',
+                              ),
+                            ),
+                          ),
+                        ],
                       );
                     },
-                    child: Text(l10n.save),
                   ),
-                ],
+                ),
               ),
+            ),
+            actions: <Widget>[
+              ToolButton.ghost(
+                onPressed: () => Navigator.of(context).pop(),
+                height: 34,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 4,
+                ),
+                child: Text(l10n.cancel),
+              ),
+              ToolButton.primary(
+                onPressed: () {
+                  final String name = nameController.text.trim();
+                  final String payload = payloadController.text.trim();
+                  final String validationPayload = payload.replaceAll(
+                    RegExp(r'\{\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\}'),
+                    '00',
+                  );
+                  final bool invalidName = name.isEmpty;
+                  final bool invalidPayload =
+                      payload.isEmpty ||
+                      (format == CommandPayloadFormat.hex &&
+                          _parseHex(validationPayload) == null);
+                  final bool invalidParameters = parameters.any(
+                    (CommandParameter parameter) =>
+                        parameter.key.trim().isEmpty ||
+                        !payload.contains('{{${parameter.key.trim()}}'),
+                  );
+                  if (invalidName || invalidPayload || invalidParameters) {
+                    setDialogState(() {
+                      nameError = invalidName
+                          ? l10n.requiredField(l10n.commandName)
+                          : null;
+                      payloadError = invalidPayload
+                          ? (payload.isEmpty
+                                ? l10n.requiredField(l10n.commandPayload)
+                                : l10n.invalidHexPayload)
+                          : null;
+                      parameterError = invalidParameters
+                          ? l10n.invalidCommandParameters
+                          : null;
+                      validationError = <String>[
+                        if (nameError != null) nameError!,
+                        if (payloadError != null) payloadError!,
+                        if (parameterError != null) parameterError!,
+                      ].join('\n');
+                    });
+                    return;
+                  }
+                  Navigator.of(context).pop(
+                    CommandDefinition(
+                      id:
+                          existing?.id ??
+                          'command-${DateTime.now().microsecondsSinceEpoch}',
+                      name: name,
+                      group: groupController.text.trim(),
+                      payload: payload,
+                      format: format,
+                      notes: notesController.text.trim(),
+                      enabled: enabled,
+                      isQuickAccess: isQuickAccess,
+                      requiresConfirmation: requiresConfirmation,
+                      parameters: parameters,
+                    ),
+                  );
+                },
+                height: 34,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 4,
+                ),
+                child: Text(l10n.save),
+              ),
+            ],
+          ),
         );
       },
     );

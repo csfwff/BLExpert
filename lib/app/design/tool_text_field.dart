@@ -9,6 +9,7 @@ import '../app_theme.dart';
 /// Labels and errors remain owned by the app so validation and accessibility
 /// semantics do not depend on a third-party decoration API.
 class ToolTextField extends StatelessWidget {
+  static const double singleLineHeight = 24;
   static const EdgeInsetsGeometry defaultPadding = EdgeInsets.symmetric(
     horizontal: 6,
     vertical: 4,
@@ -92,7 +93,7 @@ class ToolTextField extends StatelessWidget {
       fontWeight: FontWeight.w500,
     );
     final String? effectiveError = errorText ?? field?.errorText;
-    final Widget input = shad.Theme(
+    final Widget rawInput = shad.Theme(
       data: compactFieldTheme,
       child: shad.TextField(
         controller: controller,
@@ -128,6 +129,14 @@ class ToolTextField extends StatelessWidget {
         onSubmitted: onSubmitted,
       ),
     );
+    final bool singleLine =
+        (minLines == null || minLines == 1) && maxLines == 1;
+    final Widget input = singleLine
+        ? ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: singleLineHeight),
+            child: rawInput,
+          )
+        : rawInput;
     if (!showLabel && helperText == null && effectiveError == null) {
       return Semantics(textField: true, label: label, child: input);
     }

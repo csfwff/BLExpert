@@ -213,12 +213,14 @@ class _ConfigurationFormRow extends StatelessWidget {
     required this.child,
     required this.stacked,
     this.alignLabelToTop = false,
+    this.labelWidth = 96,
   });
 
   final String label;
   final Widget child;
   final bool stacked;
   final bool alignLabelToTop;
+  final double labelWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -246,7 +248,7 @@ class _ConfigurationFormRow extends StatelessWidget {
             : CrossAxisAlignment.center,
         children: <Widget>[
           SizedBox(
-            width: 96,
+            width: labelWidth,
             child: Padding(
               padding: EdgeInsets.only(top: alignLabelToTop ? 8 : 0),
               child: Text(label, style: labelStyle),

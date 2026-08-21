@@ -15,6 +15,17 @@ class ToolSelectOption<T> {
 /// The app owns labels, option values and validation semantics while the
 /// third-party component provides the popup, keyboard focus and selection UI.
 class ToolSelect<T> extends StatelessWidget {
+  static const double defaultHeight = 24;
+  static const EdgeInsetsGeometry defaultPadding = EdgeInsets.symmetric(
+    horizontal: 6,
+    vertical: 4,
+  );
+  static const EdgeInsetsGeometry defaultItemPadding = EdgeInsets.symmetric(
+    horizontal: 6,
+    vertical: 3,
+  );
+  static const double defaultItemHeight = 28;
+
   const ToolSelect({
     super.key,
     required this.value,
@@ -27,6 +38,7 @@ class ToolSelect<T> extends StatelessWidget {
     this.padding,
     this.itemPadding,
     this.itemHeight,
+    this.expand = false,
   });
 
   final T value;
@@ -39,6 +51,7 @@ class ToolSelect<T> extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? itemPadding;
   final double? itemHeight;
+  final bool expand;
 
   ToolSelectOption<T> _optionFor(T value) {
     return options.firstWhere(
@@ -49,16 +62,24 @@ class ToolSelect<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shad.ColorScheme colors = AppTheme.colorsOf(context);
+    final shad.ThemeData appTheme = AppTheme.of(context);
+    final TextStyle effectiveTextStyle = appTheme.typography.xSmall
+        .copyWith(fontWeight: FontWeight.w400)
+        .merge(textStyle);
     final ToolSelectOption<T> selected = _optionFor(value);
     final Widget select = shad.Select<T>(
+      constraints: BoxConstraints(
+        minHeight: defaultHeight,
+        minWidth: expand ? double.infinity : 0,
+      ),
       value: value,
       onChanged: (T? next) {
         if (next != null) onChanged(next);
       },
-      padding: padding,
+      padding: padding ?? defaultPadding,
       itemBuilder: (BuildContext context, T item) => Text(
         _optionFor(item).label,
-        style: textStyle,
+        style: effectiveTextStyle,
         maxLines: 1,
         softWrap: false,
         overflow: TextOverflow.ellipsis,
@@ -70,29 +91,18 @@ class ToolSelect<T> extends StatelessWidget {
         items: shad.SelectItemList(
           children: options
               .map(
-                (ToolSelectOption<T> option) => itemPadding == null
-                    ? shad.SelectItemButton<T>(
-                        value: option.value,
-                        child: Text(
-                          option.label,
-                          style: textStyle,
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      )
-                    : _ToolSelectItem<T>(
-                        value: option.value,
-                        height: itemHeight,
-                        padding: itemPadding!,
-                        child: Text(
-                          option.label,
-                          style: textStyle,
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                (ToolSelectOption<T> option) => _ToolSelectItem<T>(
+                  value: option.value,
+                  height: itemHeight ?? defaultItemHeight,
+                  padding: itemPadding ?? defaultItemPadding,
+                  child: Text(
+                    option.label,
+                    style: effectiveTextStyle,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               )
               .toList(growable: false),
         ),
@@ -103,19 +113,25 @@ class ToolSelect<T> extends StatelessWidget {
       button: true,
       label: label ?? selected.label,
       value: selected.label,
-      child: select,
+      child: expand ? SizedBox(width: double.infinity, child: select) : select,
     );
     if ((!showLabel || label == null) && errorText == null) return semantics;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         if (showLabel && label != null) ...<Widget>[
-          Text(label!, style: AppTheme.textStylesOf(context).labelMedium),
-          const SizedBox(height: 4),
+          Text(
+            label!,
+            style: appTheme.typography.xSmall.copyWith(
+              color: colors.foreground,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
         ],
         semantics,
         if (errorText != null) ...<Widget>[
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Semantics(
             liveRegion: true,
             label: errorText,
