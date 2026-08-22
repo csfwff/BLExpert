@@ -126,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _scanning = false;
   _ConnectionOperation? _connectionOperation;
   bool _hexMode = true;
+  bool _directSend = false;
   bool _autoScroll = true;
   _AppMode _mode = _AppMode.debug;
   bool _characteristicsOpen = true;
@@ -592,6 +593,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _pendingReceiveEvents.clear();
       _selectedDeviceId = deviceId;
       _characteristics = <BluetoothCharacteristicInfo>[];
+      _directSend = false;
     });
     unawaited(_watchSelectedIncomingData());
   }
@@ -824,6 +826,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 520),
                 child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(right: 16),
                   child: LayoutBuilder(
                     builder: (BuildContext context, BoxConstraints constraints) {
                       final bool stacked = constraints.maxWidth < 560;
@@ -1432,6 +1435,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 520),
                 child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(right: 16),
                   child: LayoutBuilder(
                     builder: (BuildContext context, BoxConstraints constraints) {
                       final bool stacked = constraints.maxWidth < 560;
@@ -1993,6 +1997,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Form(
                   key: formKey,
                   child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(right: 16),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2190,6 +2195,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _send(
     List<int> bytes, {
+    bool directSend = false,
     String? commandName,
     bool commandRequiresConfirmation = false,
   }) async {
@@ -2199,11 +2205,18 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final Workspace workspace = _workspaceManager.activeWorkspace;
       final bool hasStandardProtocol =
+          !directSend &&
           !workspace.scriptConfig.enabled &&
           workspace.protocol.sendSegments.isNotEmpty;
       final List<int> businessPayload = List<int>.unmodifiable(bytes);
       ScriptEngineResult result;
-      if (hasStandardProtocol) {
+      if (directSend) {
+        result = ScriptEngineResult(
+          bytes: businessPayload,
+          logs: <String>['direct send: protocol configuration bypassed'],
+          payloadHex: _formatHexForLog(businessPayload),
+        );
+      } else if (hasStandardProtocol) {
         final PacketEncoderResult encoded = _packetEncoder.encode(
           workspace.protocol,
           businessPayload,
@@ -2254,7 +2267,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final SendSafetyDecision safetyDecision = SendSafetyPolicy.evaluate(
         businessPayload: businessPayload,
         finalFrame: result.bytes,
-        scriptEnabled: workspace.scriptConfig.enabled,
+        scriptEnabled: workspace.scriptConfig.enabled && !directSend,
         confirmTransformedSend: workspace.scriptConfig.confirmTransformedSend,
         commandName: commandName,
         commandRequiresConfirmation: commandRequiresConfirmation,
@@ -2274,6 +2287,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
       if (workspace.scriptConfig.enabled &&
+          !directSend &&
           !_scriptSendRateLimiter.tryAcquire(DateTime.now())) {
         final Duration remaining =
             _scriptSendRateLimiter.remaining(DateTime.now()) ?? Duration.zero;
@@ -2373,6 +2387,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 360),
                 child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(right: 16),
                   child: shad.SelectableText(
                     <String>[
                       if (commandName != null && commandName.isNotEmpty)
@@ -2511,15 +2526,22 @@ class _HomeScreenState extends State<HomeScreen> {
   _ConsoleSendPreview _previewConsoleSend(
     String input,
     bool hexMode,
+    bool directSend,
     AppLocalizations l10n,
   ) {
-    final String value = input.trim();
-    if (value.isEmpty) {
+    final String value = directSend ? input : input.trim();
+    if (value.trim().isEmpty) {
       return _ConsoleSendPreview(error: l10n.emptyInput);
     }
     final List<int>? bytes = hexMode ? _parseHex(value) : utf8.encode(value);
     if (bytes == null) {
       return _ConsoleSendPreview(error: l10n.invalidHexInput);
+    }
+    if (directSend) {
+      return _ConsoleSendPreview(
+        payloadLength: bytes.length,
+        finalFrame: bytes,
+      );
     }
     final Workspace workspace = _workspaceManager.activeWorkspace;
     if (workspace.scriptConfig.enabled) {
@@ -2549,12 +2571,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _sendInput() {
-    final value = _inputController.text.trim();
-    if (value.isEmpty) return;
+    final value = _directSend
+        ? _inputController.text
+        : _inputController.text.trim();
+    if (value.trim().isEmpty) return;
     final bytes = _hexMode ? _parseHex(value) : utf8.encode(value);
     if (bytes == null) return;
     _inputController.clear();
-    unawaited(_send(bytes));
+    unawaited(_send(bytes, directSend: _directSend));
   }
 
   void _exportWorkspaces({required bool currentOnly}) {
@@ -2572,6 +2596,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 480),
             child: SingleChildScrollView(
+              padding: const EdgeInsets.only(right: 16),
               child: shad.SelectableText(jsonText, style: AppFonts.monoStyle),
             ),
           ),
@@ -2615,6 +2640,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 500),
               child: SingleChildScrollView(
+                padding: const EdgeInsets.only(right: 16),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2790,6 +2816,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 mode == WorkspaceImportMode.replace ? '确认替换' : '确认导入',
               ),
             ),
+            const SizedBox(width: 8),
           ],
         ),
       ),
@@ -2841,6 +2868,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 480),
             child: SingleChildScrollView(
+              padding: const EdgeInsets.only(right: 16),
               child: shad.SelectableText(jsonText, style: AppFonts.monoStyle),
             ),
           ),
@@ -2923,6 +2951,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           _scriptSendRateLimiter.reset();
                           _pendingReceiveEvents.clear();
                           _monitoredValues.clear();
+                          _directSend = false;
                           _workspaceManager.setActiveWorkspace(workspaceId);
                           _persistWorkspaces();
                         });
@@ -3047,11 +3076,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
                 });
               },
+              directSend: _directSend,
+              onDirectSendChanged: (value) =>
+                  setState(() => _directSend = value),
               onSend: _sendInput,
               canSend: _selectedDevice?.connected == true && _hasWriteTarget,
               sendDisabledReason: _consoleSendDisabledReason(l10n),
-              sendPreview: (String input, bool hexMode) =>
-                  _previewConsoleSend(input, hexMode, l10n),
+              sendPreview: (String input, bool hexMode, bool directSend) =>
+                  _previewConsoleSend(input, hexMode, directSend, l10n),
               writeTarget: _characteristics
                   .where((item) => item.isWriteTarget)
                   .map((item) => item.characteristicId)

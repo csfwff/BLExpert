@@ -223,6 +223,8 @@ class _ConsoleArea extends StatelessWidget {
     required this.inputFocusNode,
     required this.hexMode,
     required this.onModeChanged,
+    required this.directSend,
+    required this.onDirectSendChanged,
     required this.onSend,
     required this.canSend,
     required this.sendDisabledReason,
@@ -250,10 +252,17 @@ class _ConsoleArea extends StatelessWidget {
   final FocusNode inputFocusNode;
   final bool hexMode;
   final ValueChanged<bool> onModeChanged;
+  final bool directSend;
+  final ValueChanged<bool> onDirectSendChanged;
   final VoidCallback onSend;
   final bool canSend;
   final String? sendDisabledReason;
-  final _ConsoleSendPreview Function(String input, bool hexMode) sendPreview;
+  final _ConsoleSendPreview Function(
+    String input,
+    bool hexMode,
+    bool directSend,
+  )
+  sendPreview;
   final String? writeTarget;
   final bool characteristicsOpen;
   final ValueChanged<bool> onCharacteristicsVisibilityChanged;
@@ -438,6 +447,7 @@ class _ConsoleArea extends StatelessWidget {
             final _ConsoleSendPreview preview = sendPreview(
               input.text,
               hexMode,
+              directSend,
             );
             final String? inputReason =
                 preview.error ??
@@ -583,6 +593,30 @@ class _ConsoleArea extends StatelessWidget {
                                     vertical: 3,
                                   ),
                                   itemHeight: 28,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ToolTooltip(
+                                message: l10n.directSendHint,
+                                child: Row(
+                                  key: const ValueKey<String>(
+                                    'console-direct-send-toggle',
+                                  ),
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    ToolSwitch(
+                                      value: directSend,
+                                      onChanged: onDirectSendChanged,
+                                      label: l10n.directSend,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      l10n.directSend,
+                                      style: compactControlText,
+                                      maxLines: 1,
+                                      softWrap: false,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],

@@ -215,6 +215,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendData => 'Send data';
 
   @override
+  String get directSend => 'Direct send';
+
+  @override
+  String get directSendHint =>
+      'When enabled, protocol framing and the before-send script are skipped. The parsed input bytes are sent directly; device send policies still apply.';
+
+  @override
   String sendUnavailable(String reason) {
     return 'Sending unavailable: $reason';
   }

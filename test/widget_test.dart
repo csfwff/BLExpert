@@ -726,6 +726,9 @@ void main() {
     final Finder lineEnding = find.byKey(
       const ValueKey<String>('console-line-ending'),
     );
+    final Finder directSend = find.byKey(
+      const ValueKey<String>('console-direct-send-toggle'),
+    );
 
     expect(tester.getSize(input).height, 36);
     expect(tester.getSize(sendButton), const Size(100, 36));
@@ -755,6 +758,10 @@ void main() {
     expect(lineEndingRect.width, 96);
     expect(modeToggleRect.center.dy, closeTo(lineEndingRect.center.dy, 2));
     expect(modeToggleRect.width, lessThan(140));
+    expect(
+      find.ancestor(of: directSend, matching: find.byType(ToolTooltip)),
+      findsOneWidget,
+    );
     final Text modeLabel = tester.widget<Text>(
       find.descendant(of: modeToggle, matching: find.text('HEX')),
     );
@@ -2964,5 +2971,53 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('"commandName": "诊断命令"'), findsOneWidget);
     expect(find.textContaining('"transactionId": "tx-'), findsOneWidget);
+  });
+
+  testWidgets('direct send bypasses protocol framing', (
+    WidgetTester tester,
+  ) async {
+    final MockBluetoothService bluetoothService = MockBluetoothService();
+    await pumpDesktopApp(tester, bluetoothService: bluetoothService);
+
+    await tester.tap(find.byKey(const ValueKey<String>('workspace-selector')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('导入工作区'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(shad.TextField).last,
+      '{"version":2,"activeWorkspaceId":"direct-send","workspaces":[{"id":"direct-send","name":"direct-send","protocol":{"name":"header-protocol","description":"","sendSegments":[{"id":"header","type":"fixedHex","label":"Header","fixedHex":"A1"},{"id":"payload","type":"payload","label":"Payload"}],"receiveSegments":[]}}]}',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ToolButton, '检查导入'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ToolButton, '确认替换'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('connection-action-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Write'));
+    await tester.pumpAndSettle();
+
+    final Finder input = find.byKey(const ValueKey<String>('console-input'));
+    final Finder sendButton = find.byKey(
+      const ValueKey<String>('console-send-button'),
+    );
+    await tester.enterText(input, 'AA');
+    await tester.pump();
+    await tester.tap(sendButton);
+    await tester.pumpAndSettle();
+    expect(bluetoothService.sentPackets.last, <int>[0xA1, 0xAA]);
+
+    await tester.enterText(input, 'BB');
+    await tester.tap(
+      find.byKey(const ValueKey<String>('console-direct-send-toggle')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(sendButton);
+    await tester.pumpAndSettle();
+    expect(bluetoothService.sentPackets.last, <int>[0xBB]);
   });
 }

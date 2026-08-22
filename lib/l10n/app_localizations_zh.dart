@@ -214,6 +214,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sendData => '发送数据';
 
   @override
+  String get directSend => '直接发送';
+
+  @override
+  String get directSendHint =>
+      '开启后将跳过协议封包和发送前脚本，按当前模式解析后的输入字节会直接发送；设备发送策略仍然有效。';
+
+  @override
   String sendUnavailable(String reason) {
     return '暂不可发送：$reason';
   }

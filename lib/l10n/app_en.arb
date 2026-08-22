@@ -89,6 +89,8 @@
   ,"clear": "Clear"
   ,"autoScroll": "Auto-scroll"
   ,"sendData": "Send data"
+  ,"directSend": "Direct send"
+  ,"directSendHint": "When enabled, protocol framing and the before-send script are skipped. The parsed input bytes are sent directly; device send policies still apply."
   ,"sendUnavailable": "Sending unavailable: {reason}"
   ,"@sendUnavailable": {"placeholders": {"reason": {"type": "String"}}}
   ,"noWriteTargetSelected": "No writable characteristic selected"

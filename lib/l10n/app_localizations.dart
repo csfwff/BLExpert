@@ -476,6 +476,18 @@ abstract class AppLocalizations {
   /// **'Send data'**
   String get sendData;
 
+  /// No description provided for @directSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct send'**
+  String get directSend;
+
+  /// No description provided for @directSendHint.
+  ///
+  /// In en, this message translates to:
+  /// **'When enabled, protocol framing and the before-send script are skipped. The parsed input bytes are sent directly; device send policies still apply.'**
+  String get directSendHint;
+
   /// No description provided for @sendUnavailable.
   ///
   /// In en, this message translates to:
