@@ -100,7 +100,7 @@ void main() {
 
     expect(find.text('BLExpert'), findsWidgets);
     expect(find.text('未知设备'), findsNothing);
-    expect(find.text('默认工作区'), findsOneWidget);
+    expect(find.text('默认工作区'), findsWidgets);
     expect(find.text('控制台'), findsOneWidget);
     expect(find.text('当前上下文'), findsOneWidget);
     expect(find.text('调试'), findsOneWidget);
@@ -2297,6 +2297,55 @@ void main() {
       isTrue,
     );
     expect(find.text('固定 HEX'), findsWidgets);
+  });
+
+  testWidgets('AI 协议候选需先检查并进入独立审查流程', (WidgetTester tester) async {
+    final MockBluetoothService bluetoothService = MockBluetoothService();
+    await pumpDesktopApp(tester, bluetoothService: bluetoothService);
+    await selectAppMode(tester, 'configure');
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('protocol-candidate-import-button')),
+    );
+    await tester.pumpAndSettle();
+    const String candidateJson = '''
+{
+  "id": "widget-job",
+  "schemaVersion": 1,
+  "source": {"name": "fixture", "hash": "sha256:fixture", "importedAt": "2026-08-22T00:00:00.000Z"},
+  "evidence": [{"id": "e1", "excerpt": "状态查询", "location": "1", "sourceHash": "sha256:fixture"}],
+  "questions": [],
+  "candidateWorkspace": {
+    "metadata": {"id": "metadata", "value": {"name": "AI 草案", "deviceModel": "Meter", "description": "", "tags": []}, "evidenceRefs": ["e1"], "confidence": "high", "assumptions": [], "riskLevel": "normal", "reviewStatus": "accepted"},
+    "devices": [],
+    "protocols": [{"id": "protocol", "value": {"name": "主协议", "description": "", "sendSegments": [{"id": "payload", "type": "payload", "label": "Payload"}], "receiveSegments": []}, "evidenceRefs": ["e1"], "confidence": "high", "assumptions": [], "riskLevel": "normal", "reviewStatus": "accepted"}],
+    "commands": [],
+    "responseMappings": [],
+    "scripts": []
+  },
+  "status": "created"
+}''';
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('protocol-candidate-json-field')),
+      candidateJson,
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('protocol-candidate-check-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('当前状态 可生成草案'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('protocol-candidate-review-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('审查协议候选草案'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ToolButton, '稍后继续'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('默认工作区'), findsWidgets);
+    expect(bluetoothService.sentPackets, isEmpty);
   });
 
   testWidgets('连接后可选择写入与订阅特征', (WidgetTester tester) async {

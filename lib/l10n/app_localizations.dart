@@ -1573,6 +1573,156 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Response {name} (CMD {command}): {values}'**
   String responseLog(String name, String command, String values);
+
+  /// No description provided for @protocolCandidateImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import AI protocol candidate'**
+  String get protocolCandidateImport;
+
+  /// No description provided for @protocolCandidateImportHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Only candidate JSON is imported. A new draft workspace is created after validation and item-by-item review.'**
+  String get protocolCandidateImportHint;
+
+  /// No description provided for @protocolCandidateP0Notice.
+  ///
+  /// In en, this message translates to:
+  /// **'P0 accepts manually constructed candidate JSON only; it does not call a model or device.'**
+  String get protocolCandidateP0Notice;
+
+  /// No description provided for @protocolCandidateJson.
+  ///
+  /// In en, this message translates to:
+  /// **'Candidate draft JSON'**
+  String get protocolCandidateJson;
+
+  /// No description provided for @checkCandidate.
+  ///
+  /// In en, this message translates to:
+  /// **'Check candidate'**
+  String get checkCandidate;
+
+  /// No description provided for @enterReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get enterReview;
+
+  /// No description provided for @reviewProtocolCandidate.
+  ///
+  /// In en, this message translates to:
+  /// **'Review protocol candidate'**
+  String get reviewProtocolCandidate;
+
+  /// No description provided for @reviewLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue later'**
+  String get reviewLater;
+
+  /// No description provided for @revalidate.
+  ///
+  /// In en, this message translates to:
+  /// **'Revalidate'**
+  String get revalidate;
+
+  /// No description provided for @createDraftWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Create draft workspace'**
+  String get createDraftWorkspace;
+
+  /// No description provided for @candidateDraftCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'A new AI import draft workspace was created. Scripts remain disabled.'**
+  String get candidateDraftCreated;
+
+  /// No description provided for @candidateCurrentWorkspaceSafe.
+  ///
+  /// In en, this message translates to:
+  /// **'The current workspace will not be overwritten, and no device connection or write occurs.'**
+  String get candidateCurrentWorkspaceSafe;
+
+  /// No description provided for @candidateRequiresReview.
+  ///
+  /// In en, this message translates to:
+  /// **'This does not change the current workspace; the next step only opens an isolated review task.'**
+  String get candidateRequiresReview;
+
+  /// No description provided for @candidateStatusCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending validation'**
+  String get candidateStatusCreated;
+
+  /// No description provided for @candidateStatusReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending review'**
+  String get candidateStatusReview;
+
+  /// No description provided for @candidateStatusBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked'**
+  String get candidateStatusBlocked;
+
+  /// No description provided for @candidateStatusReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to create draft'**
+  String get candidateStatusReady;
+
+  /// No description provided for @candidateStatusApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft created'**
+  String get candidateStatusApplied;
+
+  /// No description provided for @candidateAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get candidateAccept;
+
+  /// No description provided for @candidateReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get candidateReject;
+
+  /// No description provided for @candidateEvidence.
+  ///
+  /// In en, this message translates to:
+  /// **'Evidence: {value}'**
+  String candidateEvidence(String value);
+
+  /// No description provided for @candidateAssumptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Assumptions: {value}'**
+  String candidateAssumptions(String value);
+
+  /// No description provided for @editCandidateJson.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit candidate JSON'**
+  String get editCandidateJson;
+
+  /// No description provided for @updateCandidate.
+  ///
+  /// In en, this message translates to:
+  /// **'Check and update'**
+  String get updateCandidate;
+
+  /// No description provided for @resumeCandidateReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume unfinished review'**
+  String get resumeCandidateReview;
 }
 
 class _AppLocalizationsDelegate

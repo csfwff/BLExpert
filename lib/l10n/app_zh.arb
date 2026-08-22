@@ -286,5 +286,32 @@
   ,"commandLog": "指令 {name}: {parameters}"
   ,"@commandLog": {"placeholders": {"name": {"type": "String"}, "parameters": {"type": "String"}}}
   ,"responseLog": "响应 {name}（CMD {command}）: {values}"
+  ,"protocolCandidateImport": "导入 AI 协议候选草案"
+  ,"protocolCandidateImportHint": "仅导入候选 JSON；需完成校验与逐项审查后才会创建新的草案工作区。"
+  ,"protocolCandidateP0Notice": "P0 仅接受人工构造的候选 JSON，不调用模型或设备。"
+  ,"protocolCandidateJson": "候选草案 JSON"
+  ,"checkCandidate": "检查候选"
+  ,"enterReview": "进入审查"
+  ,"reviewProtocolCandidate": "审查协议候选草案"
+  ,"reviewLater": "稍后继续"
+  ,"revalidate": "重新校验"
+  ,"createDraftWorkspace": "生成草案工作区"
+  ,"candidateDraftCreated": "已创建新的 AI 导入草案工作区；脚本保持禁用。"
+  ,"candidateCurrentWorkspaceSafe": "当前工作区不会被覆盖，也不会连接或发送设备数据。"
+  ,"candidateRequiresReview": "此操作不会修改当前工作区；下一步仅进入独立审查任务。"
+  ,"candidateStatusCreated": "待校验"
+  ,"candidateStatusReview": "待审查"
+  ,"candidateStatusBlocked": "已阻止"
+  ,"candidateStatusReady": "可生成草案"
+  ,"candidateStatusApplied": "已生成草案"
+  ,"candidateAccept": "接受"
+  ,"candidateReject": "拒绝"
+  ,"candidateEvidence": "证据：{value}"
+  ,"@candidateEvidence": {"placeholders": {"value": {"type": "String"}}}
+  ,"candidateAssumptions": "假设：{value}"
+  ,"@candidateAssumptions": {"placeholders": {"value": {"type": "String"}}}
+  ,"editCandidateJson": "编辑候选 JSON"
+  ,"updateCandidate": "检查并更新"
+  ,"resumeCandidateReview": "继续未完成审查"
   ,"@responseLog": {"placeholders": {"name": {"type": "String"}, "command": {"type": "String"}, "values": {"type": "String"}}}
 }

@@ -815,4 +815,88 @@ class AppLocalizationsEn extends AppLocalizations {
   String responseLog(String name, String command, String values) {
     return 'Response $name (CMD $command): $values';
   }
+
+  @override
+  String get protocolCandidateImport => 'Import AI protocol candidate';
+
+  @override
+  String get protocolCandidateImportHint =>
+      'Only candidate JSON is imported. A new draft workspace is created after validation and item-by-item review.';
+
+  @override
+  String get protocolCandidateP0Notice =>
+      'P0 accepts manually constructed candidate JSON only; it does not call a model or device.';
+
+  @override
+  String get protocolCandidateJson => 'Candidate draft JSON';
+
+  @override
+  String get checkCandidate => 'Check candidate';
+
+  @override
+  String get enterReview => 'Review';
+
+  @override
+  String get reviewProtocolCandidate => 'Review protocol candidate';
+
+  @override
+  String get reviewLater => 'Continue later';
+
+  @override
+  String get revalidate => 'Revalidate';
+
+  @override
+  String get createDraftWorkspace => 'Create draft workspace';
+
+  @override
+  String get candidateDraftCreated =>
+      'A new AI import draft workspace was created. Scripts remain disabled.';
+
+  @override
+  String get candidateCurrentWorkspaceSafe =>
+      'The current workspace will not be overwritten, and no device connection or write occurs.';
+
+  @override
+  String get candidateRequiresReview =>
+      'This does not change the current workspace; the next step only opens an isolated review task.';
+
+  @override
+  String get candidateStatusCreated => 'Pending validation';
+
+  @override
+  String get candidateStatusReview => 'Pending review';
+
+  @override
+  String get candidateStatusBlocked => 'Blocked';
+
+  @override
+  String get candidateStatusReady => 'Ready to create draft';
+
+  @override
+  String get candidateStatusApplied => 'Draft created';
+
+  @override
+  String get candidateAccept => 'Accept';
+
+  @override
+  String get candidateReject => 'Reject';
+
+  @override
+  String candidateEvidence(String value) {
+    return 'Evidence: $value';
+  }
+
+  @override
+  String candidateAssumptions(String value) {
+    return 'Assumptions: $value';
+  }
+
+  @override
+  String get editCandidateJson => 'Edit candidate JSON';
+
+  @override
+  String get updateCandidate => 'Check and update';
+
+  @override
+  String get resumeCandidateReview => 'Resume unfinished review';
 }

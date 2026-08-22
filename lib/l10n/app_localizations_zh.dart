@@ -796,4 +796,84 @@ class AppLocalizationsZh extends AppLocalizations {
   String responseLog(String name, String command, String values) {
     return '响应 $name（CMD $command）: $values';
   }
+
+  @override
+  String get protocolCandidateImport => '导入 AI 协议候选草案';
+
+  @override
+  String get protocolCandidateImportHint =>
+      '仅导入候选 JSON；需完成校验与逐项审查后才会创建新的草案工作区。';
+
+  @override
+  String get protocolCandidateP0Notice => 'P0 仅接受人工构造的候选 JSON，不调用模型或设备。';
+
+  @override
+  String get protocolCandidateJson => '候选草案 JSON';
+
+  @override
+  String get checkCandidate => '检查候选';
+
+  @override
+  String get enterReview => '进入审查';
+
+  @override
+  String get reviewProtocolCandidate => '审查协议候选草案';
+
+  @override
+  String get reviewLater => '稍后继续';
+
+  @override
+  String get revalidate => '重新校验';
+
+  @override
+  String get createDraftWorkspace => '生成草案工作区';
+
+  @override
+  String get candidateDraftCreated => '已创建新的 AI 导入草案工作区；脚本保持禁用。';
+
+  @override
+  String get candidateCurrentWorkspaceSafe => '当前工作区不会被覆盖，也不会连接或发送设备数据。';
+
+  @override
+  String get candidateRequiresReview => '此操作不会修改当前工作区；下一步仅进入独立审查任务。';
+
+  @override
+  String get candidateStatusCreated => '待校验';
+
+  @override
+  String get candidateStatusReview => '待审查';
+
+  @override
+  String get candidateStatusBlocked => '已阻止';
+
+  @override
+  String get candidateStatusReady => '可生成草案';
+
+  @override
+  String get candidateStatusApplied => '已生成草案';
+
+  @override
+  String get candidateAccept => '接受';
+
+  @override
+  String get candidateReject => '拒绝';
+
+  @override
+  String candidateEvidence(String value) {
+    return '证据：$value';
+  }
+
+  @override
+  String candidateAssumptions(String value) {
+    return '假设：$value';
+  }
+
+  @override
+  String get editCandidateJson => '编辑候选 JSON';
+
+  @override
+  String get updateCandidate => '检查并更新';
+
+  @override
+  String get resumeCandidateReview => '继续未完成审查';
 }

@@ -24,6 +24,9 @@ import '../../models/data_mapping.dart';
 import '../../models/device_profile.dart';
 import '../../models/device_safety_policy.dart';
 import '../../models/protocol_profile.dart';
+import '../../models/protocol_import/candidate_item.dart';
+import '../../models/protocol_import/protocol_import_job.dart';
+import '../../models/protocol_import/validation_report.dart';
 import '../../models/script_config.dart';
 import '../../models/session_log_record.dart';
 import '../../models/workspace.dart';
@@ -37,6 +40,8 @@ import '../../services/script_engine.dart';
 import '../../services/send_safety_policy.dart';
 import '../../services/session_log_store.dart';
 import '../../services/workspace_manager.dart';
+import '../../services/protocol_import/candidate_workspace_codec.dart';
+import '../../services/protocol_import/workspace_draft_manager.dart';
 import '../../utils/ascii_utils.dart';
 import '../../utils/web_service_uuid_parser.dart';
 
@@ -46,6 +51,7 @@ part '../configuration/configuration_workspace.dart';
 part '../configuration/data_mapping_library_panel.dart';
 part '../configuration/default_scripts.dart';
 part '../configuration/protocol_configuration_panel.dart';
+part '../configuration/protocol_import_review.dart';
 part '../configuration/workspace_overview.dart';
 part '../debug/console_area.dart';
 part '../debug/console_filter_bar.dart';
@@ -69,6 +75,15 @@ class _WorkspaceImportDecision {
   final String jsonText;
   final WorkspaceImportMode mode;
   final WorkspaceConflictPolicy conflictPolicy;
+}
+
+class _ProtocolCandidateImportDecision {
+  const _ProtocolCandidateImportDecision.import(this.jsonText) : jobId = null;
+
+  const _ProtocolCandidateImportDecision.resume(this.jobId) : jsonText = null;
+
+  final String? jsonText;
+  final String? jobId;
 }
 
 enum _ConnectionOperation { connect, disconnect }
@@ -97,6 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const int _maxConsoleLogs = SessionLogStore.maxRecords;
   static const int _maxPendingReceiveEvents = 64;
   late final WorkspaceManager _workspaceManager;
+  late final WorkspaceDraftManager _workspaceDraftManager;
   late final SessionLogStore _sessionLogStore;
   late final BluetoothService _bluetoothService;
   late final ScriptEngineService _scriptEngine;
@@ -147,6 +163,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _workspaceManager = WorkspaceManager();
     unawaited(_restoreWorkspaces());
+    _workspaceDraftManager = WorkspaceDraftManager();
+    unawaited(_restoreWorkspaceDrafts());
     _sessionLogStore = SessionLogStore();
     unawaited(_restoreSessionLogs());
     _scriptEngine = ScriptEngineService();
@@ -350,6 +368,30 @@ class _HomeScreenState extends State<HomeScreen> {
   void _upsertWorkspace(Workspace workspace) {
     _workspaceManager.upsertWorkspace(workspace);
     _persistWorkspaces();
+  }
+
+  void _activateImportedDraftWorkspace(Workspace workspace) {
+    setState(() => _upsertWorkspace(workspace));
+  }
+
+  Future<void> _restoreWorkspaceDrafts() async {
+    try {
+      await _workspaceDraftManager.load();
+    } on Object catch (error) {
+      if (mounted) {
+        _addSystemLog('协议导入草案恢复失败：$error');
+      }
+    }
+  }
+
+  void _persistWorkspaceDrafts() {
+    unawaited(
+      _workspaceDraftManager.save().catchError((Object error) {
+        if (mounted) {
+          _addSystemLog('协议导入草案保存失败：$error');
+        }
+      }),
+    );
   }
 
   Future<void> _watchSelectedIncomingData() async {
@@ -2588,7 +2630,7 @@ class _HomeScreenState extends State<HomeScreen> {
         : _workspaceManager.exportWorkspaces();
     showToolDialog<void>(
       context: context,
-      builder: (BuildContext context) => ToolAlertDialog(
+      builder: (BuildContext dialogContext) => ToolAlertDialog(
         icon: AppIcons.uploadFile,
         title: title,
         content: SizedBox(
@@ -2603,13 +2645,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: <Widget>[
           ToolButton.ghost(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('关闭'),
           ),
           ToolButton.primary(
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: jsonText));
-              if (context.mounted) {
+              if (mounted) {
                 showToolToast(context, '$title JSON 已复制。');
               }
             },
@@ -3142,6 +3184,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onNewResponseMapping: () => _editResponseMapping(),
               onEditResponseMapping: _editResponseMapping,
               onDeleteResponseMapping: _deleteResponseMapping,
+              onImportProtocolCandidate: _importProtocolCandidate,
               l10n: l10n,
             ),
             recordPane: _RecordWorkspace(

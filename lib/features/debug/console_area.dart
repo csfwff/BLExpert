@@ -598,25 +598,30 @@ class _ConsoleArea extends StatelessWidget {
                               const SizedBox(width: 8),
                               ToolTooltip(
                                 message: l10n.directSendHint,
-                                child: Row(
+                                child: ToolClickableRow(
                                   key: const ValueKey<String>(
                                     'console-direct-send-toggle',
                                   ),
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: <Widget>[
-                                    ToolSwitch(
-                                      value: directSend,
-                                      onChanged: onDirectSendChanged,
-                                      label: l10n.directSend,
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      l10n.directSend,
-                                      style: compactControlText,
-                                      maxLines: 1,
-                                      softWrap: false,
-                                    ),
-                                  ],
+                                  onPressed: () =>
+                                      onDirectSendChanged(!directSend),
+                                  padding: EdgeInsets.zero,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      ToolSwitch(
+                                        value: directSend,
+                                        onChanged: onDirectSendChanged,
+                                        label: l10n.directSend,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        l10n.directSend,
+                                        style: compactControlText,
+                                        maxLines: 1,
+                                        softWrap: false,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],

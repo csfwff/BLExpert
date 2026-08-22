@@ -16,6 +16,7 @@ class _ConfigurationWorkspace extends StatefulWidget {
     required this.onNewResponseMapping,
     required this.onEditResponseMapping,
     required this.onDeleteResponseMapping,
+    required this.onImportProtocolCandidate,
     required this.l10n,
   });
 
@@ -33,6 +34,7 @@ class _ConfigurationWorkspace extends StatefulWidget {
   final VoidCallback onNewResponseMapping;
   final ValueChanged<ResponseMapping> onEditResponseMapping;
   final ValueChanged<ResponseMapping> onDeleteResponseMapping;
+  final VoidCallback onImportProtocolCandidate;
   final AppLocalizations l10n;
 
   @override
@@ -49,6 +51,7 @@ class _ConfigurationWorkspaceState extends State<_ConfigurationWorkspace> {
       _WorkspaceOverview(
         workspace: widget.workspace,
         onChanged: widget.onWorkspaceChanged,
+        onImportProtocolCandidate: widget.onImportProtocolCandidate,
         l10n: widget.l10n,
       ),
       _ProtocolConfigurationPanel(

@@ -4,11 +4,13 @@ class _WorkspaceOverview extends StatefulWidget {
   const _WorkspaceOverview({
     required this.workspace,
     required this.onChanged,
+    required this.onImportProtocolCandidate,
     required this.l10n,
   });
 
   final Workspace workspace;
   final ValueChanged<Workspace> onChanged;
+  final VoidCallback onImportProtocolCandidate;
   final AppLocalizations l10n;
 
   @override
@@ -183,6 +185,26 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
                       ],
                     );
                   },
+                ),
+                const SizedBox(height: 18),
+                const shad.Divider(height: 24),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ToolButton.outline(
+                    key: const ValueKey<String>(
+                      'protocol-candidate-import-button',
+                    ),
+                    onPressed: widget.onImportProtocolCandidate,
+                    leading: const Icon(AppIcons.autoFix),
+                    compact: true,
+                    height: 34,
+                    child: Text(widget.l10n.protocolCandidateImport),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.l10n.protocolCandidateImportHint,
+                  style: AppTheme.textStylesOf(context).bodySmall,
                 ),
                 const SizedBox(height: 18),
                 Align(

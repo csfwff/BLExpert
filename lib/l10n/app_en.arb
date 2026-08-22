@@ -286,5 +286,32 @@
   ,"commandLog": "Command {name}: {parameters}"
   ,"@commandLog": {"placeholders": {"name": {"type": "String"}, "parameters": {"type": "String"}}}
   ,"responseLog": "Response {name} (CMD {command}): {values}"
+  ,"protocolCandidateImport": "Import AI protocol candidate"
+  ,"protocolCandidateImportHint": "Only candidate JSON is imported. A new draft workspace is created after validation and item-by-item review."
+  ,"protocolCandidateP0Notice": "P0 accepts manually constructed candidate JSON only; it does not call a model or device."
+  ,"protocolCandidateJson": "Candidate draft JSON"
+  ,"checkCandidate": "Check candidate"
+  ,"enterReview": "Review"
+  ,"reviewProtocolCandidate": "Review protocol candidate"
+  ,"reviewLater": "Continue later"
+  ,"revalidate": "Revalidate"
+  ,"createDraftWorkspace": "Create draft workspace"
+  ,"candidateDraftCreated": "A new AI import draft workspace was created. Scripts remain disabled."
+  ,"candidateCurrentWorkspaceSafe": "The current workspace will not be overwritten, and no device connection or write occurs."
+  ,"candidateRequiresReview": "This does not change the current workspace; the next step only opens an isolated review task."
+  ,"candidateStatusCreated": "Pending validation"
+  ,"candidateStatusReview": "Pending review"
+  ,"candidateStatusBlocked": "Blocked"
+  ,"candidateStatusReady": "Ready to create draft"
+  ,"candidateStatusApplied": "Draft created"
+  ,"candidateAccept": "Accept"
+  ,"candidateReject": "Reject"
+  ,"candidateEvidence": "Evidence: {value}"
+  ,"@candidateEvidence": {"placeholders": {"value": {"type": "String"}}}
+  ,"candidateAssumptions": "Assumptions: {value}"
+  ,"@candidateAssumptions": {"placeholders": {"value": {"type": "String"}}}
+  ,"editCandidateJson": "Edit candidate JSON"
+  ,"updateCandidate": "Check and update"
+  ,"resumeCandidateReview": "Resume unfinished review"
   ,"@responseLog": {"placeholders": {"name": {"type": "String"}, "command": {"type": "String"}, "values": {"type": "String"}}}
 }
