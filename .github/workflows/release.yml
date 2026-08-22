@@ -1,0 +1,216 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# A tag such as v1.2.3 creates the GitHub Release and deploys its web build.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - name: Parse semantic version
+        id: version
+        shell: bash
+        run: |
+          tag_name="${GITHUB_REF_NAME}"
+          version="${tag_name#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tags must be v<major>.<minor>.<patch>, received: $tag_name" >&2
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+  android:
+    name: Build Android
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build APK
+        run: >-
+          flutter build apk --release
+          --build-name=${{ needs.prepare.outputs.version }}
+          --build-number=${{ github.run_number }}
+          --dart-define=APP_VERSION=${{ needs.prepare.outputs.version }}
+      - name: Package APK
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "dist/blexpert-${{ needs.prepare.outputs.version }}-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blexpert-android
+          path: dist/*.apk
+          if-no-files-found: error
+
+  windows:
+    name: Build Windows
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build Windows application
+        run: >-
+          flutter build windows --release
+          --build-name=${{ needs.prepare.outputs.version }}
+          --build-number=${{ github.run_number }}
+          --dart-define=APP_VERSION=${{ needs.prepare.outputs.version }}
+      - name: Package Windows application
+        shell: pwsh
+        run: |
+          $archive = "dist/blexpert-${{ needs.prepare.outputs.version }}-windows.zip"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath $archive
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blexpert-windows
+          path: dist/*.zip
+          if-no-files-found: error
+
+  macos:
+    name: Build macOS
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build macOS application
+        run: >-
+          flutter build macos --release
+          --build-name=${{ needs.prepare.outputs.version }}
+          --build-number=${{ github.run_number }}
+          --dart-define=APP_VERSION=${{ needs.prepare.outputs.version }}
+      - name: Package macOS application
+        shell: bash
+        run: |
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/macos/Build/Products/Release/blexpert.app \
+            "dist/blexpert-${{ needs.prepare.outputs.version }}-macos.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blexpert-macos
+          path: dist/*.zip
+          if-no-files-found: error
+
+  linux:
+    name: Build Linux
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build Linux application
+        run: >-
+          flutter build linux --release
+          --build-name=${{ needs.prepare.outputs.version }}
+          --build-number=${{ github.run_number }}
+          --dart-define=APP_VERSION=${{ needs.prepare.outputs.version }}
+      - name: Package Linux application
+        shell: bash
+        run: |
+          mkdir -p dist
+          tar -C build/linux/x64/release -czf \
+            "dist/blexpert-${{ needs.prepare.outputs.version }}-linux.tar.gz" bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blexpert-linux
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  pages:
+    name: Deploy Web to GitHub Pages
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: configure-pages
+        uses: actions/configure-pages@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build web application
+        run: >-
+          flutter build web --release
+          --base-href="${{ steps.configure-pages.outputs.base_path }}/"
+          --dart-define=APP_VERSION=${{ needs.prepare.outputs.version }}
+      # Keep the desired custom-domain declaration in every Pages deployment.
+      # The DNS record and GitHub Pages setting still need to be configured once.
+      - name: Add custom-domain declaration
+        run: echo "blexpert.sszsj.com" > build/web/CNAME
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  github-release:
+    name: Publish GitHub Release
+    needs:
+      - prepare
+      - android
+      - windows
+      - macos
+      - linux
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: blexpert-*
+          merge-multiple: true
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-assets/*
