@@ -2299,6 +2299,29 @@ void main() {
     expect(find.text('固定 HEX'), findsWidgets);
   });
 
+  testWidgets('P1 协议文本导入显示安全模型与文本输入', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+    await selectAppMode(tester, 'configure');
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('protocol-text-import-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('从协议文本生成候选'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey<String>('protocol-import-api-key')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('protocol-import-source-text')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('安全存储'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ToolButton, '取消'));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('AI 协议候选需先检查并进入独立审查流程', (WidgetTester tester) async {
     final MockBluetoothService bluetoothService = MockBluetoothService();
     await pumpDesktopApp(tester, bluetoothService: bluetoothService);

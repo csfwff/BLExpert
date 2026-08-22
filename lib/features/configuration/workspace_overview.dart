@@ -5,12 +5,14 @@ class _WorkspaceOverview extends StatefulWidget {
     required this.workspace,
     required this.onChanged,
     required this.onImportProtocolCandidate,
+    required this.onImportProtocolText,
     required this.l10n,
   });
 
   final Workspace workspace;
   final ValueChanged<Workspace> onChanged;
   final VoidCallback onImportProtocolCandidate;
+  final VoidCallback onImportProtocolText;
   final AppLocalizations l10n;
 
   @override
@@ -190,20 +192,36 @@ class _WorkspaceOverviewState extends State<_WorkspaceOverview> {
                 const shad.Divider(height: 24),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: ToolButton.outline(
-                    key: const ValueKey<String>(
-                      'protocol-candidate-import-button',
-                    ),
-                    onPressed: widget.onImportProtocolCandidate,
-                    leading: const Icon(AppIcons.autoFix),
-                    compact: true,
-                    height: 34,
-                    child: Text(widget.l10n.protocolCandidateImport),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      ToolButton.primary(
+                        key: const ValueKey<String>(
+                          'protocol-text-import-button',
+                        ),
+                        onPressed: widget.onImportProtocolText,
+                        leading: const Icon(AppIcons.autoFix),
+                        compact: true,
+                        height: 34,
+                        child: Text(widget.l10n.protocolTextImport),
+                      ),
+                      ToolButton.outline(
+                        key: const ValueKey<String>(
+                          'protocol-candidate-import-button',
+                        ),
+                        onPressed: widget.onImportProtocolCandidate,
+                        leading: const Icon(AppIcons.uploadFile),
+                        compact: true,
+                        height: 34,
+                        child: Text(widget.l10n.protocolCandidateImport),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  widget.l10n.protocolCandidateImportHint,
+                  widget.l10n.protocolTextImportHint,
                   style: AppTheme.textStylesOf(context).bodySmall,
                 ),
                 const SizedBox(height: 18),

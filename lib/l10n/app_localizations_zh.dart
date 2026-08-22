@@ -876,4 +876,23 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get resumeCandidateReview => '继续未完成审查';
+
+  @override
+  String get protocolTextImport => '从协议文本生成候选';
+
+  @override
+  String get protocolTextImportHint =>
+      '粘贴 TXT 或 Markdown，使用你的 OpenAI-compatible API Key 生成候选；结果仍需本地校验和逐项审查。';
+
+  @override
+  String get modelConnection => '模型连接';
+
+  @override
+  String get apiKey => 'API Key';
+
+  @override
+  String get generateCandidate => '生成候选';
+
+  @override
+  String get protocolSourceText => '协议文本';
 }

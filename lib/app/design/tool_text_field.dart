@@ -44,6 +44,7 @@ class ToolTextField extends StatelessWidget {
     this.placeholderStyle,
     this.inputFormatters,
     this.enabled = true,
+    this.obscureText = false,
     this.prefix,
     this.suffix,
     this.onChanged,
@@ -70,6 +71,7 @@ class ToolTextField extends StatelessWidget {
   final TextStyle? placeholderStyle;
   final List<TextInputFormatter>? inputFormatters;
   final bool enabled;
+  final bool obscureText;
   final Widget? prefix;
   final Widget? suffix;
   final ValueChanged<String>? onChanged;
@@ -109,6 +111,7 @@ class ToolTextField extends StatelessWidget {
         padding: padding ?? (hasInputIcon ? iconPadding : defaultPadding),
         inputFormatters: inputFormatters,
         enabled: enabled,
+        obscureText: obscureText,
         placeholder: hintText == null && showLabel
             ? null
             : Text(hintText ?? label, style: effectivePlaceholderStyle),

@@ -41,6 +41,9 @@ dependencies:
   flutter_web_bluetooth: ^1.1.0
   flutter_js: ^0.8.7
   shared_preferences: ^2.5.5
+  crypto: ^3.0.7
+  flutter_secure_storage: ^9.2.4
+  http: ^1.6.0
   shadcn_flutter: 0.0.53
 dev_dependencies:
   flutter_test:

@@ -899,4 +899,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get resumeCandidateReview => 'Resume unfinished review';
+
+  @override
+  String get protocolTextImport => 'Generate candidate from protocol text';
+
+  @override
+  String get protocolTextImportHint =>
+      'Paste TXT or Markdown and use your OpenAI-compatible API key. The result still requires local validation and item-by-item review.';
+
+  @override
+  String get modelConnection => 'Model connection';
+
+  @override
+  String get apiKey => 'API Key';
+
+  @override
+  String get generateCandidate => 'Generate candidate';
+
+  @override
+  String get protocolSourceText => 'Protocol text';
 }

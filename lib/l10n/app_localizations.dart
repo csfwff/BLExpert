@@ -1723,6 +1723,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Resume unfinished review'**
   String get resumeCandidateReview;
+
+  /// No description provided for @protocolTextImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate candidate from protocol text'**
+  String get protocolTextImport;
+
+  /// No description provided for @protocolTextImportHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste TXT or Markdown and use your OpenAI-compatible API key. The result still requires local validation and item-by-item review.'**
+  String get protocolTextImportHint;
+
+  /// No description provided for @modelConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Model connection'**
+  String get modelConnection;
+
+  /// No description provided for @apiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'API Key'**
+  String get apiKey;
+
+  /// No description provided for @generateCandidate.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate candidate'**
+  String get generateCandidate;
+
+  /// No description provided for @protocolSourceText.
+  ///
+  /// In en, this message translates to:
+  /// **'Protocol text'**
+  String get protocolSourceText;
 }
 
 class _AppLocalizationsDelegate

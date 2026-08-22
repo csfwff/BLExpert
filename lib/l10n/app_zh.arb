@@ -313,5 +313,11 @@
   ,"editCandidateJson": "编辑候选 JSON"
   ,"updateCandidate": "检查并更新"
   ,"resumeCandidateReview": "继续未完成审查"
+  ,"protocolTextImport": "从协议文本生成候选"
+  ,"protocolTextImportHint": "粘贴 TXT 或 Markdown，使用你的 OpenAI-compatible API Key 生成候选；结果仍需本地校验和逐项审查。"
+  ,"modelConnection": "模型连接"
+  ,"apiKey": "API Key"
+  ,"generateCandidate": "生成候选"
+  ,"protocolSourceText": "协议文本"
   ,"@responseLog": {"placeholders": {"name": {"type": "String"}, "command": {"type": "String"}, "values": {"type": "String"}}}
 }

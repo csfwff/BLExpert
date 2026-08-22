@@ -25,7 +25,9 @@ import '../../models/device_profile.dart';
 import '../../models/device_safety_policy.dart';
 import '../../models/protocol_profile.dart';
 import '../../models/protocol_import/candidate_item.dart';
+import '../../models/protocol_import/model_connection.dart';
 import '../../models/protocol_import/protocol_import_job.dart';
+import '../../models/protocol_import/protocol_text_document.dart';
 import '../../models/protocol_import/validation_report.dart';
 import '../../models/script_config.dart';
 import '../../models/session_log_record.dart';
@@ -41,6 +43,10 @@ import '../../services/send_safety_policy.dart';
 import '../../services/session_log_store.dart';
 import '../../services/workspace_manager.dart';
 import '../../services/protocol_import/candidate_workspace_codec.dart';
+import '../../services/protocol_import/model_connection_store.dart';
+import '../../services/protocol_import/model_credential_store.dart';
+import '../../services/protocol_import/openai_compatible_adapter.dart';
+import '../../services/protocol_import/protocol_ai_import_service.dart';
 import '../../services/protocol_import/workspace_draft_manager.dart';
 import '../../utils/ascii_utils.dart';
 import '../../utils/web_service_uuid_parser.dart';
@@ -52,6 +58,7 @@ part '../configuration/data_mapping_library_panel.dart';
 part '../configuration/default_scripts.dart';
 part '../configuration/protocol_configuration_panel.dart';
 part '../configuration/protocol_import_review.dart';
+part '../configuration/protocol_text_import.dart';
 part '../configuration/workspace_overview.dart';
 part '../debug/console_area.dart';
 part '../debug/console_filter_bar.dart';
@@ -113,9 +120,12 @@ class _HomeScreenState extends State<HomeScreen> {
   static const int _maxPendingReceiveEvents = 64;
   late final WorkspaceManager _workspaceManager;
   late final WorkspaceDraftManager _workspaceDraftManager;
+  late final ModelConnectionStore _modelConnectionStore;
+  late final ModelCredentialStore _modelCredentialStore;
   late final SessionLogStore _sessionLogStore;
   late final BluetoothService _bluetoothService;
   late final ScriptEngineService _scriptEngine;
+  List<ModelConnection> _modelConnections = <ModelConnection>[];
   final PacketEncoder _packetEncoder = PacketEncoder();
   final PacketDecoder _packetDecoder = PacketDecoder();
   final ScriptSendRateLimiter _scriptSendRateLimiter = ScriptSendRateLimiter();
@@ -165,6 +175,9 @@ class _HomeScreenState extends State<HomeScreen> {
     unawaited(_restoreWorkspaces());
     _workspaceDraftManager = WorkspaceDraftManager();
     unawaited(_restoreWorkspaceDrafts());
+    _modelConnectionStore = ModelConnectionStore();
+    _modelCredentialStore = ModelCredentialStore();
+    unawaited(_restoreModelConnections());
     _sessionLogStore = SessionLogStore();
     unawaited(_restoreSessionLogs());
     _scriptEngine = ScriptEngineService();
@@ -382,6 +395,37 @@ class _HomeScreenState extends State<HomeScreen> {
         _addSystemLog('协议导入草案恢复失败：$error');
       }
     }
+  }
+
+  Future<void> _restoreModelConnections() async {
+    try {
+      final List<ModelConnection> restored = await _modelConnectionStore.load();
+      if (mounted) setState(() => _modelConnections = restored);
+    } on Object catch (error) {
+      if (mounted) _addSystemLog('模型连接恢复失败：$error');
+    }
+  }
+
+  Future<void> _saveModelConnection(
+    ModelConnection connection,
+    String apiKey,
+  ) async {
+    final int index = _modelConnections.indexWhere(
+      (ModelConnection item) => item.id == connection.id,
+    );
+    final List<ModelConnection> updated = <ModelConnection>[
+      ..._modelConnections,
+    ];
+    if (index < 0) {
+      updated.add(connection);
+    } else {
+      updated[index] = connection;
+    }
+    if (apiKey.trim().isNotEmpty) {
+      await _modelCredentialStore.write(connection.id, apiKey);
+    }
+    await _modelConnectionStore.save(updated);
+    if (mounted) setState(() => _modelConnections = updated);
   }
 
   void _persistWorkspaceDrafts() {
@@ -3185,6 +3229,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onEditResponseMapping: _editResponseMapping,
               onDeleteResponseMapping: _deleteResponseMapping,
               onImportProtocolCandidate: _importProtocolCandidate,
+              onImportProtocolText: _importProtocolText,
               l10n: l10n,
             ),
             recordPane: _RecordWorkspace(

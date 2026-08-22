@@ -6,11 +6,17 @@ import 'package:blexpert/models/device_profile.dart';
 import 'package:blexpert/models/protocol_import/candidate_item.dart';
 import 'package:blexpert/models/protocol_import/candidate_workspace.dart';
 import 'package:blexpert/models/protocol_import/import_evidence.dart';
+import 'package:blexpert/models/protocol_import/model_connection.dart';
 import 'package:blexpert/models/protocol_import/protocol_import_job.dart';
+import 'package:blexpert/models/protocol_import/protocol_text_document.dart';
 import 'package:blexpert/models/protocol_profile.dart';
 import 'package:blexpert/models/script_config.dart';
 import 'package:blexpert/services/protocol_import/candidate_workspace_codec.dart';
 import 'package:blexpert/services/protocol_import/protocol_candidate_validator.dart';
+import 'package:blexpert/services/protocol_import/model_credential_store.dart';
+import 'package:blexpert/services/protocol_import/model_connection_store.dart';
+import 'package:blexpert/services/protocol_import/openai_compatible_adapter.dart';
+import 'package:blexpert/services/protocol_import/protocol_ai_import_service.dart';
 import 'package:blexpert/services/protocol_import/workspace_draft_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -141,6 +147,129 @@ void main() {
       'evidence-1',
     ]);
   });
+
+  test('P1 creates an auditable P0 candidate from two model stages', () async {
+    final CandidateWorkspaceCodec codec = CandidateWorkspaceCodec();
+    final Map<String, dynamic> full = jsonDecode(codec.encode(validJob()));
+    final _QueuedAdapter adapter = _QueuedAdapter(<Map<String, dynamic>>[
+      <String, dynamic>{
+        'evidence': <Map<String, String>>[
+          <String, String>{
+            'id': 'evidence-1',
+            'excerpt': '命令 01 查询状态。',
+            'location': '第 1 节',
+          },
+        ],
+      },
+      <String, dynamic>{
+        'candidateWorkspace':
+            full['candidateWorkspace'] as Map<String, dynamic>,
+        'questions': <Object?>[],
+      },
+    ]);
+    final ProtocolAiImportService service = ProtocolAiImportService(
+      _FakeCredentialStore('sk-test'),
+      adapter,
+      clock: () => DateTime.utc(2026, 8, 22),
+    );
+    final ModelConnection connection = ModelConnection(
+      id: 'model-test',
+      name: 'Test model',
+      provider: ModelConnectionProvider.openAiCompatible,
+      baseUrl: 'https://example.test/v1',
+      model: 'test-model',
+      createdAt: DateTime.utc(2026, 8, 22),
+      updatedAt: DateTime.utc(2026, 8, 22),
+    );
+
+    final ProtocolImportJob result = codec.decode(
+      await service.createCandidateJson(
+        connection: connection,
+        document: const ProtocolTextDocument(
+          name: 'meter.md',
+          format: ProtocolDocumentFormat.markdown,
+          text: '命令 01 查询状态。',
+        ),
+      ),
+    );
+
+    expect(adapter.requests, hasLength(2));
+    expect(result.source.name, 'meter.md');
+    expect(result.evidence.single.sourceHash, result.source.hash);
+    expect(result.evidence.single.excerpt, '命令 01 查询状态。');
+    expect(result.candidateWorkspace.commands.single.evidenceRefs, <String>[
+      'evidence-1',
+    ]);
+  });
+
+  test(
+    'P1 rejects evidence that cannot be traced to the source text',
+    () async {
+      final ProtocolAiImportService service = ProtocolAiImportService(
+        _FakeCredentialStore('sk-test'),
+        _QueuedAdapter(<Map<String, dynamic>>[
+          <String, dynamic>{
+            'evidence': <Map<String, String>>[
+              <String, String>{
+                'id': 'evidence-1',
+                'excerpt': 'not in source',
+                'location': 'section 1',
+              },
+            ],
+          },
+        ]),
+      );
+      final ModelConnection connection = ModelConnection(
+        id: 'model-test',
+        name: 'Test model',
+        provider: ModelConnectionProvider.openAiCompatible,
+        baseUrl: 'https://example.test/v1',
+        model: 'test-model',
+        createdAt: DateTime.utc(2026, 8, 22),
+        updatedAt: DateTime.utc(2026, 8, 22),
+      );
+
+      expect(
+        () => service.createCandidateJson(
+          connection: connection,
+          document: const ProtocolTextDocument(
+            name: 'meter.txt',
+            format: ProtocolDocumentFormat.plainText,
+            text: '命令 01 查询状态。',
+          ),
+        ),
+        throwsA(isA<ModelProviderException>()),
+      );
+    },
+  );
+
+  test(
+    'model connection persistence contains metadata but never an API key',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final ModelConnectionStore store = ModelConnectionStore();
+      await store.save(<ModelConnection>[
+        ModelConnection(
+          id: 'model-test',
+          name: 'Test model',
+          provider: ModelConnectionProvider.openAiCompatible,
+          baseUrl: 'https://example.test/v1',
+          model: 'test-model',
+          createdAt: DateTime.utc(2026, 8, 22),
+          updatedAt: DateTime.utc(2026, 8, 22),
+        ),
+      ]);
+
+      final SharedPreferences preferences =
+          await SharedPreferences.getInstance();
+      final String raw = preferences.getString(
+        ModelConnectionStore.storageKey,
+      )!;
+      expect(raw, contains('Test model'));
+      expect(raw, isNot(contains('sk-test')));
+      expect((await store.load()).single.model, 'test-model');
+    },
+  );
 
   test('candidate codec rejects unknown schema and unknown enums', () {
     final CandidateWorkspaceCodec codec = CandidateWorkspaceCodec();
@@ -295,4 +424,29 @@ void main() {
       expect(restored.jobs.single.status, ProtocolImportJobStatus.readyToApply);
     },
   );
+}
+
+class _FakeCredentialStore extends ModelCredentialStore {
+  _FakeCredentialStore(this.value);
+
+  final String? value;
+
+  @override
+  Future<String?> read(String connectionId) async => value;
+}
+
+class _QueuedAdapter implements ModelProviderAdapter {
+  _QueuedAdapter(this._responses);
+
+  final List<Map<String, dynamic>> _responses;
+  final List<ModelJsonRequest> requests = <ModelJsonRequest>[];
+
+  @override
+  Future<Map<String, dynamic>> generateJson(ModelJsonRequest request) async {
+    requests.add(request);
+    if (_responses.isEmpty) {
+      throw const ModelProviderException('unexpected request');
+    }
+    return _responses.removeAt(0);
+  }
 }

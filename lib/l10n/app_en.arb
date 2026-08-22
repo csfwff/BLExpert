@@ -313,5 +313,11 @@
   ,"editCandidateJson": "Edit candidate JSON"
   ,"updateCandidate": "Check and update"
   ,"resumeCandidateReview": "Resume unfinished review"
+  ,"protocolTextImport": "Generate candidate from protocol text"
+  ,"protocolTextImportHint": "Paste TXT or Markdown and use your OpenAI-compatible API key. The result still requires local validation and item-by-item review."
+  ,"modelConnection": "Model connection"
+  ,"apiKey": "API Key"
+  ,"generateCandidate": "Generate candidate"
+  ,"protocolSourceText": "Protocol text"
   ,"@responseLog": {"placeholders": {"name": {"type": "String"}, "command": {"type": "String"}, "values": {"type": "String"}}}
 }
