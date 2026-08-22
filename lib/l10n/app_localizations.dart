@@ -1754,6 +1754,30 @@ abstract class AppLocalizations {
   /// **'Generate candidate'**
   String get generateCandidate;
 
+  /// No description provided for @generatingCandidate.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating candidate…'**
+  String get generatingCandidate;
+
+  /// No description provided for @generatingCandidateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Requesting the model and validating evidence and candidates. Keep this window open.'**
+  String get generatingCandidateHint;
+
+  /// No description provided for @protocolCandidateImportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Candidate import failed: {error}'**
+  String protocolCandidateImportFailed(String error);
+
+  /// No description provided for @protocolImportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Candidate generation failed. Check the model connection and try again.'**
+  String get protocolImportFailed;
+
   /// No description provided for @protocolSourceText.
   ///
   /// In en, this message translates to:

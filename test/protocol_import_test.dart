@@ -194,6 +194,11 @@ void main() {
     );
 
     expect(adapter.requests, hasLength(2));
+    final ModelJsonRequest candidateRequest = adapter.requests.last;
+    expect(candidateRequest.systemPrompt, contains('"id":"q-001"'));
+    expect(candidateRequest.systemPrompt, contains('candidateIds'));
+    expect(candidateRequest.systemPrompt, contains('isAnswered":false'));
+    expect(candidateRequest.userPrompt, contains('questions 必须是数组'));
     expect(result.source.name, 'meter.md');
     expect(result.evidence.single.sourceHash, result.source.hash);
     expect(result.evidence.single.excerpt, '命令 01 查询状态。');
@@ -205,6 +210,8 @@ void main() {
   test(
     'P1 rejects evidence that cannot be traced to the source text',
     () async {
+      final List<(ProtocolAiImportStage, Map<String, dynamic>)> responses =
+          <(ProtocolAiImportStage, Map<String, dynamic>)>[];
       final ProtocolAiImportService service = ProtocolAiImportService(
         _FakeCredentialStore('sk-test'),
         _QueuedAdapter(<Map<String, dynamic>>[
@@ -218,6 +225,9 @@ void main() {
             ],
           },
         ]),
+        onModelResponse:
+            (ProtocolAiImportStage stage, Map<String, dynamic> response) =>
+                responses.add((stage, response)),
       );
       final ModelConnection connection = ModelConnection(
         id: 'model-test',
@@ -229,8 +239,8 @@ void main() {
         updatedAt: DateTime.utc(2026, 8, 22),
       );
 
-      expect(
-        () => service.createCandidateJson(
+      await expectLater(
+        service.createCandidateJson(
           connection: connection,
           document: const ProtocolTextDocument(
             name: 'meter.txt',
@@ -240,6 +250,61 @@ void main() {
         ),
         throwsA(isA<ModelProviderException>()),
       );
+      expect(responses, hasLength(1));
+      expect(responses.single.$1, ProtocolAiImportStage.evidence);
+      expect(
+        (responses.single.$2['evidence'] as List).single['id'],
+        'evidence-1',
+      );
+    },
+  );
+
+  test(
+    'P1 accepts evidence with whitespace and punctuation formatting differences',
+    () async {
+      final CandidateWorkspaceCodec codec = CandidateWorkspaceCodec();
+      final Map<String, dynamic> full = jsonDecode(codec.encode(validJob()));
+      final ProtocolAiImportService service = ProtocolAiImportService(
+        _FakeCredentialStore('sk-test'),
+        _QueuedAdapter(<Map<String, dynamic>>[
+          <String, dynamic>{
+            'evidence': <Map<String, String>>[
+              <String, String>{
+                'id': 'evidence-1',
+                'excerpt': '命令 01：\n查询状态。',
+                'location': '第 1 节',
+              },
+            ],
+          },
+          <String, dynamic>{
+            'candidateWorkspace':
+                full['candidateWorkspace'] as Map<String, dynamic>,
+            'questions': <Object?>[],
+          },
+        ]),
+      );
+      final ModelConnection connection = ModelConnection(
+        id: 'model-test',
+        name: 'Test model',
+        provider: ModelConnectionProvider.openAiCompatible,
+        baseUrl: 'https://example.test/v1',
+        model: 'test-model',
+        createdAt: DateTime.utc(2026, 8, 22),
+        updatedAt: DateTime.utc(2026, 8, 22),
+      );
+
+      final ProtocolImportJob result = codec.decode(
+        await service.createCandidateJson(
+          connection: connection,
+          document: const ProtocolTextDocument(
+            name: 'meter.txt',
+            format: ProtocolDocumentFormat.plainText,
+            text: '命令 01: 查询状态。',
+          ),
+        ),
+      );
+
+      expect(result.evidence.single.excerpt, '命令 01：\n查询状态。');
     },
   );
 

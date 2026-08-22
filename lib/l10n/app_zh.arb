@@ -318,6 +318,11 @@
   ,"modelConnection": "模型连接"
   ,"apiKey": "API Key"
   ,"generateCandidate": "生成候选"
+  ,"generatingCandidate": "正在生成候选…"
+  ,"generatingCandidateHint": "正在请求模型并校验证据与候选，请勿关闭此窗口。"
+  ,"protocolCandidateImportFailed": "导入候选失败：{error}"
+  ,"@protocolCandidateImportFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"protocolImportFailed": "生成候选失败，请检查模型连接后重试。"
   ,"protocolSourceText": "协议文本"
   ,"@responseLog": {"placeholders": {"name": {"type": "String"}, "command": {"type": "String"}, "values": {"type": "String"}}}
 }

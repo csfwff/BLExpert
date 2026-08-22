@@ -318,6 +318,11 @@
   ,"modelConnection": "Model connection"
   ,"apiKey": "API Key"
   ,"generateCandidate": "Generate candidate"
+  ,"generatingCandidate": "Generating candidate…"
+  ,"generatingCandidateHint": "Requesting the model and validating evidence and candidates. Keep this window open."
+  ,"protocolCandidateImportFailed": "Candidate import failed: {error}"
+  ,"@protocolCandidateImportFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"protocolImportFailed": "Candidate generation failed. Check the model connection and try again."
   ,"protocolSourceText": "Protocol text"
   ,"@responseLog": {"placeholders": {"name": {"type": "String"}, "command": {"type": "String"}, "values": {"type": "String"}}}
 }

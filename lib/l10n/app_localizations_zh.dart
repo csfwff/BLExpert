@@ -894,5 +894,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generateCandidate => '生成候选';
 
   @override
+  String get generatingCandidate => '正在生成候选…';
+
+  @override
+  String get generatingCandidateHint => '正在请求模型并校验证据与候选，请勿关闭此窗口。';
+
+  @override
+  String protocolCandidateImportFailed(String error) {
+    return '导入候选失败：$error';
+  }
+
+  @override
+  String get protocolImportFailed => '生成候选失败，请检查模型连接后重试。';
+
+  @override
   String get protocolSourceText => '协议文本';
 }

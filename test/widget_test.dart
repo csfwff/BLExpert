@@ -2322,6 +2322,81 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('P1 生成失败时在弹窗顶部显示原因', (WidgetTester tester) async {
+    await pumpDesktopApp(tester);
+    await selectAppMode(tester, 'configure');
+    await tester.tap(
+      find.byKey(const ValueKey<String>('protocol-text-import-button')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('protocol-import-model')),
+      'test-model',
+    );
+    final Finder source = find.byKey(
+      const ValueKey<String>('protocol-import-source-text'),
+    );
+    await tester.enterText(source, '命令 01 查询状态。');
+    await tester.pump();
+    expect(
+      tester
+          .widget<ToolButton>(
+            find.byKey(const ValueKey<String>('protocol-text-generate-button')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('protocol-text-generate-button')),
+    );
+    await tester.pump();
+
+    final Finder status = find.byKey(
+      const ValueKey<String>('protocol-import-status'),
+    );
+    expect(status, findsOneWidget);
+    expect(find.text('请提供 API Key。'), findsOneWidget);
+  });
+
+  testWidgets('窄屏 P1 协议文本弹窗可滚动且操作可达', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(375, 812);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      BlexpertApp(
+        locale: const Locale('zh'),
+        bluetoothService: MockBluetoothService(),
+        shadcnPlatform: TargetPlatform.linux,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await selectAppMode(tester, 'configure');
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('protocol-text-import-button')),
+    );
+    await tester.pumpAndSettle();
+    final Finder scroll = find.byKey(
+      const ValueKey<String>('protocol-text-import-scroll'),
+    );
+    expect(scroll, findsOneWidget);
+    expect(tester.getSize(scroll).height, lessThanOrEqualTo(592));
+    expect(
+      find.byKey(const ValueKey<String>('protocol-text-generate-button')),
+      findsOneWidget,
+    );
+
+    final Finder source = find.byKey(
+      const ValueKey<String>('protocol-import-source-text'),
+    );
+    await tester.ensureVisible(source);
+    await tester.pumpAndSettle();
+    final Rect sourceRect = tester.getRect(source);
+    expect(sourceRect.bottom, lessThanOrEqualTo(812));
+  });
+
   testWidgets('AI 协议候选需先检查并进入独立审查流程', (WidgetTester tester) async {
     final MockBluetoothService bluetoothService = MockBluetoothService();
     await pumpDesktopApp(tester, bluetoothService: bluetoothService);

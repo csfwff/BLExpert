@@ -917,5 +917,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get generateCandidate => 'Generate candidate';
 
   @override
+  String get generatingCandidate => 'Generating candidate…';
+
+  @override
+  String get generatingCandidateHint =>
+      'Requesting the model and validating evidence and candidates. Keep this window open.';
+
+  @override
+  String protocolCandidateImportFailed(String error) {
+    return 'Candidate import failed: $error';
+  }
+
+  @override
+  String get protocolImportFailed =>
+      'Candidate generation failed. Check the model connection and try again.';
+
+  @override
   String get protocolSourceText => 'Protocol text';
 }
