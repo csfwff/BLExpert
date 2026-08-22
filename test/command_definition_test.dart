@@ -163,6 +163,135 @@ void main() {
     );
   });
 
+  test('uint8 array parameter expands an arbitrary number of byte values', () {
+    const CommandDefinition command = CommandDefinition(
+      id: 'soul',
+      name: 'Soul',
+      group: '7.6',
+      payload: '00 {{sequence}} {{motor}} {{levels}}',
+      format: CommandPayloadFormat.hex,
+      notes: '',
+      enabled: true,
+      isQuickAccess: true,
+      parameters: <CommandParameter>[
+        CommandParameter(
+          key: 'sequence',
+          label: 'Sequence',
+          type: CommandParameterType.uint8,
+          defaultValue: '0xFF',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'motor',
+          label: 'Motor',
+          type: CommandParameterType.uint8,
+          defaultValue: '1',
+          min: 1,
+          max: 2,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'levels',
+          label: 'Levels',
+          type: CommandParameterType.uint8Array,
+          defaultValue: '10, 40, 80',
+          min: 0,
+          max: 100,
+          options: <CommandParameterOption>[],
+        ),
+      ],
+    );
+
+    expect(
+      CommandPayloadEncoder.encode(command, <String, String>{
+        'sequence': '0xFF',
+        'motor': '2',
+        'levels': '[0, 25, 100, 80]',
+      }),
+      <int>[0x00, 0xFF, 0x02, 0, 25, 100, 80],
+    );
+  });
+
+  test('uint8 array parameter validates every item and requires a value', () {
+    const CommandDefinition command = CommandDefinition(
+      id: 'soul-levels',
+      name: 'Soul levels',
+      group: '',
+      payload: '{{levels}}',
+      format: CommandPayloadFormat.hex,
+      notes: '',
+      enabled: true,
+      isQuickAccess: false,
+      parameters: <CommandParameter>[
+        CommandParameter(
+          key: 'levels',
+          label: 'Intensity',
+          type: CommandParameterType.uint8Array,
+          defaultValue: '',
+          min: 0,
+          max: 100,
+          options: <CommandParameterOption>[],
+        ),
+      ],
+    );
+
+    expect(
+      () => CommandPayloadEncoder.encode(command, const <String, String>{}),
+      throwsFormatException,
+    );
+    expect(
+      () => CommandPayloadEncoder.encode(command, const <String, String>{
+        'levels': '10, 101',
+      }),
+      throwsFormatException,
+    );
+  });
+
+  test('array flag expands values using the selected scalar type', () {
+    const CommandDefinition command = CommandDefinition(
+      id: 'mixed-array',
+      name: 'Mixed array',
+      group: '',
+      payload: '{{words}} {{states}}',
+      format: CommandPayloadFormat.hex,
+      notes: '',
+      enabled: true,
+      isQuickAccess: false,
+      parameters: <CommandParameter>[
+        CommandParameter(
+          key: 'words',
+          label: 'Words',
+          type: CommandParameterType.uint16,
+          isArray: true,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+        CommandParameter(
+          key: 'states',
+          label: 'States',
+          type: CommandParameterType.boolean,
+          isArray: true,
+          defaultValue: '',
+          min: null,
+          max: null,
+          options: <CommandParameterOption>[],
+        ),
+      ],
+    );
+
+    expect(
+      CommandPayloadEncoder.encode(command, const <String, String>{
+        'words': '0x0102, 3',
+        'states': 'true, false',
+      }),
+      <int>[0x01, 0x02, 0x00, 0x03, 0x01, 0x00],
+    );
+  });
+
   test('individual current time parameters encode one byte each', () {
     const CommandDefinition command = CommandDefinition(
       id: 'clock',
@@ -469,6 +598,106 @@ void main() {
     expect(result.values[1].value, isTrue);
     expect(mapping.fields[0].visibleInDataPanel, isTrue);
     expect(mapping.fields[1].visibleInDataPanel, isFalse);
+  });
+
+  test('data mapper reads an array field through the remaining DATA bytes', () {
+    const ResponseMapping mapping = ResponseMapping(
+      id: 'dynamic-response',
+      name: 'Dynamic response',
+      commandHex: 'A9',
+      fields: <DataField>[
+        DataField(
+          key: 'values',
+          label: 'Values',
+          offset: 0,
+          byteLength: 1,
+          type: DataFieldType.uint8,
+          byteOrder: ProtocolByteOrder.littleEndian,
+          scale: 1,
+          offsetValue: 0,
+          unit: '',
+          bit: null,
+          enumValues: <String, String>{},
+          isArray: true,
+        ),
+      ],
+    );
+
+    final ParsedResponse? result = DataMapper.tryParse(
+      mappings: const <ResponseMapping>[mapping],
+      commandHex: 'A9',
+      dataHex: '03 00 7F',
+    );
+
+    expect(result, isNotNull);
+    expect(result!.values.single.isArray, isTrue);
+    expect(result.values.single.arrayValue, <Object?>[3, 0, 127]);
+    expect(result.values.single.displayValue, '3 items');
+  });
+
+  test('data mapper applies element byte length to arrays', () {
+    const ResponseMapping mapping = ResponseMapping(
+      id: 'word-array',
+      name: 'Word array',
+      commandHex: 'AA',
+      fields: <DataField>[
+        DataField(
+          key: 'words',
+          label: 'Words',
+          offset: 0,
+          byteLength: 2,
+          type: DataFieldType.uint16,
+          byteOrder: ProtocolByteOrder.littleEndian,
+          scale: 1,
+          offsetValue: 0,
+          unit: '',
+          bit: null,
+          enumValues: <String, String>{},
+          isArray: true,
+        ),
+      ],
+    );
+
+    final ParsedResponse? result = DataMapper.tryParse(
+      mappings: const <ResponseMapping>[mapping],
+      commandHex: 'AA',
+      dataHex: '34 12 78 56',
+    );
+
+    expect(result!.values.single.arrayValue, <Object?>[0x1234, 0x5678]);
+  });
+
+  test('data mapper rejects a partial final array element', () {
+    const ResponseMapping mapping = ResponseMapping(
+      id: 'partial-array',
+      name: 'Partial array',
+      commandHex: 'AB',
+      fields: <DataField>[
+        DataField(
+          key: 'words',
+          label: 'Words',
+          offset: 0,
+          byteLength: 2,
+          type: DataFieldType.uint16,
+          byteOrder: ProtocolByteOrder.littleEndian,
+          scale: 1,
+          offsetValue: 0,
+          unit: '',
+          bit: null,
+          enumValues: <String, String>{},
+          isArray: true,
+        ),
+      ],
+    );
+
+    final ParsedResponse? result = DataMapper.tryParse(
+      mappings: const <ResponseMapping>[mapping],
+      commandHex: 'AB',
+      dataHex: '34 12 78',
+    );
+
+    expect(result!.values.single.arrayValue, isEmpty);
+    expect(result.values.single.displayValue, 'Invalid array length');
   });
 
   test('workspace persists command parameters and response mappings', () {

@@ -113,6 +113,7 @@ class _CommandTile extends StatefulWidget {
 
 class _CommandTileState extends State<_CommandTile> {
   late final Map<String, TextEditingController> _controllers;
+  late final Map<String, List<TextEditingController>> _arrayControllers;
   late final ScrollController _frameScrollController;
   String? _validationError;
 
@@ -120,10 +121,9 @@ class _CommandTileState extends State<_CommandTile> {
   void initState() {
     super.initState();
     _frameScrollController = ScrollController();
-    _controllers = <String, TextEditingController>{
-      for (final CommandParameter parameter in widget.command.parameters)
-        parameter.key: TextEditingController(text: parameter.defaultValue),
-    };
+    _controllers = <String, TextEditingController>{};
+    _arrayControllers = <String, List<TextEditingController>>{};
+    _createParameterControllers();
   }
 
   @override
@@ -133,30 +133,44 @@ class _CommandTileState extends State<_CommandTile> {
         oldWidget.command.parameters == widget.command.parameters) {
       return;
     }
-    for (final TextEditingController controller in _controllers.values) {
-      controller.dispose();
-    }
-    _controllers
-      ..clear()
-      ..addEntries(
-        widget.command.parameters.map(
-          (CommandParameter parameter) =>
-              MapEntry<String, TextEditingController>(
-                parameter.key,
-                TextEditingController(text: parameter.defaultValue),
-              ),
-        ),
-      );
+    _disposeParameterControllers();
+    _createParameterControllers();
     _validationError = null;
   }
 
   @override
   void dispose() {
     _frameScrollController.dispose();
+    _disposeParameterControllers();
+    super.dispose();
+  }
+
+  void _createParameterControllers() {
+    for (final CommandParameter parameter in widget.command.parameters) {
+      if (_isArrayParameter(parameter)) {
+        _arrayControllers[parameter.key] = _arrayValues(parameter.defaultValue)
+            .map((String value) => TextEditingController(text: value))
+            .toList(growable: true);
+      } else {
+        _controllers[parameter.key] = TextEditingController(
+          text: parameter.defaultValue,
+        );
+      }
+    }
+  }
+
+  void _disposeParameterControllers() {
     for (final TextEditingController controller in _controllers.values) {
       controller.dispose();
     }
-    super.dispose();
+    for (final List<TextEditingController> controllers
+        in _arrayControllers.values) {
+      for (final TextEditingController controller in controllers) {
+        controller.dispose();
+      }
+    }
+    _controllers.clear();
+    _arrayControllers.clear();
   }
 
   Future<void> _send() async {
@@ -164,6 +178,11 @@ class _CommandTileState extends State<_CommandTile> {
       for (final MapEntry<String, TextEditingController> entry
           in _controllers.entries)
         entry.key: entry.value.text.trim(),
+      for (final MapEntry<String, List<TextEditingController>> entry
+          in _arrayControllers.entries)
+        entry.key: entry.value
+            .map((TextEditingController controller) => controller.text.trim())
+            .join(', '),
     };
     try {
       CommandPayloadEncoder.encode(widget.command, values);
@@ -181,6 +200,7 @@ class _CommandTileState extends State<_CommandTile> {
     final CommandDefinition command = widget.command;
     final bool sendEnabled = widget.canSend && command.enabled;
     final bool hasParameters = command.parameters.isNotEmpty;
+    final bool hasArrayParameters = command.parameters.any(_isArrayParameter);
     return Container(
       key: ValueKey<String>('quick-command-item-${command.id}'),
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -220,7 +240,7 @@ class _CommandTileState extends State<_CommandTile> {
                         _frameScrollbarReservedHeight,
                       ),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: _buildFrameCells(
                           command,
                           showParameterLabels: hasParameters,
@@ -230,7 +250,9 @@ class _CommandTileState extends State<_CommandTile> {
                   ),
                 ),
                 Positioned(
-                  top: hasParameters
+                  top: hasArrayParameters
+                      ? _arraySendButtonTop
+                      : hasParameters
                       ? _parameterLabelHeight + _frameCellGap
                       : 0,
                   right: _sendButtonRightInset,
@@ -331,6 +353,9 @@ class _CommandTileState extends State<_CommandTile> {
     final bool isChoice =
         parameter.type == CommandParameterType.enumValue &&
         parameter.options.isNotEmpty;
+    if (_isArrayParameter(parameter)) {
+      return _buildArrayParameterInput(parameter, label);
+    }
     return Padding(
       padding: const EdgeInsets.only(right: _frameCellSpacing),
       child: SizedBox(
@@ -405,7 +430,8 @@ class _CommandTileState extends State<_CommandTile> {
                       controller: _controllers[parameter.key],
                       label: label,
                       showLabel: false,
-                      keyboardType: _usesNumericKeyboard(parameter.type)
+                      keyboardType:
+                          _usesNumericKeyboard(_scalarType(parameter.type))
                           ? TextInputType.number
                           : TextInputType.text,
                       textAlign: TextAlign.center,
@@ -417,6 +443,110 @@ class _CommandTileState extends State<_CommandTile> {
                       style: const TextStyle(fontSize: 12),
                       placeholderStyle: const TextStyle(fontSize: 12),
                     ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArrayParameterInput(CommandParameter parameter, String label) {
+    final List<TextEditingController> controllers =
+        _arrayControllers[parameter.key]!;
+    return Padding(
+      padding: const EdgeInsets.only(right: _frameCellSpacing),
+      child: SizedBox(
+        height: _arrayFrameHeight,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            SizedBox(
+              key: ValueKey<String>(
+                'quick-command-parameter-label-${widget.command.id}-${parameter.key}',
+              ),
+              height: _parameterLabelHeight,
+              child: ToolTooltip(
+                message: label,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
+            const SizedBox(height: _frameCellGap),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                for (
+                  int index = 0;
+                  index < controllers.length;
+                  index++
+                ) ...<Widget>[
+                  Column(
+                    children: <Widget>[
+                      SizedBox(
+                        width: _parameterInputWidth,
+                        height: _frameControlHeight,
+                        child: ToolTextField(
+                          key: ValueKey<String>(
+                            'quick-command-array-parameter-${widget.command.id}-${parameter.key}-$index',
+                          ),
+                          controller: controllers[index],
+                          label: '$label ${index + 1}',
+                          showLabel: false,
+                          keyboardType:
+                              _usesNumericKeyboard(_scalarType(parameter.type))
+                              ? TextInputType.number
+                              : TextInputType.text,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 1,
+                            vertical: 0,
+                          ),
+                          style: const TextStyle(fontSize: 12),
+                          placeholderStyle: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      ToolIconButton(
+                        key: ValueKey<String>(
+                          'quick-command-array-remove-${widget.command.id}-${parameter.key}-$index',
+                        ),
+                        tooltip: '删除 $label ${index + 1}',
+                        touchSize: _arrayActionSize,
+                        onPressed: controllers.length > 1
+                            ? () {
+                                setState(() {
+                                  final TextEditingController removed =
+                                      controllers.removeAt(index);
+                                  removed.dispose();
+                                });
+                              }
+                            : null,
+                        icon: const Icon(AppIcons.close, size: 13),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: _frameCellSpacing),
+                ],
+                Padding(
+                  padding: const EdgeInsets.only(top: 0),
+                  child: ToolIconButton(
+                    key: ValueKey<String>(
+                      'quick-command-array-add-${widget.command.id}-${parameter.key}',
+                    ),
+                    tooltip: '添加 $label',
+                    touchSize: _arrayActionSize,
+                    onPressed: () => setState(
+                      () => controllers.add(TextEditingController()),
+                    ),
+                    icon: const Icon(AppIcons.add, size: 14),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -525,10 +655,23 @@ bool _usesNumericKeyboard(CommandParameterType type) => switch (type) {
   _ => false,
 };
 
+bool _isArrayParameter(CommandParameter parameter) =>
+    parameter.isArray || parameter.type == CommandParameterType.uint8Array;
+
+CommandParameterType _scalarType(CommandParameterType type) =>
+    type == CommandParameterType.uint8Array ? CommandParameterType.uint8 : type;
+
 const double _parameterLabelHeight = 16;
 const double _frameCellGap = 2;
 const double _frameControlHeight = 24;
 const double _parameterInputWidth = 36;
+const double _arrayActionSize = 20;
+const double _arrayFrameHeight =
+    _parameterLabelHeight +
+    _frameCellGap +
+    _frameControlHeight +
+    _arrayActionSize;
+const double _arraySendButtonTop = (_arrayFrameHeight - _sendButtonSize) / 2;
 const double _frameCellSpacing = 4;
 const double _sendButtonSize = 32;
 const double _sendButtonRightInset = 12;
@@ -537,3 +680,16 @@ const double _frameScrollbarThickness = 4;
 const double _frameScrollbarClearance = 4;
 const double _frameScrollbarReservedHeight =
     _frameScrollbarThickness + _frameScrollbarClearance;
+
+List<String> _arrayValues(String source) {
+  final String normalized = source
+      .trim()
+      .replaceFirst(RegExp(r'^[\[\(]'), '')
+      .replaceFirst(RegExp(r'[\]\)]$'), '')
+      .trim();
+  final List<String> values = normalized
+      .split(RegExp(r'[,;\s]+'))
+      .where((String value) => value.isNotEmpty)
+      .toList(growable: false);
+  return values.isEmpty ? <String>[''] : values;
+}

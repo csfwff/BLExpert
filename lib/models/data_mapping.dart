@@ -73,6 +73,7 @@ class DataField {
     required this.bit,
     required this.enumValues,
     this.visibleInDataPanel = true,
+    this.isArray = false,
   });
 
   final String key;
@@ -87,6 +88,9 @@ class DataField {
   final int? bit;
   final Map<String, String> enumValues;
   final bool visibleInDataPanel;
+
+  /// Expands this field into repeated values at consecutive byte ranges.
+  final bool isArray;
 
   factory DataField.fromJson(Map<String, dynamic> json) => DataField(
     key: json['key'] as String? ?? '',
@@ -106,6 +110,7 @@ class DataField {
           MapEntry(key.toString(), value.toString()),
     ),
     visibleInDataPanel: json['visibleInDataPanel'] as bool? ?? true,
+    isArray: json['isArray'] as bool? ?? false,
   );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -121,6 +126,7 @@ class DataField {
     if (bit != null) 'bit': bit,
     if (enumValues.isNotEmpty) 'enumValues': enumValues,
     'visibleInDataPanel': visibleInDataPanel,
+    if (isArray) 'isArray': true,
   };
 
   DataField copyWith({
@@ -137,6 +143,7 @@ class DataField {
     bool clearBit = false,
     Map<String, String>? enumValues,
     bool? visibleInDataPanel,
+    bool? isArray,
   }) => DataField(
     key: key ?? this.key,
     label: label ?? this.label,
@@ -150,6 +157,7 @@ class DataField {
     bit: clearBit ? null : (bit ?? this.bit),
     enumValues: enumValues ?? this.enumValues,
     visibleInDataPanel: visibleInDataPanel ?? this.visibleInDataPanel,
+    isArray: isArray ?? this.isArray,
   );
 }
 

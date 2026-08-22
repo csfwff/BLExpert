@@ -87,6 +87,50 @@ class CommandPayloadEncoder {
     String value, {
     required DateTime currentTime,
   }) {
+    final bool isArray =
+        parameter.isArray || parameter.type == CommandParameterType.uint8Array;
+    if (isArray) {
+      final CommandParameter scalarParameter = parameter.copyWith(
+        type: parameter.type == CommandParameterType.uint8Array
+            ? CommandParameterType.uint8
+            : parameter.type,
+        isArray: false,
+      );
+      return _encodeArray(scalarParameter, value, currentTime: currentTime);
+    }
+    return _encodeScalar(parameter, value, currentTime: currentTime);
+  }
+
+  static List<int> _encodeArray(
+    CommandParameter parameter,
+    String value, {
+    required DateTime currentTime,
+  }) {
+    final String normalized = value
+        .trim()
+        .replaceFirst(RegExp(r'^[\[\(]'), '')
+        .replaceFirst(RegExp(r'[\]\)]$'), '')
+        .trim();
+    if (normalized.isEmpty) {
+      throw FormatException(
+        '${parameter.label.isEmpty ? parameter.key : parameter.label} must contain at least one value.',
+      );
+    }
+    final List<String> values = normalized
+        .split(RegExp(r'[,;\s]+'))
+        .where((String item) => item.trim().isNotEmpty)
+        .toList(growable: false);
+    return <int>[
+      for (final String item in values)
+        ..._encodeScalar(parameter, item, currentTime: currentTime),
+    ];
+  }
+
+  static List<int> _encodeScalar(
+    CommandParameter parameter,
+    String value, {
+    required DateTime currentTime,
+  }) {
     switch (parameter.type) {
       case CommandParameterType.hex:
         return _parseHex(value);
@@ -131,6 +175,12 @@ class CommandPayloadEncoder {
         return _encodeNumber(parameter, value, 4, false);
       case CommandParameterType.int32:
         return _encodeNumber(parameter, value, 4, true);
+      case CommandParameterType.uint8Array:
+        return _encodeArray(
+          parameter.copyWith(type: CommandParameterType.uint8, isArray: false),
+          value,
+          currentTime: currentTime,
+        );
     }
   }
 

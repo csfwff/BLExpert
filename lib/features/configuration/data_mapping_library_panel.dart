@@ -188,7 +188,9 @@ class _MappingFieldTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final shad.ColorScheme colors = AppTheme.colorsOf(context);
     final int endOffset = field.offset + field.byteLength - 1;
-    final String range = endOffset == field.offset
+    final String range = field.isArray
+        ? '${field.offset}..'
+        : endOffset == field.offset
         ? '${field.offset}'
         : '${field.offset}..$endOffset';
     final String key = field.key.trim();
@@ -209,7 +211,7 @@ class _MappingFieldTag extends StatelessWidget {
         border: Border.all(color: colors.border),
       ),
       child: Text(
-        'DATA[$range] $name ${field.type.name}',
+        'DATA[$range] $name ${field.type.name}${field.isArray ? '[]' : ''}',
         style: AppTheme.textStylesOf(
           context,
         ).labelSmall.copyWith(fontSize: 10).merge(AppFonts.monoStyle),
@@ -242,6 +244,17 @@ class _CommandParameterEditor extends StatelessWidget {
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           final bool stacked = constraints.maxWidth < 560;
+          final CommandParameterType parameterType = _scalarType(
+            parameter.type,
+          );
+          final bool isArray = _isArrayParameter(parameter);
+          final TextStyle fieldLabelStyle = AppTheme.of(context)
+              .typography
+              .xSmall
+              .copyWith(
+                color: AppTheme.colorsOf(context).foreground,
+                fontWeight: FontWeight.w500,
+              );
           final Widget keyField = ToolTextField(
             initialValue: parameter.key,
             label: 'key',
@@ -256,24 +269,49 @@ class _CommandParameterEditor extends StatelessWidget {
             onChanged: (String value) =>
                 onChanged(parameter.copyWith(label: value)),
           );
-          final Widget typeField = SizedBox(
-            width: double.infinity,
-            child: ToolSelect<CommandParameterType>(
-              value: parameter.type,
-              label: '类型',
-              expand: true,
-              options: CommandParameterType.values
-                  .map(
-                    (CommandParameterType item) =>
-                        ToolSelectOption<CommandParameterType>(
-                          value: item,
-                          label: _commandParameterTypeLabel(item),
-                        ),
-                  )
-                  .toList(growable: false),
-              onChanged: (CommandParameterType value) =>
-                  onChanged(parameter.copyWith(type: value)),
-            ),
+          final Widget typeField = Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Expanded(
+                child: ToolSelect<CommandParameterType>(
+                  value: parameterType,
+                  label: '类型',
+                  expand: true,
+                  options: CommandParameterType.values
+                      .where(
+                        (CommandParameterType item) =>
+                            item != CommandParameterType.uint8Array,
+                      )
+                      .map(
+                        (CommandParameterType item) =>
+                            ToolSelectOption<CommandParameterType>(
+                              value: item,
+                              label: _commandParameterTypeLabel(item),
+                            ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (CommandParameterType value) => onChanged(
+                    parameter.copyWith(type: value, isArray: isArray),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text('数组', style: fieldLabelStyle),
+                  const SizedBox(height: 2),
+                  ToolSwitch(
+                    value: isArray,
+                    label: '数组参数',
+                    onChanged: (bool value) => onChanged(
+                      parameter.copyWith(type: parameterType, isArray: value),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           );
           final Widget defaultField = ToolTextField(
             initialValue: parameter.defaultValue,
@@ -325,7 +363,7 @@ class _CommandParameterEditor extends StatelessWidget {
                     deleteButton,
                   ],
                 ),
-              if (parameter.type == CommandParameterType.enumValue) ...<Widget>[
+              if (parameterType == CommandParameterType.enumValue) ...<Widget>[
                 const SizedBox(height: 6),
                 ToolTextField(
                   initialValue: parameter.options
@@ -449,6 +487,30 @@ class _MappingFieldEditor extends StatelessWidget {
                       onChanged: (DataFieldType value) =>
                           onChanged(field.copyWith(type: value)),
                     );
+                    final Widget typeAndArrayField = Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: <Widget>[
+                        Expanded(child: typeField),
+                        const SizedBox(width: 6),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              '数组',
+                              style: AppTheme.textStylesOf(context).labelSmall,
+                            ),
+                            const SizedBox(height: 2),
+                            ToolSwitch(
+                              value: field.isArray,
+                              label: '数组字段',
+                              onChanged: (bool value) =>
+                                  onChanged(field.copyWith(isArray: value)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
                     if (stacked) {
                       return Column(
                         children: <Widget>[
@@ -466,7 +528,7 @@ class _MappingFieldEditor extends StatelessWidget {
                               const SizedBox(width: 8),
                               Expanded(child: lengthField),
                               const SizedBox(width: 8),
-                              Expanded(child: typeField),
+                              Expanded(child: typeAndArrayField),
                             ],
                           ),
                         ],
@@ -482,7 +544,7 @@ class _MappingFieldEditor extends StatelessWidget {
                         const SizedBox(width: 8),
                         SizedBox(width: 72, child: lengthField),
                         const SizedBox(width: 8),
-                        SizedBox(width: 120, child: typeField),
+                        SizedBox(width: 150, child: typeAndArrayField),
                       ],
                     );
                   },
@@ -644,6 +706,7 @@ String _commandParameterTypeLabel(CommandParameterType type) => switch (type) {
   CommandParameterType.int16 => 'int16',
   CommandParameterType.uint32 => 'uint32',
   CommandParameterType.int32 => 'int32',
+  CommandParameterType.uint8Array => 'uint8 数组',
   CommandParameterType.hex => 'HEX',
   CommandParameterType.ascii => 'ASCII',
   CommandParameterType.utf8 => 'UTF-8',

@@ -17,6 +17,11 @@ class ParsedDataValue {
   final Object value;
   final String displayValue;
   final String unit;
+
+  bool get isArray => value is List<Object?>;
+
+  List<Object?> get arrayValue =>
+      value is List<Object?> ? value as List<Object?> : const <Object?>[];
 }
 
 class ParsedResponse {
@@ -53,18 +58,22 @@ class DataMapper {
         );
     if (mapping == null) return null;
     final List<int> data = _parseHex(dataHex);
+    final List<ParsedDataValue> values = mapping.fields
+        .map((DataField field) => _parseField(field, data))
+        .toList(growable: false);
     return ParsedResponse(
       mapping: mapping,
       commandHex: command.toUpperCase(),
       dataHex: _toHex(data),
       timestamp: timestamp ?? DateTime.now(),
-      values: mapping.fields
-          .map((DataField field) => _parseField(field, data))
-          .toList(growable: false),
+      values: List<ParsedDataValue>.unmodifiable(values),
     );
   }
 
   static ParsedDataValue _parseField(DataField field, List<int> data) {
+    if (field.isArray) {
+      return _parseArrayField(field, data);
+    }
     if (field.offset < 0 ||
         field.byteLength < 1 ||
         field.offset + field.byteLength > data.length) {
@@ -114,6 +123,47 @@ class DataMapper {
       unit: field.unit,
     );
   }
+
+  static ParsedDataValue _parseArrayField(DataField field, List<int> data) {
+    if (field.byteLength < 1) {
+      return _arrayValue(field, const <Object?>[], 'Invalid array length');
+    }
+    if (field.offset < 0 || field.offset > data.length) {
+      return _arrayValue(field, const <Object?>[], 'Out of range');
+    }
+    // An array consumes all remaining DATA bytes from its configured offset.
+    final int remainingLength = data.length - field.offset;
+    if (remainingLength % field.byteLength != 0) {
+      return _arrayValue(field, const <Object?>[], 'Invalid array length');
+    }
+    final int count = remainingLength ~/ field.byteLength;
+    final int totalLength = count * field.byteLength;
+    if (field.offset < 0 || field.offset + totalLength > data.length) {
+      return _arrayValue(field, const <Object?>[], 'Out of range');
+    }
+    final List<Object?> values = <Object?>[];
+    for (int index = 0; index < count; index++) {
+      final DataField scalar = field.copyWith(
+        offset: field.offset + index * field.byteLength,
+        isArray: false,
+      );
+      final ParsedDataValue parsed = _parseField(scalar, data);
+      values.add(parsed.value);
+    }
+    return _arrayValue(field, values, '${values.length} items');
+  }
+
+  static ParsedDataValue _arrayValue(
+    DataField field,
+    List<Object?> values,
+    String displayValue,
+  ) => ParsedDataValue(
+    key: field.key,
+    label: field.label.isEmpty ? field.key : field.label,
+    value: List<Object?>.unmodifiable(values),
+    displayValue: displayValue,
+    unit: field.unit,
+  );
 
   static String _formatNumber(num value) {
     if (value is int || value == value.roundToDouble()) {

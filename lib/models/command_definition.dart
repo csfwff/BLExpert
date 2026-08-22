@@ -11,6 +11,10 @@ enum CommandParameterType {
   int16,
   uint32,
   int32,
+
+  /// Legacy spelling for an array of `uint8` values. New configurations use
+  /// [CommandParameter.isArray] with any base type.
+  uint8Array,
   hex,
   ascii,
   utf8,
@@ -47,6 +51,7 @@ class CommandParameter {
     required this.key,
     required this.label,
     required this.type,
+    this.isArray = false,
     required this.defaultValue,
     required this.min,
     required this.max,
@@ -57,16 +62,24 @@ class CommandParameter {
   final String key;
   final String label;
   final CommandParameterType type;
+
+  /// Whether the placeholder expands one value per delimited input item.
+  final bool isArray;
   final String defaultValue;
   final int? min;
   final int? max;
   final List<CommandParameterOption> options;
 
   factory CommandParameter.fromJson(Map<String, dynamic> json) {
+    final CommandParameterType parsedType = _parameterTypeFromJson(
+      json['type'],
+    );
+    final bool legacyArray = parsedType == CommandParameterType.uint8Array;
     return CommandParameter(
       key: json['key'] as String? ?? '',
       label: json['label'] as String? ?? '',
-      type: _parameterTypeFromJson(json['type']),
+      type: legacyArray ? CommandParameterType.uint8 : parsedType,
+      isArray: json['isArray'] as bool? ?? legacyArray,
       defaultValue: json['defaultValue'] as String? ?? '',
       min: json['min'] as int?,
       max: json['max'] as int?,
@@ -84,7 +97,10 @@ class CommandParameter {
   Map<String, dynamic> toJson() => <String, dynamic>{
     'key': key,
     'label': label,
-    'type': type.name,
+    'type': type == CommandParameterType.uint8Array
+        ? CommandParameterType.uint8.name
+        : type.name,
+    if (isArray || type == CommandParameterType.uint8Array) 'isArray': true,
     'defaultValue': defaultValue,
     if (min != null) 'min': min,
     if (max != null) 'max': max,
@@ -98,6 +114,7 @@ class CommandParameter {
     String? key,
     String? label,
     CommandParameterType? type,
+    bool? isArray,
     String? defaultValue,
     int? min,
     bool clearMin = false,
@@ -108,6 +125,7 @@ class CommandParameter {
     key: key ?? this.key,
     label: label ?? this.label,
     type: type ?? this.type,
+    isArray: isArray ?? this.isArray,
     defaultValue: defaultValue ?? this.defaultValue,
     min: clearMin ? null : (min ?? this.min),
     max: clearMax ? null : (max ?? this.max),

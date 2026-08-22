@@ -132,4 +132,61 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     await bluetoothService.dispose();
   });
+
+  testWidgets('array mapped data stays compact and opens indexed details', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'blexpert.workspace-store.v1':
+          '''{"version":2,"activeWorkspaceId":"array-grid","workspaces":[{"id":"array-grid","name":"Array grid","responseMappings":[{"id":"dynamic","name":"Dynamic response","commandHex":"A9","fields":[{"key":"values","label":"Values","offset":0,"byteLength":1,"type":"uint8","byteOrder":"littleEndian","scale":1,"offsetValue":0,"unit":"","isArray":true,"visibleInDataPanel":true}]}]}]}''',
+    });
+    final _MappingBluetoothService bluetoothService =
+        _MappingBluetoothService();
+    await tester.pumpWidget(
+      BlexpertApp(
+        locale: const Locale('en'),
+        bluetoothService: bluetoothService,
+        shadcnPlatform: TargetPlatform.linux,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    bluetoothService.emitIncoming(<int>[0xA9, 0x03, 0x00]);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final Finder cell = find.byKey(
+      const ValueKey<String>('mapped-data-cell-dynamic-values'),
+    );
+    expect(cell, findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(
+              const ValueKey<String>('mapped-data-value-dynamic-values'),
+            ),
+          )
+          .data,
+      '2 items',
+    );
+
+    await tester.tap(cell);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('mapped-array-details-list')),
+      findsOneWidget,
+    );
+    expect(find.text('[0]'), findsOneWidget);
+    expect(find.text('[1]'), findsOneWidget);
+    expect(find.text('3.0'), findsOneWidget);
+    expect(find.text('0.0'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 300));
+    await bluetoothService.dispose();
+  });
 }

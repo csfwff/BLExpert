@@ -206,6 +206,7 @@ class _MappedDataCellState extends State<_MappedDataCell> {
   Widget build(BuildContext context) {
     final _MonitoredFieldDefinition definition = widget.definition;
     final _MonitoredFieldValue? latest = widget.latest;
+    final bool isArray = latest?.value.isArray ?? false;
     final String name = definition.field.label.isEmpty
         ? definition.field.key
         : definition.field.label;
@@ -215,58 +216,141 @@ class _MappedDataCellState extends State<_MappedDataCell> {
     final String source =
         '${definition.mapping.name} | CMD ${definition.mapping.commandHex}';
     final shad.ColorScheme colors = AppTheme.colorsOf(context);
+    final Widget dataCard = AnimatedContainer(
+      duration: _transitionDuration,
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+      decoration: BoxDecoration(
+        color: _highlighted
+            ? colors.accent.withValues(alpha: 0.5)
+            : colors.card,
+        border: Border.all(
+          color: _highlighted ? colors.accentForeground : colors.border,
+        ),
+        borderRadius: AppTheme.of(context).borderRadiusSm,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Text(
+            value,
+            key: ValueKey<String>(
+              'mapped-data-value-${definition.mapping.id}-${definition.field.key}',
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: AppFonts.mono,
+              package: AppFonts.shadcnPackage,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            name,
+            key: ValueKey<String>(
+              'mapped-data-name-${definition.mapping.id}-${definition.field.key}',
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 10, color: colors.mutedForeground),
+          ),
+        ],
+      ),
+    );
     return Semantics(
+      button: isArray,
       label: '$name：$value，$source',
       child: ToolTooltip(
-        message: '$name\n$source',
-        child: AnimatedContainer(
-          duration: _transitionDuration,
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-          decoration: BoxDecoration(
-            color: _highlighted
-                ? colors.accent.withValues(alpha: 0.5)
-                : colors.card,
-            border: Border.all(
-              color: _highlighted ? colors.accentForeground : colors.border,
-            ),
-            borderRadius: AppTheme.of(context).borderRadiusSm,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+        message: isArray
+            ? '$name\n$source\nClick to view details'
+            : '$name\n$source',
+        child: isArray && latest != null
+            ? ToolClickableRow(
+                onPressed: () => _showArrayDetails(context, name, latest.value),
+                padding: EdgeInsets.zero,
+                child: dataCard,
+              )
+            : dataCard,
+      ),
+    );
+  }
+
+  void _showArrayDetails(
+    BuildContext context,
+    String name,
+    ParsedDataValue value,
+  ) {
+    showToolDialog<void>(
+      context: context,
+      builder: (BuildContext context) => _ArrayValueDetailsDialog(
+        name: name,
+        values: value.arrayValue,
+        unit: value.unit,
+      ),
+    );
+  }
+}
+
+class _ArrayValueDetailsDialog extends StatelessWidget {
+  const _ArrayValueDetailsDialog({
+    required this.name,
+    required this.values,
+    required this.unit,
+  });
+
+  final String name;
+  final List<Object?> values;
+  final String unit;
+
+  @override
+  Widget build(BuildContext context) => ToolAlertDialog(
+    icon: AppIcons.dataObject,
+    title: name,
+    content: SizedBox(
+      width: 340,
+      height: 280,
+      child: ListView.separated(
+        key: const ValueKey<String>('mapped-array-details-list'),
+        itemCount: values.length,
+        separatorBuilder: (BuildContext context, int index) =>
+            shad.Divider(height: 1, color: AppTheme.colorsOf(context).border),
+        itemBuilder: (BuildContext context, int index) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          child: Row(
             children: <Widget>[
-              Text(
-                value,
-                key: ValueKey<String>(
-                  'mapped-data-value-${definition.mapping.id}-${definition.field.key}',
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: AppFonts.mono,
-                  package: AppFonts.shadcnPackage,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+              SizedBox(
+                width: 48,
+                child: Text(
+                  '[$index]',
+                  style: AppFonts.monoStyle.copyWith(
+                    color: AppTheme.colorsOf(context).mutedForeground,
+                  ),
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                name,
-                key: ValueKey<String>(
-                  'mapped-data-name-${definition.mapping.id}-${definition.field.key}',
+              Expanded(
+                child: Text(
+                  '${values[index] ?? '--'}${unit.isEmpty ? '' : ' $unit'}',
+                  textAlign: TextAlign.end,
+                  style: AppFonts.monoStyle,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 10, color: colors.mutedForeground),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+    actions: <Widget>[
+      ToolIconButton(
+        tooltip: 'Close',
+        onPressed: () => Navigator.of(context).pop(),
+        icon: const Icon(AppIcons.close, size: 18),
+      ),
+    ],
+  );
 }
 
 bool _monitoredValueChanged(
